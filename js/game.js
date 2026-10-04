@@ -24,7 +24,7 @@ const relicById = id => RELICS.find(r=>r.id===id);
 
 /* ---------- meta (localStorage) ---------- */
 const META_KEY = "tcc_meta_v1";
-let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, name:"", auto:true, quick:true, calm:false};
+let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, name:"", auto:true, quick:true, calm:false, bg3d:true};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
@@ -1552,13 +1552,14 @@ function openSettings(){
     + row("Auto-continue", "ordinary wins move on by themselves", tog("auto", META.auto!==false))
     + row("Skip easy fights", "settle fights you can't lose on the map", tog("quick", META.quick!==false))
     + row("Calm mode", "no screen shake, flashing or confetti", tog("calm", !!META.calm))
+    + row("3D background", bgState==="failed" ? "couldn't be loaded on this device" : "the particle field from tylerirl.com", tog("bg3d", META.bg3d!==false))
     + (inRun ? "<div class='row'><button class='btn small danger' id='set-quit'>abandon this run</button></div>" : "")
     + "<div class='row'><button class='btn' id='set-close'>done</button></div>");
   const p = $("modal-panel");
   p.querySelectorAll(".tog[data-k]").forEach(b=>{ b.onclick=()=>{
     const k = b.dataset.k;
     if(k==="sound") setMute(!META.mute); else { META[k] = !(k==="calm" ? META.calm : META[k]!==false); saveMeta(); }
-    applyCalm(); sfx("click"); openSettings();
+    applyCalm(); applyBackground(); sfx("click"); openSettings();
   };});
   p.querySelectorAll(".tog[data-speed]").forEach(b=>{ b.onclick=()=>{ META.speed = +b.dataset.speed; saveMeta(); sfx("click"); openSettings(); }; });
   $("set-close").onclick=()=>{ sfx("click"); closeModal(); };
@@ -1569,6 +1570,38 @@ function openSettings(){
   };
 }
 function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
+/* The 3D particle background is tylerirl.com's own script, loaded from the main site so this page always
+   carries whatever the site is running. If anything fails to load, the plain CSS backdrop simply stays. */
+const BG_SCRIPTS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
+  "https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js",
+  "https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js",
+  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js",
+  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js",
+  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js",
+  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js",
+  "https://tylerirl.com/js/background3d.js",
+];
+let bgState = "idle"; // idle | loading | on | failed
+function applyBackground(){
+  const want = META.bg3d!==false;
+  window._bgPaused = !want; // the site script stops its per-frame work while this is set
+  document.body.classList.toggle("bg3d", want && bgState==="on");
+  if(!want || bgState!=="idle") return;
+  bgState = "loading";
+  const next = i => {
+    if(i>=BG_SCRIPTS.length){
+      bgState = document.getElementById("bg3d-canvas") ? "on" : "failed"; // no canvas means no WebGL here
+      return applyBackground();
+    }
+    const el = document.createElement("script");
+    el.src = BG_SCRIPTS[i]; el.async = false;
+    el.onload = ()=>next(i+1);
+    el.onerror = ()=>{ bgState = "failed"; };
+    document.head.appendChild(el);
+  };
+  next(0);
+}
 
 /* ---------- modal helpers ---------- */
 function openModal(html){
@@ -2516,7 +2549,7 @@ function onKey(ev){
 
 /* ---------- init ---------- */
 async function init(){
-  loadMeta(); renderTitle(); setMute(META.mute); applyCalm();
+  loadMeta(); renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
   document.body.classList.add("on-title");
   if(!/^https?:/.test(location.protocol)) $("floating-home").remove(); // opened as a file: there is no site to go home to
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });

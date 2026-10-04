@@ -100,8 +100,11 @@ Dracula colours for meaning, JetBrains Mono, lowercase headings with a
 blinking cursor, thin cyan borders, corner brackets, and a "Return Home"
 card on the title screen (it links to "/"; hidden when opened as a file).
 The palette is the :root block at the top of css/style.css and the theme
-rules are the block at the end. It does not load the site's own scripts
-(3D background, custom cursor, radgotchi); the page works on its own.
+rules are the block at the end. The 3D particle background is the main site's own script,
+loaded from https://tylerirl.com/js/background3d.js (with three.js from
+the same CDNs the site uses), so it follows whatever the site runs; a
+setting turns it off, and if it can't load the plain backdrop stays. The
+custom cursor and radgotchi are not loaded.
 
 LEADERBOARD: server/server.py is a small Python service (standard library
 only, SQLite) that keeps each player's best run per board: today's daily,
