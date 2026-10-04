@@ -89,6 +89,16 @@ HOW TO PLAY:
 - Fights you cannot lose and that barely scratch you are settled on the map
   without opening the fight screen.
 - Meme maker on the end screen: top text, bottom text, deep fry, save.
+- Keys and vaults: keys lie around the maze; each opens one vault for
+  100 $CULT and a draft of better relics.
+- Status effects: burn (FLAMEWAR relics) deals damage every tick, bleed
+  (BLOODSPORT) hurts an enemy each time it attacks, chill (ICED OUT) saps
+  its ATK and at full stacks can freeze it. Each has its own relic set.
+- Objectives: every run rolls three side goals. Each pays $CULT when done
+  and 25 DRIP at the end.
+- Token kit: a Milady's Core trait picks her tribe and her drip score is
+  starting $CULT (a Remilio's swag score likewise); a token wearing a
+  relic's art starts with that relic instead of the tribe's.
 - Derivatives in the maze: SchizoPosters (text-buried elites, an event),
   Radbro (mirror enemy, the Webring event and legendary), MiladyStation
   (Player Character enemies, an event, the Memory Card), Pixelady (pixel
@@ -121,6 +131,9 @@ nginx-cancel-api.conf) at https://cancel-api.tylerirl.com. Settings are in
 /etc/cancel-api.env, data in /var/lib/cancel-api/scores.db. To update it:
 copy server.py to /opt/cancel-api/ and `systemctl restart cancel-api`.
 The address the game uses is API_DEFAULT in js/game.js.
+Every finished run is also logged without the player, and
+https://cancel-api.tylerirl.com/api/stats shows the aggregate: where runs
+end, what kills players, which relics they hold. Balance from that.
 
 CONTENT lives in js/data.js: relics, sets, rarity odds, enemies, bosses,
 events, names, unlocks. A relic's numbers live in computeStats() and

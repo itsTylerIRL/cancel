@@ -6,6 +6,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   POST /api/score   submit a finished run (JSON)
   GET  /api/board   ?daily=YYYY-MM-DD | ?seed=CODE | ?all=1   [&limit=50] [&player=ID]
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
+  GET  /api/stats   how runs end, in aggregate (for balancing)
   GET  /api/health
 
 The game runs entirely in the browser, so a score cannot be proven. Submissions are
@@ -46,6 +47,12 @@ CREATE TABLE IF NOT EXISTS scores (
   UNIQUE(board, player)
 );
 CREATE INDEX IF NOT EXISTS scores_board ON scores(board, score DESC, created ASC);
+CREATE TABLE IF NOT EXISTS runs (
+  id INTEGER PRIMARY KEY, created INTEGER NOT NULL,
+  score INTEGER NOT NULL, day INTEGER NOT NULL, win INTEGER NOT NULL, bosses INTEGER NOT NULL, kills INTEGER NOT NULL,
+  heat INTEGER NOT NULL, tribe TEXT NOT NULL, collection TEXT NOT NULL, relics TEXT NOT NULL, killed_by TEXT NOT NULL,
+  daily INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
   PRIMARY KEY(kind, id)
@@ -106,6 +113,30 @@ def init_db():
     with db() as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
+        if "look" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
+            con.execute("ALTER TABLE scores ADD COLUMN look TEXT")  # how the character looked: a recipe of trait layers
+
+
+RE_LAYER = re.compile(r"^[A-Za-z -]{1,20}$")
+RE_FILE = re.compile(r"^[A-Za-z0-9 _.,'!%&()+-]{1,60}\.webp$")
+
+
+def parse_look(v):
+    """The character's look is a recipe (which trait layers), never an uploaded picture, so the board can only
+    ever show the game's own art. Returns compact JSON or None."""
+    if not isinstance(v, dict) or v.get("cfg") not in ("Milady", "Remilio"):
+        return None
+    layers = v.get("layers")
+    if not isinstance(layers, dict) or not 1 <= len(layers) <= 16:
+        return None
+    out = {}
+    for k, f in layers.items():
+        if not isinstance(k, str) or not isinstance(f, str) or not RE_LAYER.match(k) or not RE_FILE.match(f) or ".." in f:
+            return None
+        out[k] = f
+    eye = v.get("eye")
+    eye = eye if isinstance(eye, str) and re.match(r"^[A-Za-z]{1,12}$", eye) else ""
+    return json.dumps({"cfg": v["cfg"], "layers": out, "eye": eye, "ps1": bool(v.get("ps1"))}, separators=(",", ":"))
 
 
 def clean_text(v, limit):
@@ -209,7 +240,7 @@ def parse_run(d):
 
     row = dict(player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
-               killed_by=clean_text(d.get("killedBy"), 30))
+               killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")))
     return boards, row
 
 
@@ -227,7 +258,7 @@ def public(row, rank):
     return {"rank": rank, "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]),
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
-            "killedBy": row["killed_by"]}
+            "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None}
 
 
 def read_board(board, limit, player):
@@ -236,6 +267,24 @@ def read_board(board, limit, player):
         total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
         you = rank_of(con, board, player) if player else None
     return {"board": board, "total": total, "top": [public(r, i + 1) for i, r in enumerate(rows)], "you": you}
+
+
+def run_stats():
+    with db() as con:
+        n, wins, avg_day, avg_score = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), AVG(day), AVG(score) FROM runs").fetchone()
+        by_day = con.execute("SELECT day, COUNT(*) FROM runs WHERE win=0 GROUP BY day ORDER BY day").fetchall()
+        killers = con.execute("SELECT killed_by, COUNT(*) c FROM runs WHERE win=0 AND killed_by<>'' GROUP BY killed_by ORDER BY c DESC LIMIT 12").fetchall()
+        tribes = con.execute("SELECT tribe, COUNT(*), SUM(win), AVG(day) FROM runs GROUP BY tribe").fetchall()
+        bosses = con.execute("SELECT bosses, COUNT(*) FROM runs GROUP BY bosses ORDER BY bosses").fetchall()
+        relics = {}
+        for (r,) in con.execute("SELECT relics FROM runs ORDER BY id DESC LIMIT 2000"):
+            for rid, _tier in json.loads(r):
+                relics[rid] = relics.get(rid, 0) + 1
+    return {"runs": n, "wins": wins, "avgDay": round(avg_day or 0, 2), "avgScore": round(avg_score or 0, 1),
+            "deathsByDay": {str(d): c for d, c in by_day}, "bossesBeaten": {str(b): c for b, c in bosses},
+            "killedBy": [[k, c] for k, c in killers],
+            "tribes": {t: {"runs": c, "wins": w or 0, "avgDay": round(a or 0, 2)} for t, c, w, a in tribes},
+            "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25]}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -288,6 +337,8 @@ class Handler(BaseHTTPRequestHandler):
         one = lambda k: (q.get(k) or [""])[0]
         if u.path == "/api/health":
             return self.send(200, {"ok": True, "today": utc_today().isoformat()})
+        if u.path == "/api/stats":
+            return self.send(200, run_stats())
         if u.path == "/api/token":
             kind = one("kind")
             if kind not in TOKEN_SOURCES or not re.match(r"^\d{1,4}$", one("id")):
@@ -342,18 +393,22 @@ class Handler(BaseHTTPRequestHandler):
                 # one row per player per board: a new run replaces it only if it scored higher
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created)
+                                           relics, killed_by, ip_hash, created, look)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created)
+                               :relics, :killed_by, :ip_hash, :created, :look)
                        ON CONFLICT(board, player) DO UPDATE SET
                          name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
-                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by,
+                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look,
                          ip_hash=excluded.ip_hash, created=excluded.created
                        WHERE excluded.score > scores.score""",
                     dict(row, board=board, ip_hash=key, created=now))
                 total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
+            # every finished run is also kept, without the player, so the game can be balanced on how runs really end
+            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily)
+                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily)""",
+                        dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
         self.send(200, {"ok": True, "boards": ranks})
 
 

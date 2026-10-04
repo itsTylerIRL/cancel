@@ -158,6 +158,22 @@ function basePicks(){
   picks.eyeColor = choice(ASSETS.Milady["Eye Color"]).slice(0,-5);
   return picks;
 }
+/* What a token brings to a run, read from its traits: its Core picks the tribe, its drip (or swag) score is starting
+   $CULT, and if it wears something that is a relic's art it starts with that relic in place of the tribe's. */
+function tokenKit(kind, attrs, tk){
+  const get = t => { const a = attrs.find(x=>x[0]===t); return a ? a[1] : ""; };
+  const kit = { tribe:"", cult:0, relic:"", note:[] };
+  const core = get("Core").toLowerCase();
+  if(TRIBES.some(t=>t.id===core)){ kit.tribe = core; kit.note.push("core "+core); }
+  const score = parseInt(get("Drip Score") || "", 10), swag = parseInt(get("Swag Score") || "", 10);
+  if(score>0){ kit.cult = clamp(score, 0, 80); kit.note.push("drip "+score+" → +"+kit.cult+" $CULT"); }
+  else if(swag>0){ kit.cult = clamp(Math.round(swag/3), 0, 80); kit.note.push("swag "+swag+" → +"+kit.cult+" $CULT"); }
+  const worn = RELICS.filter(r=>r.icon[0]===tk.cfg && tk.layers[r.icon[1]]===r.icon[2]+".webp"
+    && r.rar!=="legendary" && r.rar!=="cursed" && !(LOCKED[r.id] && !META.ach[LOCKED[r.id]]));
+  const pick = worn.find(r=>r.rar==="rare") || worn[0];
+  if(pick){ kit.relic = pick.id; kit.note.push("wears "+pick.name); }
+  return kit;
+}
 /* ---------- a token rebuilt from its own traits, so a relic hat replaces its hat instead of sitting on top ---------- */
 async function tokenTraits(nft){ const r = await api("/api/token?kind="+nft.kind+"&id="+nft.id); return r && r.attributes; }
 function tokenLayers(kind, attrs){ // [[trait, value], ...] -> { cfg, layers:{Layer: file}, eyeColor } or null
@@ -501,7 +517,8 @@ function newRun(ava, opt){
   // the whole run grows from one short code: the date for a daily, or six characters that a link can carry
   const code = opt.daily ? "daily-"+opt.daily : (opt.seed || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
   SEED = seedFrom("tcc-"+code);
-  const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0) + (tribe.cult||0);
+  const kit = ava.picks.kit || {};
+  const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0) + (tribe.cult||0) + (kit.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
@@ -521,7 +538,10 @@ function newRun(ava, opt){
   };
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
-  addRelic(tribe.relic); discover(tribe.relic);
+  G.keys = 0; G.flags = {};
+  G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
+  const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
+  addRelic(first); discover(first);
   if(META.unlocks.secondchance){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
   oddsCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
@@ -532,7 +552,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -552,6 +572,7 @@ function loadRun(){
 async function resumeRun(d){
   G = { queue:[], over:false, sel:"", foes:{}, bossLook:[], stats:null };
   for(const k of RUN_FIELDS) G[k] = d[k];
+  G.flags = G.flags || {}; G.objectives = G.objectives || []; G.keys = G.keys || 0;
   if(!Array.isArray(G.tiers)) G.tiers = G.relics.map(id=>(d.tier||{})[id]||1); // a save from before relics had their own slots
   SEED = d.rng;
   G.avatar = await composeAvatar(G.base, G.relics);
@@ -685,6 +706,8 @@ function rawStats(relics){
   if(R("frog_costume")){ s.maxhp+=30; s.spd-=1; }
   if(R("harajuku")){ s.maxhp+=10; s.spd+=1; }
   if(R("mexican_coke")){ s.maxhp+=10; s.spd+=2; }
+  if(R("desert_eagle")) s.atk+=4;
+  if(R("bugatti")) s.spd+=2;
   if(R("shark_suit")){ s.atk+=4; s.maxhp+=10; }
   if(R("blockhead")){ s.arm+=2; s.maxhp+=8; }
   if(R("mape_hoodie")) s.maxhp+=12;
@@ -745,9 +768,9 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11 };
-const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson" };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13 };
+const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -809,7 +832,8 @@ function genMap(){
       G.map[r.y][r.x] = t;
     }
   };
-  put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8);
+  put(T.VAULT,5,true); // locked rooms at dead ends; the keys are somewhere else entirely
+  put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
@@ -879,7 +903,7 @@ function renderHUD(){
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
-  $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"");
+  $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"")+(G.keys?chip("🗝️","keys",G.keys):"");
   if(shownStats) for(const el of $("hud-chips").children){ const k = el.title, d = now[k]-shownStats[k]; if(d) el.classList.add(d>0?"bump-up":"bump-down"); }
   if(shownStats && now.HP!==shownStats.HP) { const hb = $("hp-fill").parentNode; hb.classList.remove("bump"); void hb.offsetWidth; hb.classList.add("bump"); }
   shownStats = now;
@@ -901,6 +925,7 @@ function renderHUD(){
   }
   $("relic-bar").innerHTML = rb;
   $("syn-bar").innerHTML = setsHTML(G.relics, false);
+  $("obj-bar").innerHTML = objectivesHTML();
   renderTimeline();
 }
 /* the nine-day track across the top: where you are, and what is coming */
@@ -1022,7 +1047,7 @@ function centerMap(){
   camSnap = false;
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
-  [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b" };
+  [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1040,7 +1065,8 @@ const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
   [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
-  [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit." };
+  [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
+  [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -1075,7 +1101,37 @@ function busy(){
 function pump(){
   if(!G || G.over) return;
   while(G.queue.length && !busy()) G.queue.shift()();
-  if(!busy()){ renderMap(); saveRun(); }
+  if(!busy()){ checkObjectives(); renderMap(); saveRun(); }
+}
+/* Side objectives. true = done, false = can no longer be done, undefined = still open. */
+const OBJ_TEST = {
+  elite_early: ()=> G.flags.eliteEarly ? true : G.day>=3 ? false : undefined,
+  gate_boss:   ()=> G.flags.gateBoss || undefined,
+  no_rest:     ()=> G.flags.rested ? false : G.day>=4 ? true : undefined,
+  full_slots:  ()=> G.relics.length>=G.maxSlots || undefined,
+  fuse:        ()=> G.flags.fused || undefined,
+  vault:       ()=> G.flags.vault || undefined,
+  night_wins:  ()=> (G.flags.nightWins||0)>=3 || undefined,
+  synergy:     ()=> setRows(G.relics).some(r=>r.on.length) || undefined,
+  rich:        ()=> G.cult>=400 || undefined,
+  explorer:    ()=> G.tilesSeen>=260 || undefined,
+  slayer:      ()=> G.kills>=10 || undefined,
+  seed:        ()=> G.seedDug || undefined,
+};
+function checkObjectives(){
+  for(const o of (G.objectives||[])){
+    if(o.state) continue;
+    const def = OBJECTIVES.find(x=>x.id===o.id), r = OBJ_TEST[o.id]();
+    if(r===true){
+      o.state = "done"; G.cult += def.cult; sfx("fanfare"); burst("🎯✨");
+      mlog("🎯 <b>Objective done:</b> "+def.text+". <b>+"+def.cult+" $CULT</b> now, +25 DRIP at the end.", "gold");
+      mapFloat("🎯 +"+def.cult, "loot");
+    } else if(r===false){ o.state = "failed"; mlog("🎯 Objective lost: "+def.text+".", ""); }
+  }
+}
+function objectivesHTML(){
+  return (G.objectives||[]).map(o=>{ const def = OBJECTIVES.find(x=>x.id===o.id);
+    return "<div class='obj "+(o.state||"")+"'><i>"+(o.state==="done"?"✓":o.state==="failed"?"✕":"○")+"</i><span>"+def.text+"</span><em>+"+def.cult+"</em></div>"; }).join("");
 }
 function tryMove(x,y){
   if(!G || G.over || busy() || G.queue.length) return;
@@ -1185,7 +1241,7 @@ function startNight(){
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
   const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
-  for(const k of spots.slice(0, (G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
+  for(const k of spots.slice(0, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
 function clearTile(){ G.map[G.py][G.px]=T.EMPTY; }
@@ -1212,6 +1268,13 @@ function enterTile(t){
     }
     case T.EVENT: openEvent(); break;
     case T.FORGE: openForge(); break;
+    case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
+    case T.VAULT:
+      if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one.", "bad"); break; }
+      G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; sfx("fanfare"); burst("🔐💎✨");
+      mlog("🔐 The key turns. <b>+100 $CULT</b>, and something better than usual.", "gold");
+      openDraft("The vault opens.", richRoll());
+      break;
     case T.SHOP: openShop(); break;
     case T.SHRINE: openShrine(); break;
     case T.FIRE: openFire(); break;
@@ -1469,7 +1532,7 @@ function openFire(){
     + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
     + "</div><div class='row'><button class='btn' id='fire-yes'>REST</button><button class='btn small' id='fire-no'>keep moving</button></div>");
   $("fire-yes").onclick=()=>{
-    G.stats.hp=G.stats.maxhp; clearTile(); mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal");
+    G.stats.hp=G.stats.maxhp; clearTile(); G.flags.rested = true; mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal");
     G.queue = G.queue.filter(f=>f!==endPhase); G.queue.push(endPhase);
     closeModal();
   };
@@ -1542,7 +1605,7 @@ function openForge(note){
   openModal(html);
   $("modal-panel").querySelectorAll("[data-a]").forEach(b=>{ b.onclick=()=>{
     const i = +b.dataset.a, j = +b.dataset.b, id = G.relics[i], r = relicById(id), t = tierAt(i)+1;
-    G.tiers[i] = t; dropRelicAt(j); recalcStats(); // two become one: a slot comes free
+    G.tiers[i] = t; dropRelicAt(j); recalcStats(); G.flags.fused = true; // two become one: a slot comes free
     G.forged = G.px+","+G.py; // he works once per spot: he leaves when you do
     sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
     mlog("✨ Remilia Jackson fused two <b>"+r.name+"</b> into "+TIERS[t].icon+" <b>"+TIERS[t].name+"</b>.", "gold");
@@ -1639,6 +1702,8 @@ function combatBars(you, foe){
   }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+  $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["💫",foe.stun,"stunned"]]
+    .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
 }
 function lunge(side){ // the attacker jabs toward the other portrait
   const c = $("port-"+side), cls = side==="you" ? "lunge-r" : "lunge-l";
@@ -1671,7 +1736,7 @@ function fightEngine(foeDef, opts, io){
     io.log("📵 THE CANCEL has cancelled <b>"+relicById(gone).name+"</b>. It is gone.", "bad");
   }
   const you = {...base, stun:0, wartime:true, blunt:true, compTick:0, shield:0, suppressed:new Set()};
-  const foe = {...foeDef, poison:0, stun:0, stolen:0};
+  const foe = {...foeDef, poison:0, stun:0, stolen:0, burn:0, bleed:0, chill:0};
   const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0 };
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
@@ -1698,16 +1763,18 @@ function fightEngine(foeDef, opts, io){
     if(set("squad",3)) heal(2);
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
+  // burn: damage every tick. bleed: hurts the enemy each time it attacks. chill: saps its ATK, and can freeze it
+  const bleedMax = () => set("blood",2) ? 6 : 4, chillMax = () => set("ice",2) ? 5 : 3;
   if(foe.trait==="hard") io.log("🧀 "+foe.name+" goes harder the longer this lasts.", "bad");
   if(foe.trait==="creeper") io.log("💥 "+foe.name+" will blow up when it dies.", "bad");
   if(foe.trait==="revive") io.log("💀 "+foe.name+" will get back up once.", "bad");
   if(foe.trait==="bomber") io.log("🎈 "+foe.name+" bombs you from a blimp every 4th tick.", "bad");
   io.strip(F);
-  if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first two relics are frozen all fight
-    for(const id of st.relics.slice(0,2)) you.suppressed.add(id);
+  if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first relic is frozen all fight
+    for(const id of st.relics.slice(0,1)) you.suppressed.add(id);
     const s2 = computeStats(st.relics.filter(r=>!you.suppressed.has(r)));
     you.atk=s2.atk; you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets;
-    io.log("⚖️ INJUNCTION: "+st.relics.slice(0,2).map(id=>relicById(id).name).join(" and ")+" frozen.", "bad");
+    io.log("⚖️ INJUNCTION: "+relicById(st.relics[0]).name+" frozen.", "bad");
     io.strip(F);
   }
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
@@ -1723,7 +1790,8 @@ function fightEngine(foeDef, opts, io){
     if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += tv("blood_splatter",5);
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
-    if(isYou) atk += you.hard;
+    if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0);
+    if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
@@ -1732,6 +1800,7 @@ function fightEngine(foeDef, opts, io){
     if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
     if(isYou) you.sure = false;
     if(isYou && crit && act("cigarette")) dmg += tv("cigarette",4);
+    if(isYou && act("bugatti") && foe.chill>=chillMax()) dmg = Math.round(dmg*1.3);
     if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-tv("fbi_cap",2));
     if(!isYou && def===you && you.hp < you.maxhp/2 && act("hodl")) dmg = Math.max(1, Math.round(dmg*0.7));
     if(isYou && you.blunt && act("blunt")){ dmg*=3; you.blunt=false; crit=true; }
@@ -1745,6 +1814,11 @@ function fightEngine(foeDef, opts, io){
       foe.hp-=dmg; io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
       io.hit("foe", dmg, crit);
       return;
+    }
+    if(!isYou && foe.bleed>0){ // a bleeding enemy pays for every swing
+      const d = 2*foe.bleed; foe.hp-=d; io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
+      if(act("vampire")) heal(1);
+      if(foe.hp<=0) return;
     }
     if(!isYou && you.block){ you.block=0; io.log("🐯 Hobbes takes the hit for you.", "good"); io.float("you","blocked","heal"); return; }
     // dodge
@@ -1764,6 +1838,17 @@ function fightEngine(foeDef, opts, io){
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>.", crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
     if(isYou && set("cheese",3)){ st.cult+=3; }
+    if(isYou){
+      const extra = act("juul") ? 2 : 0;
+      if(act("fire_glasses")) foe.burn = Math.max(foe.burn, 2+extra);
+      if(crit && act("laser_eyes")) foe.burn = Math.max(foe.burn, 4+extra);
+      const bleed = (act("claw")||act("vampire") ? 1 : 0) + (crit && act("desert_eagle") ? 2 : 0);
+      if(bleed) foe.bleed = Math.min(bleedMax(), foe.bleed+bleed);
+      if(act("chain_earrings")||act("square_diamond")){
+        foe.chill = Math.min(chillMax(), foe.chill+1);
+        if(set("ice",3) && foe.chill>=chillMax() && !foe.stun){ foe.stun = 1; foe.chill = 0; io.log("🧊 "+foe.name+" freezes solid.", "good"); io.float("foe","frozen","psn"); }
+      }
+    }
     if(isYou && crit && act("trucker")) heal(tv("trucker",5));
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
     if(!isYou && act("evil_eye")){ const e = tv("evil_eye",2); foe.hp-=e; io.log("🧿 Evil Eye reflects "+e+".", "good"); }
@@ -1828,6 +1913,7 @@ function fightEngine(foeDef, opts, io){
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
     // poison ticks
+    if(foe.burn>0){ const d = 3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0); foe.burn--; foe.hp-=d; io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(foe.poison>0){ const d = tv("snakebites",2) * (act("milady_pilled") ? 3 : 1); foe.poison--; foe.hp-=d; io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(act("pikachu") && F.tick%4===0){ const z = tv("pikachu",8); foe.hp-=z; io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     // companions
@@ -1842,7 +1928,7 @@ function fightEngine(foeDef, opts, io){
     }
     if(foe.hp<=0) return done(true);
     if(lethalCheck()) return done(false);
-    const order = you.spd>=foe.spd ? [true,false] : [false,true];
+    const order = you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true];
     for(const isYou of order){
       const att = isYou?you:foe, def = isYou?foe:you;
       F.fxDelay = isYou===order[0] ? 0 : 270; // the second striker's visuals land a beat later
@@ -1886,6 +1972,8 @@ function settleWin(F, opts, log){
   const you = F.you, foe = F.foe, boss = opts.boss || null;
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
   G.kills++;
+  if(opts.elite && G.day<3) G.flags.eliteEarly = true;
+  if(G.phase==="night") G.flags.nightWins = (G.flags.nightWins||0)+1;
   achieve("first");
   if(foe.id==="kumicho") achieve("shark");
   if(F.dodges>=5) achieve("dodge");
@@ -2050,6 +2138,11 @@ function startCombat(foeDef, opts={}){
 }
 
 /* ---------- boss down / endings ---------- */
+function richRoll(){ // three relics tilted hard toward the good stuff, with at least one above common
+  const pool = rollRelics(3, 3);
+  if(pool.length && pool.every(r=>r.rar==="common")){ const up = rollRelics(40, 0).find(r=>r.rar!=="common"); if(up) pool[0] = up; }
+  return pool;
+}
 function onBossDown(boss, forced){
   G.bossesBeaten++;
   G.bossUnlocked=-1; // the gate seals again until the next one
@@ -2059,11 +2152,8 @@ function onBossDown(boss, forced){
   $("boss-banner").classList.add("hidden");
   mlog("👑 <b>"+boss.name+" defeated!</b> +1 relic slot, HP restored.", "gold");
   if(boss.id==="cancel"){ endRun(true); return; }
-  G.queue.unshift(()=>{ // boss tribute always offers at least one relic above common
-    const pool = rollRelics(3, 3);
-    if(pool.length && pool.every(r=>r.rar==="common")){ const up = rollRelics(40, 0).find(r=>r.rar!=="common"); if(up) pool[0] = up; }
-    openDraft("The timeline yields tribute.", pool);
-  });
+  if(!forced) G.flags.gateBoss = true;
+  G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll())); // boss tribute always offers at least one relic above common
   if(forced) G.queue.push(()=>{ G.day++; startDay(); });
 }
 function buildRow(){
@@ -2081,6 +2171,8 @@ function endRun(win){
   document.body.classList.remove("danger");
   const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked", Math.floor(G.cult/25)]];
   if(win) parts.push(["timeline saved", 300]);
+  const objDone = (G.objectives||[]).filter(o=>o.state==="done").length;
+  if(objDone) parts.push([objDone+" objective"+(objDone>1?"s":""), objDone*25]);
   if(G.heat) parts.push(["heat "+G.heat+" bonus", Math.round(parts.reduce((a,p)=>a+p[1],0)*0.25*G.heat)]);
   const d = parts.reduce((a,p)=>a+p[1], 0);
   if(win && G.heat>=(META.heat||0) && G.heat<HEAT.length){ META.heat = G.heat+1; G.heatUp = true; }
@@ -2249,13 +2341,33 @@ function playerId(){ // an anonymous id made once per browser, so a player has o
   return META.pid;
 }
 const esc = v => String(v).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* How she looked, as a recipe of trait layers. The board redraws every character from this and the relics they
+   held; no pictures are uploaded, so it can only ever show the game's own art. */
+function lookOf(base){
+  if(base.token) return { cfg:base.token.cfg, layers:base.token.layers, eye:base.token.eyeColor||"", ps1:!!base.ps1 };
+  if(base.nft) return null; // a token shown as its flat picture has no layers to send
+  const layers = {}; for(const l of BASE_LAYERS) layers[l] = base[l];
+  return { cfg:"Milady", layers, eye:base.eyeColor||"", ps1:!!base.ps1 };
+}
+async function drawLook(cv, look, relics){ // paint a board entry's face onto a small canvas
+  if(!look || !TOKEN_SLOTS[look.cfg]) return;
+  const layers = {};
+  for(const k in look.layers) if(TOKEN_SLOTS[look.cfg][k] && (ASSETS[look.cfg][k]||[]).includes(look.layers[k])) layers[k] = look.layers[k]; // only layers this game ships
+  if(!layers[TOKEN_MAP[look.cfg.toLowerCase()].body]) return;
+  const worn = [...new Set(relics.map(r=>r[0]).filter(id=>relicById(id)))];
+  const full = await composeAvatar({ token:{cfg:look.cfg, layers, eyeColor:look.eye}, ps1:look.ps1 }, worn);
+  const w = full.width;
+  cv.width = 144; cv.height = 144;
+  cv.getContext("2d").drawImage(full, w*0.1, w*0.14, w*0.8, w*0.8, 0, 0, 144, 144);
+  cv.classList.add("ready");
+}
 function submitRun(run, win, drip){
   const nft = run.base.nft;
   return api("/api/score", {
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null),
+    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), look: lookOf(run.base),
   });
 }
 function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
@@ -2284,12 +2396,20 @@ async function openBoard(tab, back, seed){
   else body = "<div class='board'>"+res.top.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><div class='bname'><b>"+esc(e.name)+"</b><span>"+(tr?tr.icon+" ":"")
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+"</b><span>"+(tr?tr.icon+" ":"")
         + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "👑 timeline saved" : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
         + "<div class='brel'>"+relics+"</div><em>"+e.score+"</em></div>";
     }).join("")+"</div>"
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
+  if(res && res.top.length){ // the characters, drawn one after another so the list stays responsive
+    $("modal-panel").querySelector(".board").insertAdjacentHTML("beforebegin", "<div class='lineup'>"+res.top.slice(0,12).map((e,i)=>"<canvas class='bpfp big' data-n='"+i+"' width='4' height='4' title='"+esc(e.name)+" · "+e.score+"'></canvas>").join("")+"</div>");
+    for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
+      if(!cv.isConnected) return; // the board was closed or switched
+      const e = res.top[+cv.dataset.n];
+      try{ await drawLook(cv, e.look, e.relics); }catch(err){}
+    }
+  }
 }
 /* a 1200x630 image of the run, for posting */
 async function shareCard(run, win, drip){
@@ -2350,8 +2470,10 @@ function renderPicks(){
   if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[0].id;
   PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
   $("tribes").innerHTML = TRIBES.map(t=>"<button class='pick"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'>"+t.icon+" "+t.name+"</button>").join("");
-  const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(t.relic);
-  $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span></div>";
+  const kit = (AVA && AVA.picks.kit) || {};
+  const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(kit.relic || t.relic);
+  $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span>"
+    + (kit.note && kit.note.length ? "<span class='kit'>token kit: "+kit.note.join(" · ")+"</span>" : "")+"</div>";
   $("tribes").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.tribe=b.dataset.t; META.tribe=PICK.tribe; saveMeta(); sfx("click"); renderPicks(); }; });
   const max = META.heat||0;
   $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
@@ -2376,6 +2498,7 @@ async function genAvatar(nft){
     $("nft-msg").textContent = tk ? "playing as "+label+", rebuilt from its traits: relics replace what it wears"
       : ok ? "playing as "+label+" — its traits couldn't be read, so relics are drawn over its picture"
       : "couldn't load that one — check the number and your connection";
+    if(tk){ ava.picks.kit = tokenKit(nft.kind, traits, tk); if(ava.picks.kit.tribe) PICK.tribe = ava.picks.kit.tribe; }
     if(ok){ ava.picks.nft = nft; if(tk) ava.picks.token = tk; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
   } else $("nft-msg").textContent = "";
   ava.canvas = await composeAvatar(ava.picks, []);
