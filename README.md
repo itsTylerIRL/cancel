@@ -16,6 +16,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Relics.** About 85 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
 - **Sets.** Every relic belongs to a set or two (ARMED, HYPEBEAST, DEGEN, KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD, FLAMEWAR, BLOODSPORT, ICED OUT). Hold enough of one and it switches on.
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
+- **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and returns one random relic a grade higher. One trade each, and neither lets you pick.
+- **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.

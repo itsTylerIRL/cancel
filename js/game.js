@@ -555,7 +555,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -791,9 +791,10 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13 };
-const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault" };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16 };
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp" }; // their own profile pictures
+const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -858,6 +859,7 @@ function genMap(){
   put(T.VAULT,5,true); // locked rooms at dead ends; the keys are somewhere else entirely
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
+  put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); // placed last, so everything above stays where it always was on a given seed
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
@@ -996,7 +998,7 @@ function renderMap(){
         d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
       } else {
         d.classList.add("poi", "t"+t);
-        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+coin+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
+        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+coin+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
         d.title = T_NAME[t];
         if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
       }
@@ -1070,7 +1072,8 @@ function centerMap(){
   camSnap = false;
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
-  [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c" };
+  [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1089,7 +1092,10 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
   [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
-  [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics." };
+  [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
+  [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
+  [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
+  [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier, get one random relic of the next tier up. One trade." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -1291,6 +1297,9 @@ function enterTile(t){
     }
     case T.EVENT: openEvent(); break;
     case T.FORGE: openForge(); break;
+    case T.FOUNTAIN: openFountain(); break;
+    case T.ONNO: openOnno(); break;
+    case T.FANG: openFang(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one.", "bad"); break; }
@@ -1659,6 +1668,95 @@ function openForge(note){
     if(done){ G.forged = ""; clearTile(); mlog("🙂 Remilia Jackson moonwalks off into the maze.", ""); renderMap(); }
     closeModal();
   };
+}
+
+/* ---------- the fountain: a $CULT sink with a secret ----------
+   Donations add up across every fountain in the run. Past a hidden amount (fixed by the map's seed, so a daily's
+   is the same for everyone) it pays out a draft of rare relics, then wants twice as much for the next one. */
+function wellNeed(){
+  const w = G.well = G.well || {given:0, paid:0};
+  const base = 180 + Math.abs(seedFrom("fountain|"+(G.daily||G.seedCode||""))) % 341; // 180..520
+  return base * Math.pow(2, w.paid);
+}
+function rarePull(){ // three relics, nothing common
+  const good = shuffle(relicPool().filter(r=>r.rar==="rare")), best = shuffle(relicPool().filter(r=>r.rar==="legendary"));
+  const out = good.slice(0,3);
+  if(best.length && rnd()<0.35) out[out.length ? out.length-1 : 0] = best[0];
+  return out;
+}
+function openFountain(note, cls){
+  const w = G.well = G.well || {given:0, paid:0}, need = wellNeed(), f = w.given/need;
+  const mood = f<=0 ? "The water is still." : f<0.34 ? "A ripple. It's listening." : f<0.67 ? "The water has started to glow." : "It hums. It is very close to something.";
+  openModal("<h2>THE FOUNTAIN</h2><div class='npc-face well'>⛲</div>"
+    + "<div class='note'><i>Coins on the bottom, none of them yours. Nobody remembers who built it, or what it wants.</i><br>"+mood+"</div>"
+    + (note ? "<div class='note "+(cls||"good")+"'>"+note+"</div>" : "")
+    + "<div class='stat-line'><span>you hold</span><b>"+G.cult+" $CULT</b></div>"
+    + "<div class='row'>"+[25,100,250].map(n=>"<button class='btn small' data-give='"+n+"'"+(G.cult<n?" disabled":"")+">throw in "+n+"</button>").join("")+"</div>"
+    + "<div class='row'><button class='btn small' id='well-leave'>leave</button></div>");
+  $("modal-panel").querySelectorAll("[data-give]").forEach(b=>{ b.onclick=()=>{
+    const n = +b.dataset.give; if(G.cult<n) return;
+    G.cult -= n; w.given += n; sfx("coin"); renderMap();
+    if(w.given >= wellNeed()){
+      w.given -= wellNeed(); w.paid++; G.flags.well = true;
+      sfx("fanfare"); burst("⛲✨💎");
+      mlog("⛲ The fountain overflows. <b>It gives something back.</b>", "gold");
+      const pool = rarePull();
+      if(!openDraft("The fountain gives something back.", pool.length ? pool : null)) openFountain("The water settles.");
+      return;
+    }
+    openFountain(choice(["The coins sink without a sound.", "Plink.", "The water takes it.", "Nothing happens. Probably."]), "");
+  };});
+  $("well-leave").onclick=()=>closeModal();
+}
+/* a random relic the player could loot, weighted like any other drop, other than the ones named */
+function randomRelic(not){ return rollRelics(60, 0).find(r=>!not.includes(r.id)) || null; }
+/* ---------- onno: any relic for a random one of the same tier ---------- */
+function openOnno(note){
+  const here = G.px+","+G.py, done = G.traded===here;
+  let html = "<h2>ONNO</h2><img class='npc-face' src='"+localFile(NPC_ART[T.ONNO])+"' alt=''>"
+    + "<div class='note'><i>\"Give me one. I'll give you one back. Same grade, different relic. No, you don't get to pick.\"</i><br>one trade, then he's gone</div>";
+  if(note) html += "<div class='note good'>"+note+"</div>";
+  if(!done) G.relics.forEach((id,i)=>{ const r = relicById(id), t = tierAt(i);
+    html += relicRow(r, "", "<button class='btn small' data-swap='"+i+"'>hand over</button>", t, G.relics.indexOf(id)!==i); });
+  if(!G.relics.length) html += "<div class='note'>\"You're not holding anything.\"</div>";
+  html += "<div class='row'><button class='btn small' id='npc-leave'>"+(done ? "leave (he moves on)" : "leave")+"</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-swap]").forEach(b=>{ b.onclick=()=>{
+    if(!b.dataset.sure){ b.dataset.sure = 1; b.textContent = "sure?"; b.classList.add("danger"); sfx("click"); return; } // it can't be undone
+    const i = +b.dataset.swap, old = relicById(G.relics[i]), t = tierAt(i), got = randomRelic([old.id]);
+    if(!got) return;
+    G.relics[i] = got.id; recalcStats(); G.traded = here; gotRelic(got);
+    mlog("🔁 onno took your <b>"+old.name+"</b> and handed back "+(t>1 ? TIERS[t].icon+" " : "")+"<b>"+got.name+"</b> — "+relicText(got, TIERS[t].mult), "gold");
+    renderMap(); openOnno("He hands you "+(t>1 ? "a "+TIERS[t].name+" " : "")+"<b>"+got.name+"</b>: "+relicText(got, TIERS[t].mult));
+  };});
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("onno wanders off with your old relic.", ""); renderMap(); } closeModal(); };
+}
+/* ---------- Charlotte Fang: two relics of one tier for a random relic of the next ---------- */
+function openFang(note, picked){
+  const here = G.px+","+G.py, done = G.traded===here; picked = picked || [];
+  const tier = picked.length ? tierAt(picked[0]) : 0, next = TIERS[tier+1];
+  let html = "<h2>CHARLOTTE FANG</h2><img class='npc-face' src='"+localFile(NPC_ART[T.FANG])+"' alt=''>"
+    + "<div class='note'><i>\"Two of the same grade. Any two. I'll return one, a grade higher. Which one is not up to you.\"</i><br>two normal → one 🥇 GOLD · two GOLD → one 💎 DIAMOND · one trade</div>";
+  if(note) html += "<div class='note good'>"+note+"</div>";
+  if(!done) G.relics.forEach((id,i)=>{ const r = relicById(id), t = tierAt(i), on = picked.includes(i);
+    const ok = !!TIERS[t+1] && (on || picked.length<2) && (!picked.length || t===tier);
+    html += relicRow(r, !TIERS[t+1] ? "<div class='delta'><i>already the top grade</i></div>" : "",
+      "<button class='btn small"+(on?" on":"")+"' data-pick='"+i+"'"+(ok?"":" disabled")+">"+(on ? "✓ offered" : "offer")+"</button>", t, G.relics.indexOf(id)!==i); });
+  if(!done && G.relics.length<2) html += "<div class='note'>\"Come back with two.\"</div>";
+  html += "<div class='row'><button class='btn small' id='npc-leave'>"+(done ? "leave (she moves on)" : "leave")+"</button>"
+    + (!done && picked.length===2 ? "<button class='btn danger' id='fang-go'>give both → one "+next.icon+" "+next.name+"</button>" : "")+"</div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-pick]").forEach(b=>{ b.onclick=()=>{ sfx("click");
+    const i = +b.dataset.pick; openFang("", picked.includes(i) ? picked.filter(x=>x!==i) : picked.concat(i)); };});
+  if($("fang-go")) $("fang-go").onclick=()=>{
+    const [a, b] = [...picked].sort((x,y)=>x-y), gave = [relicById(G.relics[a]), relicById(G.relics[b])], got = randomRelic(gave.map(r=>r.id));
+    if(!got) return;
+    G.relics[a] = got.id; G.tiers[a] = tier+1; dropRelicAt(b); recalcStats(); G.traded = here; G.flags.fused = true; // two become one: a slot comes free
+    sfx("fanfare"); burst("✨💎🥇"); gotRelic(got);
+    mlog("✨ Charlotte Fang took <b>"+gave[0].name+"</b> and <b>"+gave[1].name+"</b> and returned "+next.icon+" <b>"+next.name+" "+got.name+"</b> — "+relicText(got, next.mult), "gold");
+    renderMap(); openFang("She returns a "+next.icon+" "+next.name+" <b>"+got.name+"</b>: "+relicText(got, next.mult)+" A slot is free.");
+  };
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); renderMap(); } closeModal(); };
 }
 
 /* ---------- settings ---------- */
