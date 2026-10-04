@@ -11,6 +11,10 @@ function rnd(){
   t = (t + Math.imul(t ^ (t>>>7), 61|t)) ^ t;
   return ((t ^ (t>>>14))>>>0) / 4294967296;
 }
+function cosmetic(fn){ // run fn on plain randomness: how something looks must not shift the seeded sequence
+  const keep = SEED; SEED = null;
+  try{ return fn(); } finally{ SEED = keep; }
+}
 function seedFrom(str){ let h = 2166136261; for(const c of str){ h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h|0; }
 const randi = (a,b) => a + Math.floor(rnd()*(b-a+1));
 const choice = arr => arr[Math.floor(rnd()*arr.length)];
@@ -415,11 +419,13 @@ function baseStats(){
 }
 function newRun(ava, opt){
   const tribe = TRIBES.find(t=>t.id===opt.tribe) || TRIBES[0], heat = opt.heat||0;
-  SEED = opt.daily ? seedFrom("tcc-daily-"+opt.daily) : (Math.random()*4294967296)|0;
+  // the whole run grows from one short code: the date for a daily, or six characters that a link can carry
+  const code = opt.daily ? "daily-"+opt.daily : (opt.seed || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
+  SEED = seedFrom("tcc-"+code);
   const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0) + (tribe.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
-    tribe: tribe.id, heat, daily: opt.daily||"",
+    tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
     cult: startCult,
     relics: [],
     maxSlots: 4 + (META.unlocks.slot1?1:0) - (heat>=5?1:0),
@@ -442,12 +448,12 @@ function newRun(ava, opt){
   recalcStats();
   G.stats.hp = G.stats.maxhp;
   genMap();
-  G.bossIds.forEach((id,i)=>spawnBoss(i, pinnedPicks(runBoss(i))));
+  G.bossIds.forEach((id,i)=>spawnBoss(i, cosmetic(()=>pinnedPicks(runBoss(i)))));
 }
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","copies","tier"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","copies","tier","seedCode","linked"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -474,7 +480,7 @@ async function resumeRun(d){
   oddsCache = {}; shownCult = G.cult;
   recalcStats(); G.stats.hp = clamp(d.hp, 1, G.stats.maxhp);
   for(const k in d.foes) spawnFoe(k, ENEMIES.find(e=>e.id===d.foes[k].id), d.foes[k].picks, d.foes[k].tok);
-  G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || pinnedPicks(runBoss(i))));
+  G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || cosmetic(()=>pinnedPicks(runBoss(i)))));
   paint($("hud-avatar"), G.avatar);
   $("map-log").innerHTML = d.log || "";
   showBanner();
@@ -726,7 +732,7 @@ function genMap(){
     const t = G.map[y][x]; if(t!==T.MON && t!==T.ELITE) continue;
     const d = districtAt(x,y), tier = t===T.ELITE ? "elite" : "mon";
     const def = choice(foePool(tier, d));
-    spawnFoe(x+","+y, def, pinnedPicks(def), def.nft ? randi(1, NFT[def.nft].max) : 0);
+    spawnFoe(x+","+y, def, cosmetic(()=>pinnedPicks(def)), def.nft ? cosmetic(()=>randi(1, NFT[def.nft].max)) : 0);
   }
   updateFog();
 }
@@ -791,7 +797,7 @@ function renderHUD(){
   shownStats = now;
   const dist = DISTRICTS[districtAt(G.px,G.py)];
   const tr = TRIBES.find(t=>t.id===G.tribe);
-  $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : "");
+  $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : "");
   $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "🌙 NIGHT ")+G.day;
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
   const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
@@ -1808,7 +1814,7 @@ function startCombat(foeDef, opts={}){
   for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), G.avatar);
   const fc = $("combat-foe"); fc.width=4; fc.height=5;
-  (opts.portrait || foePortrait(foeDef, pinnedPicks(foeDef), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
+  (opts.portrait || foePortrait(foeDef, cosmetic(()=>pinnedPicks(foeDef)), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
   sfx(boss ? "boss" : "fight");
 
   let quiet=false, timer=null, F=null;
@@ -1952,7 +1958,8 @@ function endRun(win){
   const d = parts.reduce((a,p)=>a+p[1], 0);
   if(win && G.heat>=(META.heat||0) && G.heat<HEAT.length){ META.heat = G.heat+1; G.heatUp = true; }
   let dailyNote = "";
-  if(G.daily){
+  if(G.daily && G.daily!==today()) dailyNote = "<div class='note'>📅 daily map for "+G.daily+" (not today's, so it doesn't count toward today's best)</div>";
+  else if(G.daily){
     const old = META.daily && META.daily.date===G.daily ? META.daily.score : 0;
     if(d>old) META.daily = {date:G.daily, score:d, day:G.day, win};
     dailyNote = "<div class='note good'>📅 DAILY "+G.daily+" — "+(d>old ? "new best: "+d : "your best today: "+old)+"</div>";
@@ -2062,19 +2069,30 @@ function openMeme(run, win, back){
   $("meme-back").onclick = ()=>{ sfx("click"); back(); };
   draw();
 }
+/* A link that puts whoever opens it in the same maze: ?daily=2026-10-04 or ?seed=k3x9ab. */
+function runLink(run){
+  if(!/^https?:/.test(location.protocol)) return "";
+  return location.origin+location.pathname+(run.daily ? "?daily="+run.daily : run.seedCode ? "?seed="+run.seedCode : "");
+}
+function linkedRun(){ // what the page's own address asks for, if anything
+  const q = new URLSearchParams(location.search), d = q.get("daily")||"", c = (q.get("seed")||"").toLowerCase();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d)) return { daily:d };
+  if(/^[a-z0-9]{1,12}$/.test(c)) return { seed:c };
+  return null;
+}
 /* the run as a few lines of text and emoji, for pasting anywhere */
 function resultText(run, win, drip){
   const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
   const bosses = [0,1,2].map(i => i<run.bossesBeaten ? "🟩" : (!win && run.diedToBoss && i===run.bossesBeaten ? "🟥" : "⬛")).join("");
   const days = "▰".repeat(run.day)+"▱".repeat(9-run.day);
   const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.icon).join("");
-  const url = /^https?:/.test(location.protocol) ? location.origin+location.pathname : "";
+  const url = runLink(run);
   return [
-    "THE CANCEL IS COMING "+(run.daily ? "📅 "+run.daily : "🎲")+(run.heat ? " 🔥"+run.heat : ""),
+    "THE CANCEL IS COMING "+(run.daily ? "📅 "+run.daily : "🎲 "+(run.seedCode||""))+(run.heat ? " 🔥"+run.heat : ""),
     run.name+" · "+tribe.icon+" "+tribe.name,
     bosses+" "+(win ? "👑 TIMELINE SAVED" : "💀 cancelled by "+(run.killedBy||"the timeline")+", day "+run.day),
     days+" "+(sets ? sets+" · " : "")+run.relics.length+" relics · "+drip+" DRIP",
-  ].concat(url ? [url] : []).join("\n");
+  ].concat(url ? ["same map: "+url] : []).join("\n");
 }
 /* a 1200x630 image of the run, for posting */
 async function shareCard(run, win, drip){
@@ -2121,17 +2139,18 @@ function leaveRun(){
 let AVA = null, avaTok = 0;
 /* names end up inside HTML in the feed and dialogs, so keep them to plain characters */
 const cleanName = v => v.replace(/[<>&"'`\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
-const PICK = { tribe:"", heat:0, daily:"" }; // what the avatar screen is setting up
+const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen is setting up
 const today = () => new Date().toISOString().slice(0,10);
 function renderPicks(){
   if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[0].id;
-  PICK.heat = clamp(PICK.heat, 0, META.heat||0);
+  PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
   $("tribes").innerHTML = TRIBES.map(t=>"<button class='pick"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'>"+t.icon+" "+t.name+"</button>").join("");
   const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(t.relic);
   $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span></div>";
   $("tribes").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.tribe=b.dataset.t; META.tribe=PICK.tribe; saveMeta(); sfx("click"); renderPicks(); }; });
   const max = META.heat||0;
-  $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY RUN "+PICK.daily+" — same maze and same luck for everyone today</div>"
+  $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
+    : PICK.seed ? "<div class='note good'>🔗 MAP "+PICK.seed+" — the same maze as whoever sent you the link</div>"
     : !max ? "" : "<div class='kicker'>heat</div><div class='pick-row'>"+Array.from({length:max+1},(_,i)=>"<button class='pick"+(i===PICK.heat?" on":"")+"' data-h='"+i+"'>"+(i?"🔥 "+i:"off")+"</button>").join("")+"</div>"
       + "<div class='note'>"+(PICK.heat ? HEAT.slice(0,PICK.heat).join(" · ")+" · +"+25*PICK.heat+"% DRIP" : "beat THE CANCEL to unlock the next heat")+"</div>";
   $("heat-row").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.heat=+b.dataset.h; sfx("click"); renderPicks(); }; });
@@ -2346,10 +2365,18 @@ async function init(){
     catch(e){ clearRun(); renderTitle(); }
     $("btn-continue").disabled=false;
   };
-  $("btn-daily").onclick=()=>{ PICK.daily = today(); $("btn-start").click(); };
+  $("btn-daily").onclick=()=>{ PICK.daily = today(); PICK.seed = ""; $("btn-start").click(); };
+  const link = linkedRun();
+  if(link){ // arrived by a shared link: offer that exact map first
+    const b = $("btn-link");
+    b.textContent = link.daily ? "▶ PLAY THE "+(link.daily===today() ? "DAILY" : link.daily)+" MAP" : "▶ PLAY SHARED MAP "+link.seed;
+    b.classList.remove("hidden");
+    b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; $("btn-start").click(); };
+    $("link-note").textContent = "someone sent you this map — same maze, same bosses, same loot spots";
+  }
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
-    if(ev && ev.isTrusted) PICK.daily = ""; // a real click on this button is a normal run
+    if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
     const label = $("btn-start").textContent;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
     try{ await ready; }
@@ -2377,7 +2404,7 @@ async function init(){
     const typed = cleanName($("name-in").value);
     META.name = typed; saveMeta();
     if(typed) AVA.name = typed;
-    newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily ? 0 : PICK.heat, daily:PICK.daily });
+    newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed });
     show("screen-map");
     $("map-log").innerHTML="";
     mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");

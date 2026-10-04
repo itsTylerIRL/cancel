@@ -362,6 +362,8 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .syn.on span{color:var(--txt);}
 .syn.none{display:block;opacity:.6;font-size:10px;}
 #btn-continue{display:block;margin:0 auto 14px;}
+#btn-link{display:block;margin:0 auto 4px;background:var(--acid);color:#0b2a00;border-color:var(--acid);text-shadow:none;box-shadow:0 5px 0 #3d6a14,0 0 22px rgba(166,255,94,.5);}
+#link-note:empty{display:none;} #link-note{margin:0 0 14px;}
 .tile.dig{box-shadow:inset 0 0 0 2px var(--gold);animation:blink 1s steps(2) infinite;}
 /* run setup */
 .pick-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0;}

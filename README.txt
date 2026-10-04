@@ -43,7 +43,13 @@ HOW TO PLAY:
   and a seed phrase buried somewhere near spawn.
 - The run autosaves whenever you are standing on the map. Luck is seeded
   and saved with the run, so reloading replays the same outcome.
-- Daily run: one seed per (UTC) day, same maze and same luck for everyone.
+- Shared maps. Every run grows from a short seed code. The result text
+  ends with a link (?seed=k3x9ab, or ?daily=2026-10-04 for a daily) and
+  anyone who opens it is offered that exact map: same maze, same loot
+  spots, same gates, same bosses, same monster positions.
+- Daily map: one seed per (UTC) day, the same for everyone. Which enemies
+  stand on the monster tiles and which relics drop can differ between
+  players (your collection and unlocks change the pools).
 - Heat: each win unlocks a harder optional modifier worth more DRIP.
 - The end screen gives a copyable emoji result, a share-to-X button and a
   share card (PNG) of your Milady and build.
