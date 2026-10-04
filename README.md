@@ -26,6 +26,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Tribes.** Hypebeast, Gyaru, Lolita, Harajuku, Prep. Each starts with its own relic.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 
+A few things that keep you from playing blind: draft cards show what each pick does to your odds against the next boss you can't already beat, every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.
+
 ## Bring your own
 
 Type in a Milady or Remilio token number and play as it. The game rebuilds the token from its trait layers, so a relic hat replaces the hat it came with, the way the maker would do it. Its Core picks your tribe and its drip score becomes starting $CULT. Ownership isn't checked. Nobody's checking.

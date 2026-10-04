@@ -592,7 +592,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1005,7 +1005,9 @@ function renderHUD(){
   }
   $("relic-bar").innerHTML = rb;
   $("syn-bar").innerHTML = setsHTML(G.relics, false);
-  $("obj-bar").innerHTML = objectivesHTML();
+  for(const k of Object.keys(G.pins||{})){ const [x,y] = k.split(",").map(Number); if(G.map[y][x]===T.EMPTY) delete G.pins[k]; } // what was there is gone
+  $("obj-bar").innerHTML = objectivesHTML()+pinsHTML();
+  $("obj-bar").querySelectorAll("[data-pin]").forEach(el=>{ el.onclick=()=>{ const [x,y] = el.dataset.pin.split(",").map(Number); stopTravel(); travelTo(x,y); }; });
   renderTimeline();
 }
 /* the nine-day track across the top: where you are, and what is coming */
@@ -1024,6 +1026,7 @@ function renderTimeline(){
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
+let hoverTile = null, pinHold = 0, pinHeld = false;
 function renderMap(){
   const m = $("map");
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)"; m.style.gridTemplateRows = "repeat("+H+", 1fr)";
@@ -1039,6 +1042,7 @@ function renderMap(){
     d.style.setProperty("--dc", DISTRICTS[districtAt(x,y)].color);
     if(!G.lit[key]){ G.lit[key]=1; d.classList.add("reveal"); }
     if(G.sel===key) d.classList.add("sel");
+    if((G.pins||{})[key]) d.classList.add("pinned");
     if(t===T.WALL){ d.classList.add("wall"); m.appendChild(d); continue; }
     tileEl[key] = d;
     if(x===G.px && y===G.py){
@@ -1070,9 +1074,14 @@ function renderMap(){
           info += " · <b>"+path.length+" steps</b>"+(path.length>G.movesLeft ? " <span class='bad'>(past "+(G.phase==="day"?"nightfall":"dawn")+")</span>" : "");
         }
       }
-      $("tile-info").innerHTML = info;
+      $("tile-info").innerHTML = info + (!TOUCH && canPin(x,y) && !(x===G.px && y===G.py) ? " <small class='dim'>· right-click or P to "+((G.pins||{})[key] ? "unpin" : "pin")+"</small>" : "");
+      hoverTile = [x,y];
     };
+    d.oncontextmenu = ev=>{ ev.preventDefault(); togglePin(x,y); };
+    d.onpointerdown = ev=>{ if(ev.pointerType!=="mouse"){ clearTimeout(pinHold); pinHold = setTimeout(()=>{ pinHeld = true; togglePin(x,y); }, 550); } };
+    d.onpointerup = d.onpointerleave = d.onpointercancel = ()=>clearTimeout(pinHold);
     d.onclick = ()=>{
+      if(pinHeld){ pinHeld = false; return; } // that press was a pin, not a move
       // no hover on touch screens: the first tap on a foe shows its odds, the second commits
       if(TOUCH && (t===T.MON || t===T.ELITE) && G.sel!==key && d.classList.contains("moveable")){
         G.sel = key; renderMap(); $("tile-info").innerHTML = tileInfo(x,y)+" <b>— tap again to fight</b>"; return;
@@ -1082,7 +1091,7 @@ function renderMap(){
     };
     m.appendChild(d);
   }
-  m.onmouseleave = ()=>{ clearPath(); $("tile-info").innerHTML = tileInfo(G.px,G.py); };
+  m.onmouseleave = ()=>{ clearPath(); hoverTile = null; $("tile-info").innerHTML = tileInfo(G.px,G.py); };
   $("tile-info").innerHTML = tileInfo(G.px,G.py);
   placeYou(); placeHunters();
   centerMap();
@@ -1139,6 +1148,8 @@ function renderMinimap(){
     cx.fillRect(x*k, y*k, k, k);
     if(MINI[t]){ cx.fillStyle = MINI[t]; cx.fillRect(x*k+1, y*k+1, k-2, k-2); }
   }
+  cx.strokeStyle = "#fff"; cx.lineWidth = 1;
+  for(const key of Object.keys(G.pins||{})){ const [x,y] = key.split(",").map(Number); cx.strokeRect(x*k-1.5, y*k-1.5, k+3, k+3); } // pins ring their tile
   cx.fillStyle = "#ff5555"; for(const h of G.hunters) if(!G.fog[h.y][h.x]) cx.fillRect(h.x*k, h.y*k, k, k);
   cx.fillStyle = "#50fa7b"; cx.fillRect(G.px*k-2, G.py*k-2, k+4, k+4);
 }
@@ -1155,6 +1166,32 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
+}
+/* Pins: a mark on a tile you mean to come back to. Right-click (or long-press, or P while pointing at it) to
+   toggle one; a vault you had no key for and an NPC you left without trading pin themselves. A pin goes when
+   whatever was there is gone. */
+function pinKey(x,y){ return x+","+y; }
+function canPin(x,y){ return !G.fog[y][x] && G.map[y][x]!==T.WALL && G.map[y][x]!==T.EMPTY; }
+function setPin(x,y,on){
+  G.pins = G.pins || {};
+  if(on && canPin(x,y)) G.pins[pinKey(x,y)] = 1; else delete G.pins[pinKey(x,y)];
+}
+function togglePin(x,y){
+  if(!G || G.over) return;
+  if(!canPin(x,y)){ $("tile-info").innerHTML = "Nothing here to pin."; return; }
+  const on = !(G.pins||{})[pinKey(x,y)];
+  setPin(x,y,on); sfx("click"); renderMap();
+  $("tile-info").innerHTML = (on ? "📌 Pinned: " : "Unpinned: ")+pinName(x,y);
+}
+function pinName(x,y){
+  const t = G.map[y][x], foe = G.foes[x+","+y];
+  return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
+}
+function pinsHTML(){
+  const pins = Object.keys(G.pins||{}); if(!pins.length) return "";
+  const dist = walkDist(G.px, G.py);
+  return "<div class='box-h' style='margin-top:10px'>PINS</div>"+pins.map(k=>{ const [x,y] = k.split(",").map(Number), d = dist[k];
+    return "<div class='obj pin' data-pin='"+k+"' title='walk there'><i>📌</i><span>"+pinName(x,y)+"</span><em>"+(d==null ? "?" : d+" steps")+"</em></div>"; }).join("");
 }
 function tileInfo(x,y){
   if(G.fog[y][x]) return "Unexplored.";
@@ -1359,7 +1396,7 @@ function enterTile(t){
     case T.SCEARPO: openScearpo(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
-      if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one.", "bad"); break; }
+      if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one. 📌 Pinned.", "bad"); setPin(G.px, G.py, true); break; }
       G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; sfx("fanfare"); burst("🔐💎✨");
       mlog("🔐 The key turns. <b>+100 $CULT</b>, and something better than usual.", "gold");
       openDraft("The vault opens.", richRoll());
@@ -1440,7 +1477,9 @@ function confirmSwap(r, j, onDone, onBack){
   const was = G.stats, relics = G.relics.slice(), tiers = G.tiers.slice();
   G.relics[j] = r.id; G.tiers[j] = 1;
   const now = computeStats(G.relics), setsNow = setRows(G.relics).filter(x=>x.on.length).map(x=>x.t.id);
+  const swapped = [G.relics.slice(), G.tiers.slice()];
   G.relics = relics; G.tiers = tiers;
+  const vs = runBoss(G.bossesBeaten) ? bossToBeat() : null;
   const delta = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
     const d = Math.round(now[k]-was[k]);
     return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
@@ -1450,10 +1489,50 @@ function confirmSwap(r, j, onDone, onBack){
     + (lost.length ? "<div class='note bad'>switches off "+lost.join(", ")+"</div>" : "");
   openModal("<h2>ARE YOU SURE?</h2><div class='note'>a dropped relic is gone for good</div>"
     + "<div class='swap'><div><u>drop</u>"+relicCard(old, "", false, t)+"</div><b class='swap-arrow'>→</b><div><u>take</u>"+relicCard(r, "", false, 1)+"</div></div>"
-    + "<div class='delta swap-delta'>"+(delta || "<i>no change to your stats</i>")+"</div>"+warn
+    + "<div class='delta swap-delta'>"+(delta || "<i>no change to your stats</i>")+"</div>"
+    + (vs ? "<div class='vsboss solo'>"+bossOddsLine(vs.i, vs.now, oddsVsBoss(swapped[0], swapped[1], vs.i))+"</div>" : "")+warn
     + "<div class='row'><button class='btn small' id='swap-no'>← pick another</button><button class='btn danger' id='swap-yes'>drop "+old.name+"</button></div>");
   $("swap-no").onclick = ()=>{ sfx("click"); onBack(); };
   $("swap-yes").onclick = ()=>{ G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
+}
+/* The chance of beating the next boss with a given build, at full health on the day it arrives. More trial fights
+   than the map's quick estimate, since two picks are being compared. */
+function oddsVsBoss(relics, tiers, i){
+  const b = runBoss(i); if(!b) return null;
+  const keep = { relics:G.relics, tiers:G.tiers, stats:G.stats, day:G.day, seed:SEED };
+  let wins = 0; const N = 90;
+  try{
+    G.relics = relics; G.tiers = tiers; G.day = Math.max(G.day, BOSS_DAYS[i]);
+    G.stats = computeStats(relics); G.stats.hp = G.stats.maxhp;
+    const foe = foeInstance(b);
+    SEED = null; // trial fights must not use up the run's own luck
+    for(let i=0;i<N;i++){ const F = fightEngine(foe, {boss:b}, NOIO); for(let n=0; !F.over && n<3000; n++) F.step(); if(F.win) wins++; }
+  } finally { G.relics = keep.relics; G.tiers = keep.tiers; G.stats = keep.stats; G.day = keep.day; SEED = keep.seed; }
+  return wins/N;
+}
+const pct = p => Math.round(p*20)*5; // to the nearest 5%: the estimate isn't finer than that
+/* Which boss to measure a pick against: the next one the build doesn't already beat almost every time. Early on
+   that is often the day-6 boss, since the first one falls to most builds at full health. */
+function bossToBeat(){
+  for(let i=G.bossesBeaten; i<3; i++){ const p = oddsVsBoss(G.relics, G.tiers, i); if(p<0.95 || i===2) return { i, now:p }; }
+  return null;
+}
+function bossOddsLine(i, now, then){
+  const b = runBoss(i), a = pct(now), z = pct(then), d = z-a;
+  return "<span>vs "+b.name+" · day "+BOSS_DAYS[i]+"</span> <b class='"+(d>=10?"up":d<=-10?"down":"")+"'>"+a+"% → "+z+"%</b>";
+}
+function showBossOdds(pool){ // fills in each draft card after the dialog has drawn, so opening it stays instant
+  if(!runBoss(G.bossesBeaten)) return;
+  const panel = $("modal-panel"), mark = panel.querySelector("h2");
+  setTimeout(()=>{
+    if(panel.querySelector("h2")!==mark) return; // the dialog has moved on
+    const vs = bossToBeat(), full = G.relics.length>=G.maxSlots; if(!vs) return;
+    panel.querySelectorAll(".card[data-i]").forEach(c=>{
+      const r = pool[+c.dataset.i]; if(!r) return;
+      const then = oddsVsBoss(G.relics.concat(r.id), G.tiers.concat(1), vs.i);
+      c.insertAdjacentHTML("beforeend", "<div class='vsboss'>"+bossOddsLine(vs.i, vs.now, then)+(full ? "<small>before dropping one</small>" : "")+"</div>");
+    });
+  }, 40);
 }
 function openDraft(flavor, pool, luck){
   pool = pool || rollRelics(3, luck);
@@ -1472,6 +1551,7 @@ function openDraft(flavor, pool, luck){
     };
   });
   $("draft-skip").onclick=()=>{ closeModal(); renderMap(); };
+  showBossOdds(pool);
   return true;
 }
 
@@ -1722,7 +1802,8 @@ function openForge(note){
   const done = G.forged===G.px+","+G.py;
   $("forge-leave").textContent = done ? "leave (he moves on)" : "leave";
   $("forge-leave").onclick=()=>{
-    if(done){ G.forged = ""; clearTile(); mlog("🙂 Remilia Jackson moonwalks off into the maze.", ""); renderMap(); }
+    if(done){ G.forged = ""; clearTile(); mlog("🙂 Remilia Jackson moonwalks off into the maze.", ""); } else setPin(G.px, G.py, true);
+    renderMap();
     closeModal();
   };
 }
@@ -1786,7 +1867,7 @@ function openOnno(note){
     mlog("🔁 onno took your <b>"+old.name+"</b> and handed back "+(t>1 ? TIERS[t].icon+" " : "")+"<b>"+got.name+"</b> — "+relicText(got, TIERS[t].mult), "gold");
     renderMap(); openOnno("He hands you "+(t>1 ? "a "+TIERS[t].name+" " : "")+"<b>"+got.name+"</b>: "+relicText(got, TIERS[t].mult));
   };});
-  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("onno wanders off with your old relic.", ""); renderMap(); } closeModal(); };
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("onno wanders off with your old relic.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
 }
 /* ---------- Charlotte Fang: two relics of one tier for a random relic of the next ---------- */
 function openFang(note, picked){
@@ -1813,7 +1894,7 @@ function openFang(note, picked){
     mlog("✨ Charlotte Fang took <b>"+gave[0].name+"</b> and <b>"+gave[1].name+"</b> and returned "+next.icon+" <b>"+next.name+" "+got.name+"</b> — "+relicText(got, next.mult), "gold");
     renderMap(); openFang("She returns a "+next.icon+" "+next.name+" <b>"+got.name+"</b>: "+relicText(got, next.mult)+" A slot is free.");
   };
-  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); renderMap(); } closeModal(); };
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
 }
 
 /* ---------- Scearpo: scorched earth policy. One relic, one coin flip: doubled, or ash ---------- */
@@ -1842,7 +1923,7 @@ function openScearpo(note, cls){
       renderMap(); openScearpo("Ash. Your "+(t>1 ? TIERS[t].name+" " : "")+"<b>"+r.name+"</b> is gone.", "bad");
     }
   };});
-  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Scearpo leaves. The ground where he stood is still warm.", ""); renderMap(); } closeModal(); };
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Scearpo leaves. The ground where he stood is still warm.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
 }
 
 /* ---------- settings ---------- */
@@ -1969,7 +2050,8 @@ function fightEngine(foeDef, opts, io){
   }
   const you = {...base, stun:0, wartime:true, blunt:true, compTick:0, shield:0, suppressed:new Set()};
   const foe = {...foeDef, poison:0, stun:0, stolen:0, burn:0, bleed:0, chill:0};
-  const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0 };
+  const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0, dealt:{}, took:0 };
+  const credit = (what, n) => { if(n>0) F.dealt[what] = (F.dealt[what]||0) + n; }; // who did the damage, for the summary after the fight
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
   const done = win => {
@@ -1991,7 +2073,7 @@ function fightEngine(foeDef, opts, io){
   };
   const companion = (dmg, msg) => { // every companion hit goes through here so SQUAD applies to all of them
     dmg += set("squad",2) ? 3 : 0;
-    foe.hp-=dmg; io.log(msg+" for "+dmg+".", "good"); io.hit("foe",dmg,false);
+    foe.hp-=dmg; credit(msg.replace(/ (strikes|spins in|bites)$/, ""), dmg); io.log(msg+" for "+dmg+".", "good"); io.hit("foe",dmg,false);
     if(set("squad",3)) heal(2);
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
@@ -2043,12 +2125,12 @@ function fightEngine(foeDef, opts, io){
     // bonkler redirect
     if(!isYou && act("bonkler") && rnd()<0.15*tm("bonkler")){
       const {dmg,crit}=dmgCalc(foe,foe,false);
-      foe.hp-=dmg; io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
+      foe.hp-=dmg; credit("🌀 Bonkler chaos", dmg); io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
       io.hit("foe", dmg, crit);
       return;
     }
     if(!isYou && foe.bleed>0){ // a bleeding enemy pays for every swing
-      const d = 2*foe.bleed; foe.hp-=d; io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
+      const d = 2*foe.bleed; foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
       if(act("vampire")) heal(1);
       if(foe.hp<=0) return;
     }
@@ -2058,7 +2140,7 @@ function fightEngine(foeDef, opts, io){
       io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
       if(act("cat_ears")) heal(tv("cat_ears",3));
       if(act("matrix")) you.sure = true;
-      if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
+      if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
       return;
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
@@ -2067,6 +2149,7 @@ function fightEngine(foeDef, opts, io){
       if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
     }
     def.hp-=dmg;
+    if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else F.took += dmg;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>.", crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
     if(isYou && set("cheese",3)){ st.cult+=3; }
@@ -2083,7 +2166,7 @@ function fightEngine(foeDef, opts, io){
     }
     if(isYou && crit && act("trucker")) heal(tv("trucker",5));
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
-    if(!isYou && act("evil_eye")){ const e = tv("evil_eye",2); foe.hp-=e; io.log("🧿 Evil Eye reflects "+e+".", "good"); }
+    if(!isYou && act("evil_eye")){ const e = tv("evil_eye",2); foe.hp-=e; credit("🧿 Evil Eye", e); io.log("🧿 Evil Eye reflects "+e+".", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
     // stun
     if(isYou && act("balenciaga_bat") && rnd()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
@@ -2145,9 +2228,9 @@ function fightEngine(foeDef, opts, io){
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
     // poison ticks
-    if(foe.burn>0){ const d = 3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0); foe.burn--; foe.hp-=d; io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(foe.poison>0){ const d = tv("snakebites",2) * (act("milady_pilled") ? 3 : 1); foe.poison--; foe.hp-=d; io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(act("pikachu") && F.tick%4===0){ const z = tv("pikachu",8); foe.hp-=z; io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
+    if(foe.burn>0){ const d = 3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.poison>0){ const d = tv("snakebites",2) * (act("milady_pilled") ? 3 : 1); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(act("pikachu") && F.tick%4===0){ const z = tv("pikachu",8); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     // companions
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
@@ -2200,6 +2283,11 @@ function oddsText(o){
 }
 
 /* everything a won fight changes: loot, post-fight heals, achievements. log(msg, cls) receives the lines. */
+function fightSummary(F){ // what did the work, biggest first
+  const rows = Object.entries(F.dealt).sort((a,b)=>b[1]-a[1]), total = rows.reduce((a,r)=>a+r[1], 0);
+  if(!total) return "";
+  return rows.slice(0,5).map(([k,n])=>k+" <b>"+n+"</b> <small>"+Math.round(100*n/total)+"%</small>").join(" · ")+(F.took ? " · took <b>"+F.took+"</b>" : "");
+}
 function settleWin(F, opts, log){
   const you = F.you, foe = F.foe, boss = opts.boss || null;
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
@@ -2304,6 +2392,8 @@ function startCombat(foeDef, opts={}){
     navSet(btn);
     if(win){
       const c = settleWin(F, opts, clog);
+      const sum = fightSummary(F);
+      if(sum){ clog("📊 "+sum, "sum"); mlog("📊 <i>vs "+foe.name+":</i> "+sum, "sum"); }
       floatText("foe", "+"+c+" $CULT", "loot");
       sfx("win"); if(boss) burst("👑✨🌸💖");
       btn.textContent="CONTINUE →";
@@ -2324,6 +2414,7 @@ function startCombat(foeDef, opts={}){
       G.killedBy = foe.name; G.diedToBoss = !!boss;
       G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult;
       clog("💀 You died.", "bad");
+      if(fightSummary(F)) clog("📊 "+fightSummary(F), "sum");
       sfx("lose"); quake();
       btn.classList.remove("auto");
       btn.textContent="LOG OFF 💀";
@@ -2336,7 +2427,7 @@ function startCombat(foeDef, opts={}){
   function ask(){ // once per boss, at half health: the fight stops and waits for you
     asked = true;
     const opts2 = [
-      ["CLAP BACK", "spend 50 $CULT: hit it for 22", F.st.cult>=50, ()=>{ F.st.cult-=50; foe.hp=Math.max(1,foe.hp-22); clog("📣 You clap back for 22.", "crit"); floatText("foe","-22","crit"); shake("foe"); }],
+      ["CLAP BACK", "spend 50 $CULT: hit it for 22", F.st.cult>=50, ()=>{ F.st.cult-=50; F.dealt["📣 clap back"] = (F.dealt["📣 clap back"]||0) + Math.min(22, foe.hp-1); foe.hp=Math.max(1,foe.hp-22); clog("📣 You clap back for 22.", "crit"); floatText("foe","-22","crit"); shake("foe"); }],
       ["TOUCH GRASS", "heal 18 HP, but it gains +2 ATK", true, ()=>{ you.hp=Math.min(you.maxhp,you.hp+18); foe.atk+=2; clog("🌱 You touch grass. +18 HP. It gets angrier.", "good"); floatText("you","+18","heal"); }],
       ["POST THROUGH IT", "+3 ATK for the rest of the fight, lose 6 HP", true, ()=>{ you.hard+=3; you.hp=Math.max(1,you.hp-6); clog("⌨️ You post through it. +3 ATK.", "good"); floatText("you","+3 ATK","heal"); }],
     ];
@@ -2974,6 +3065,7 @@ function onKey(ev){
   if(!G || G.over) return;
   if(ev.key==="Escape"){ openSettings(); return; }
   if(ev.key==="b" || ev.key==="B"){ openBuild(); return; }
+  if((ev.key==="p" || ev.key==="P") && hoverTile && !busy()){ togglePin(hoverTile[0], hoverTile[1]); return; }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
   stopTravel();

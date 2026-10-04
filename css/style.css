@@ -858,3 +858,14 @@ img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}
 @keyframes hurt{0%,100%{box-shadow:inset 0 0 0 rgba(255,60,60,0);}50%{box-shadow:inset 0 0 34px 6px rgba(255,60,60,.75);}}
 .portrait.shielded canvas{outline:2px solid rgba(241,250,140,.55);outline-offset:2px;}
 body.calm .portrait canvas,body.calm #hud-avatar,body.calm .pfx,body.calm .pfx i{animation:none;}
+/* pins, boss odds on drafts, fight summary */
+.tile.pinned::after{content:"📌";position:absolute;right:-3px;top:-6px;font-size:clamp(11px,calc(var(--board)/36),16px);z-index:4;filter:drop-shadow(0 1px 2px #000);pointer-events:none;}
+.tile.pinned{outline:1px dashed rgba(255,255,255,.55);outline-offset:-2px;}
+.obj.pin{cursor:pointer;} .obj.pin:hover{border-color:var(--neon);} .obj.pin i{font-style:normal;}
+.vsboss{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:10px;color:var(--dim);display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:baseline;}
+.vsboss span{font-family:var(--label);text-transform:uppercase;letter-spacing:.08em;font-size:9px;}
+.vsboss b{display:inline !important;margin:0 !important;font-size:12px !important;color:var(--neon2);}
+.vsboss b.up{color:var(--acid);} .vsboss b.down{color:var(--red);}
+.vsboss small{flex-basis:100%;text-align:center;font-size:9px;opacity:.8;}
+.vsboss.solo{border:0;justify-content:center;margin:2px 0 6px;font-size:11px;}
+#combat-log .sum,#map-log .sum{color:#bdbdbd;font-size:11px;} #combat-log .sum b,#map-log .sum b{color:var(--gold);} .sum small{color:var(--dim);font-size:9px;}
