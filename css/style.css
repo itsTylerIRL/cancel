@@ -808,3 +808,5 @@ body.bg3d #modal{background:rgba(0,0,0,.78);}
 .hcard span{color:var(--dim);font-size:10px;}
 .hcard.live{border-style:dashed;border-color:var(--acid);}
 #modal-panel:has(.hall){max-width:620px;}
+.relic .rtxt b.boost,.card b.boost,.sinfo b.boost,b.boost{display:inline;color:var(--acid);font-weight:700;font-size:inherit;font-family:inherit;margin:0;}
+.sinfo .after{display:block;margin-top:3px;color:var(--gold);font-size:11px;}

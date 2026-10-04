@@ -625,6 +625,26 @@ function dropRelicAt(i){ G.relics.splice(i,1); G.tiers.splice(i,1); }
    stat bonuses scaled in computeStats, or a flat bonus per tier if they have no numbers at all */
 const TIER_IN_FIGHT = ["network_spirituality","jesus_tank","cookie","cult_robe","lollipop","snakebites","pikachu","remilio_friend","tails","dino",
   "evil_eye","trucker","cat_ears","birthday_hat","maid","strawberry","silver_coin","blood_splatter","cigarette","fbi_cap","bonkler"];
+/* A relic's text at a given worth (1 normal, 2 gold, 4 diamond): the same numbers the engine uses, so the
+   description always says what the item in that slot really gives. */
+const STAT_RX = /\+(\d+)(%? ?)(ATK|ARM|SPD|max HP|crit chance|dodge)/g, DODGE_RX = /^(\d+)(% dodge chance)/;
+const HEAL_RX = /(Heal )(\d+)/;
+const FIGHT_RX = { network_spirituality:/(an? )(\d+)( HP shield)/, jesus_tank:/(an? )(\d+)( HP shield)/, cookie:HEAL_RX, cult_robe:HEAL_RX, lollipop:HEAL_RX,
+  birthday_hat:HEAL_RX, maid:HEAL_RX, strawberry:HEAL_RX, cat_ears:HEAL_RX, snakebites:/(poison: )(\d+)/, pikachu:/(shock for )(\d+)/,
+  remilio_friend:/(strikes for )(\d+)/, tails:/(hit for )(\d+)/, dino:/(bites for )(\d+)/, evil_eye:/(Reflect )(\d+)/, trucker:/(heal you for )(\d+)/,
+  silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/ };
+const hasStatText = r => r.id!=="blood_splatter" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
+const flatTier = r => !hasStatText(r) && !TIER_IN_FIGHT.includes(r.id); // nothing numeric to scale: +2 ATK, +6 max HP per extra copy's worth
+function relicText(r, m, plain){
+  if(!m || m<=1) return r.desc;
+  const hi = v => plain ? v : "<b class='boost'>"+v+"</b>";
+  let d = r.desc;
+  if(FIGHT_RX[r.id]) d = d.replace(FIGHT_RX[r.id], (_, a, n, z)=>(/^an? $/.test(a) ? "a " : a)+"\u0001"+Math.round(n*m)+"\u0002"+(typeof z==="string" ? z : ""));
+  if(hasStatText(r)) d = d.replace(STAT_RX, (_, n, u, k)=>"\u0001+"+Math.round(n*m)+u+k+"\u0002").replace(DODGE_RX, (_, n, z)=>"\u0001"+Math.round(n*m)+"\u0002"+z);
+  if(flatTier(r)) d += " \u0001+"+2*(m-1)+" ATK, +"+6*(m-1)+" max HP.\u0002";
+  return d.replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
+}
+const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain); // the item in slot i
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
 function discover(id){ // first time ever holding a relic: it joins the collection on the title screen
@@ -675,9 +695,8 @@ function computeStats(relics){
   for(const id of new Set(relics)){ // an upgraded relic's positive stat bonuses grow with its tier
     const m = tm(id); if(m===1) continue;
     const without = rawStats(relics.filter(x=>x!==id));
-    let any = false;
-    for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0){ s[k] += Math.round(d*(m-1)); any = true; } }
-    if(!any && !TIER_IN_FIGHT.includes(id)){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
+    for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0) s[k] += Math.round(d*(m-1)); }
+    if(flatTier(relicById(id))){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
   }
   return s;
 }
@@ -920,7 +939,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && relicById(G.relics[i]);
-    rb += rel ? "<div class='relic' title='"+rel.name+" — "+rel.desc.replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>dup</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+(G.relics.indexOf(rel.id)!==i ? "duplicate: no effect until fused" : rel.desc)+"</span></div></div>"
+    rb += rel ? "<div class='relic' title='"+rel.name+" — "+textAt(rel,i,true).replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1306,7 +1325,7 @@ function relicExtras(r, preview){ // what taking r would do: stat changes and se
 }
 function relicCard(r, attr, delta, tier){ // tier: when the card stands for a relic you hold, that item's tier
   const rar = rarity(r);
-  return "<div class='card "+rar+" "+tierCls(tier)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+r.desc+"</span>"
+  return "<div class='card "+rar+" "+tierCls(tier)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"
     + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>stacks</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
@@ -1371,7 +1390,7 @@ function openDraft(flavor, pool, luck){
 const coinSrc = () => document.querySelector(".cult-coin").src;
 function relicRow(r, extra, tail, tier){ // a relic as a row: art, name, text, then whatever goes on the right
   return "<div class='shop-row "+r.rar+" "+tierCls(tier)+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
-    + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+r.desc+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
+    + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 function openShop(note){
   const key = G.px+","+G.py;
@@ -1571,7 +1590,7 @@ function openBuild(){
     + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
     + (G.bonus.atk||G.bonus.maxhp||G.bonus.spd ? "<span class='chip sale'>events: "+[G.bonus.atk&&"+"+G.bonus.atk+" ATK", G.bonus.maxhp&&"+"+G.bonus.maxhp+" HP", G.bonus.spd&&"+"+G.bonus.spd+" SPD"].filter(Boolean).join(", ")+"</span>" : "")+"</div>";
-  G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='down'>duplicate: no effect until fused</i></div>" : setChips(r, false), "", tierAt(i)); });
+  G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='up'>a copy: stacks with the other, fuse the pair to free a slot</i></div>" : setChips(r, false), "", tierAt(i)); });
   if(!G.relics.length) html += "<div class='note'>no relics yet. go loot something.</div>";
   html += "<div class='box-h' style='margin-top:12px'>SYNERGIES</div><div class='syn-list'>"+setsHTML(G.relics, true)+"</div>";
   html += "<div class='row'><button class='btn small' id='build-close'>close</button></div>";
@@ -1594,7 +1613,7 @@ function openForge(note){
     let prog, btn = "";
     if(used.has(i)) prog = "<div class='delta'><i class='up'>goes into the fuse above</i></div>";
     else if(!next) prog = "<div class='delta'><i class='up'>fully fused</i></div>";
-    else if(j>=0){ used.add(i); used.add(j); pairs++; prog = "<div class='delta'><i class='up'>you hold two: ready</i></div>"; btn = "<button class='btn small fuse' data-a='"+i+"' data-b='"+j+"'>fuse → "+next.icon+"</button>"; }
+    else if(j>=0){ used.add(i); used.add(j); pairs++; prog = "<div class='delta'><i class='up'>you hold two: ready</i></div><span class='after'>"+next.icon+" fused: "+relicText(r, next.mult)+"</span>"; btn = "<button class='btn small fuse' data-a='"+i+"' data-b='"+j+"'>fuse → "+next.icon+"</button>"; }
     else prog = "<div class='delta'><i>needs a second "+(t>1 ? TIERS[t].name+" " : "")+r.name+"</i></div>";
     html += relicRow(r, prog, btn, t);
   });
@@ -1608,7 +1627,7 @@ function openForge(note){
     G.tiers[i] = t; dropRelicAt(j); recalcStats(); G.flags.fused = true; // two become one: a slot comes free
     G.forged = G.px+","+G.py; // he works once per spot: he leaves when you do
     sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
-    mlog("✨ Remilia Jackson fused two <b>"+r.name+"</b> into "+TIERS[t].icon+" <b>"+TIERS[t].name+"</b>.", "gold");
+    mlog("✨ Remilia Jackson fused two <b>"+r.name+"</b> into "+TIERS[t].icon+" <b>"+TIERS[t].name+"</b> — "+relicText(r, TIERS[t].mult)+"", "gold");
     renderMap(); openForge(r.name+" is now "+TIERS[t].name+". A slot is free.");
   };});
   const done = G.forged===G.px+","+G.py;
@@ -2046,7 +2065,7 @@ function startCombat(foeDef, opts={}){
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
       $("combat-relics").innerHTML = f.st.relics.map((id,n)=>{ const r=relicById(id);
-        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"; }).join("");
+        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true).replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
