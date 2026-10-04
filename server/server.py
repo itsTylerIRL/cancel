@@ -46,7 +46,7 @@ RN_ON = os.environ.get("CANCEL_RN_ON") == "1"  # the game only offers sign-in on
 SESSION_DAYS = 30
 RE_HANDLE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
 
-MAX_BODY = 4096
+MAX_BODY = 6000
 MAX_SCORE = 6000          # day, boss, kill and $CULT points with the top heat bonus stay well under this
 POSTS_PER_HOUR = 30       # per client address
 TRIBES = {"hypebeast", "gyaru", "lolita", "harajuku", "prep"}
@@ -191,6 +191,8 @@ def init_db():
         con.executescript(SCHEMA)
         if "look" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN look TEXT")  # how the character looked: a recipe of trait layers
+        if "stats" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
+            con.execute("ALTER TABLE runs ADD COLUMN stats TEXT")  # the build's final numbers, for balancing
         if "handle" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN handle TEXT")  # the RemiliaNET account, when the player signed in
 
@@ -398,7 +400,12 @@ def parse_run(d):
 
     cult = d.get("cult", 0)
     cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else 0
-    row = dict(cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
+    st = d.get("stats")
+    stats = None
+    if isinstance(st, dict):
+        stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
+                 and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
+    row = dict(stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
                player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
@@ -437,15 +444,21 @@ def run_stats():
         killers = con.execute("SELECT killed_by, COUNT(*) c FROM runs WHERE win=0 AND killed_by<>'' GROUP BY killed_by ORDER BY c DESC LIMIT 12").fetchall()
         tribes = con.execute("SELECT tribe, COUNT(*), SUM(win), AVG(day) FROM runs GROUP BY tribe").fetchall()
         bosses = con.execute("SELECT bosses, COUNT(*) FROM runs GROUP BY bosses ORDER BY bosses").fetchall()
+        rows_stats = con.execute("SELECT stats, win FROM runs WHERE stats IS NOT NULL ORDER BY id DESC LIMIT 2000").fetchall()
         relics = {}
         for (r,) in con.execute("SELECT relics FROM runs ORDER BY id DESC LIMIT 2000"):
             for rid, _tier in json.loads(r):
                 relics[rid] = relics.get(rid, 0) + 1
+    final = {}
+    for win in (0, 1):  # what the builds that lose and the builds that win actually add up to
+        got = [json.loads(r[0]) for r in rows_stats if r[1] == win]
+        if got:
+            final["win" if win else "loss"] = dict({k: round(sum(g.get(k, 0) for g in got) / len(got), 1) for k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")}, runs=len(got))
     return {"runs": n, "wins": wins, "avgDay": round(avg_day or 0, 2), "avgScore": round(avg_score or 0, 1),
             "deathsByDay": {str(d): c for d, c in by_day}, "bossesBeaten": {str(b): c for b, c in bosses},
             "killedBy": [[k, c] for k, c in killers],
             "tribes": {t: {"runs": c, "wins": w or 0, "avgDay": round(a or 0, 2)} for t, c, w, a in tribes},
-            "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25]}
+            "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25], "finalStats": final}
 
 
 def pulse():
@@ -730,8 +743,8 @@ class Handler(BaseHTTPRequestHandler):
                 total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
             # every finished run is also kept, without the player, so the game can be balanced on how runs really end
-            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily)
-                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily)""",
+            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats)
+                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
             # and as a card: what the share link's preview is drawn from
             share = "".join(secrets.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(8))

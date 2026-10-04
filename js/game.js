@@ -1307,11 +1307,12 @@ function enterTile(t){
       break;
   }
 }
-/* Foes grow every day: +10% HP and ATK per day (bosses +6%), a point of ARM every three days,
-   and they pay out more $CULT to match. */
+/* Foes grow every day, and faster late: +10% HP and ATK per day plus a little more each day after that (about
+   +22% on day 3, +65% on day 6, x2.2 on day 9), a point of ARM every three days, and they pay out more $CULT to
+   match. Bosses grow +8.5% per day. */
 function foeInstance(def){
   const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
-  const lvl = 1 + d*(boss ? 0.06 : 0.1);
+  const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
   const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1)), atx = lvl * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
     atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
@@ -2442,7 +2443,10 @@ function submitRun(run, win, drip){
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base), session: rnUser() ? rnUser().token : undefined,
+    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
+    stats: run.stats ? { hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm, spd:run.stats.spd, crit:Math.round(run.stats.crit), dodge:Math.round(run.stats.dodge||0),
+      batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
+    session: rnUser() ? rnUser().token : undefined,
   });
 }
 async function loadPulse(){ // everyone's games and wins, on the title screen
