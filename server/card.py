@@ -174,6 +174,26 @@ def fry(src, caption, rng):
     return out
 
 
+def ps1(src):
+    """MILADYSTATION treatment: low resolution, ordered dither, hard edges."""
+    w = 110
+    h = round(w * src.height / src.width)
+    t = src.resize((w, h), Image.BILINEAR)
+    px = t.load()
+    bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            n = (bayer[(y & 3) * 4 + (x & 3)] - 7.5) * 1.6
+            px[x, y] = tuple(max(0, min(255, round((v + n) / 8) * 8)) for v in (r, g, b)) + (255 if a > 110 else 0,)
+    return t.resize(src.size, Image.NEAREST)
+
+
+def cheese(relic_ids):
+    n = sum(1 for rid in set(relic_ids) if "cheese" in SPEC["relics"].get(rid, {}).get("set", []))
+    return n + (1 if n and "webring" in relic_ids else 0)
+
+
 def icon(rid):
     """A relic's art cropped to its trait, with the white sticker outline the game gives it."""
     r = SPEC["relics"].get(rid)
@@ -243,6 +263,10 @@ def render(run, seed="x"):
     over(panel, radial((400, 500), (200, 230), 330, [(0, CYAN + (87,)), (0.55, CYAN + (26,)), (1, CYAN + (5,))]))
     relic_ids = [r[0] for r in run["relics"]]
     who = compose(run.get("look"), relic_ids)
+    if (run.get("look") or {}).get("ps1"):  # booted up a MiladyStation this run
+        who = ps1(who)
+    if cheese(relic_ids) >= 2:  # CHEESEWORLD builds get deep fried
+        who = fry(who, "", rng)
     if not run["win"]:
         who = fry(who, "CANCELLED", rng)
     over(panel, who.resize((400, 500), Image.LANCZOS))
@@ -300,7 +324,7 @@ def render(run, seed="x"):
     text("CANCEL.TYLERIRL.COM" + ("   ✓ @" + run["handle"] if run.get("handle") else ""), 500, 598, 16, "#666", "Regular")
 
     out = io.BytesIO()
-    cv.save(out, "PNG", optimize=True)
+    cv.save(out, "PNG", compress_level=6)  # "optimize" doubles the drawing time for a few kilobytes
     return out.getvalue()
 
 

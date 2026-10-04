@@ -126,6 +126,58 @@ def token_traits(kind, tid, key):
     return attrs, 200
 
 
+_spec = None
+
+
+def spec():
+    """The game's own layer rules and art list (card_spec.json, written by make_spec.mjs)."""
+    global _spec
+    if _spec is None:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "card_spec.json"), encoding="utf8") as f:
+            _spec = json.load(f)
+    return _spec
+
+
+def look_from_traits(kind, attrs):
+    """A token's traits as a look recipe: the same reading the game does in tokenLayers()."""
+    S = spec()
+    M = S["token_map"][kind]
+    cfg, files, layers, eye = M["cfg"], S["assets"][M["cfg"]], {}, ""
+    for trait, value in attrs:
+        name = M["names"].get(trait, trait)
+        want = M["values"].get(trait, {}).get(value) or (
+            " ".join(w[:1].upper() + w[1:] for w in value.split(" ")) if M["transform"] == "titlecase" else value)
+        if M.get("tint") and name == M["tint"]["by"]:
+            eye = want
+            continue
+        if name not in S["TOKEN_SLOTS"][cfg] or name not in files:  # backgrounds, overlays and scores are not worn
+            continue
+        f = next((x for x in files[name] if x.lower() == (want + ".webp").lower()), None)
+        if f:
+            layers[name] = f
+    for name, by_value in M["exclusions"].items():  # traits the collection itself hides under others
+        for gone in by_value.get(layers.get(name, "")[:-5], []):
+            layers.pop(gone, None)
+    for name, hidden in M["layerExclusions"].items():
+        if name in layers:
+            for gone in hidden:
+                layers.pop(gone, None)
+    if M["body"] not in layers:
+        return None
+    return json.dumps({"cfg": cfg, "layers": layers, "eye": eye if re.match(r"^[A-Za-z]{1,12}$", eye) else "", "ps1": False},
+                      separators=(",", ":"))
+
+
+def look_from_token(kind, tid, key):
+    """When the game couldn't send a look (it fell back to the token's flat picture), build it here from the traits."""
+    try:
+        attrs, _code = token_traits(kind, tid, key)
+        return look_from_traits(kind, attrs) if attrs else None
+    except Exception as e:
+        print("look_from_token failed: %s" % type(e).__name__, flush=True)
+        return None
+
+
 def db():
     con = sqlite3.connect(DB, timeout=5)
     con.row_factory = sqlite3.Row
@@ -462,6 +514,13 @@ def card_png(cid):
         return f.read()
 
 
+def draw_ahead(cid):
+    try:
+        card_png(cid)
+    except Exception as e:
+        print("card failed: %s %s" % (type(e).__name__, e), flush=True)
+
+
 def esc(v):
     return str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
@@ -480,9 +539,15 @@ def share_page(cid, run):
             "<meta property='og:url' content=\"{u}\"><meta name='twitter:card' content='summary_large_image'>"
             "<meta name='twitter:title' content=\"{t}\"><meta name='twitter:description' content=\"{d}\">"
             "<meta name='twitter:image' content=\"{i}\"><meta name='theme-color' content='#8be9fd'>"
-            "<meta http-equiv='refresh' content=\"0;url={to}\"></head>"
+            "<meta property='og:site_name' content='THE CANCEL IS COMING'><meta property='og:image:type' content='image/png'>"
+            "<meta property='og:image:alt' content=\"{alt}\"><meta name='twitter:image:alt' content=\"{alt}\">"
+            # people are forwarded by script. Preview robots don't run scripts, so they stay here and read the tags
+            # above; a plain redirect or an unconditional refresh would send some of them on to the game's own preview.
+            "<script>location.replace({js})</script><noscript><meta http-equiv='refresh' content=\"0;url={to}\"></noscript></head>"
             "<body style='background:#000;color:#8be9fd;font-family:monospace'><a style='color:#8be9fd' href=\"{to}\">enter the timeline</a>"
-            "</body></html>").format(t=esc(title), d=esc(desc), i=esc(img), u=esc(PUBLIC + "/r/" + cid), to=esc(to))
+            "</body></html>").format(t=esc(title), d=esc(desc), i=esc(img), u=esc(PUBLIC + "/r/" + cid), to=esc(to),
+                                     alt=esc("%s's character and relics at the end of the run" % run["name"]),
+                                     js=json.dumps(to).replace("<", "\\u003c"))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -643,6 +708,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(400, {"error": str(e)})
         except (ValueError, UnicodeDecodeError):
             return self.send(400, {"error": "bad json"})
+        if not row["look"] and row["token"] is not None:
+            row["look"] = look_from_token(row["collection"], row["token"], key)
         now = int(time.time())
         ranks = {}
         with db() as con:
@@ -673,10 +740,12 @@ class Handler(BaseHTTPRequestHandler):
                 "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
                 "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"],
+                "collection": row["collection"], "token": row["token"],
                 "killedBy": row["killed_by"]}, separators=(",", ":"))))
             if secrets.randbelow(50) == 0:
                 forget_old_cards(con, now)
         self.send(200, {"ok": True, "boards": ranks, "share": PUBLIC + "/r/" + share})
+        threading.Thread(target=draw_ahead, args=(share,), daemon=True).start()  # so the preview is ready before the link is posted
 
 
 if __name__ == "__main__":
