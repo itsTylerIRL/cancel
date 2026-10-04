@@ -164,7 +164,7 @@ function tokenKit(kind, attrs, tk){
   const get = t => { const a = attrs.find(x=>x[0]===t); return a ? a[1] : ""; };
   const kit = { tribe:"", cult:0, relic:"", note:[] };
   const core = get("Core").toLowerCase();
-  if(TRIBES.some(t=>t.id===core)){ kit.tribe = core; kit.note.push("core "+core); }
+  if(TRIBES.some(t=>t.id===core)){ kit.tribe = core; kit.note.push("core "+core+" → "+TRIBES.find(t=>t.id===core).name.toLowerCase()); }
   const score = parseInt(get("Drip Score") || "", 10), swag = parseInt(get("Swag Score") || "", 10);
   if(score>0){ kit.cult = clamp(score, 0, 80); kit.note.push("drip "+score+" → +"+kit.cult+" $CULT"); }
   else if(swag>0){ kit.cult = clamp(Math.round(swag/3), 0, 80); kit.note.push("swag "+swag+" → +"+kit.cult+" $CULT"); }
@@ -3143,6 +3143,10 @@ async function init(){
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;
   document.addEventListener("keydown", onKey);
+  // phones: the page never zooms. A pinch or a double tap mid-run left players stuck zoomed in on the map.
+  for(const ev of ["gesturestart","gesturechange","gestureend"]) document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
+  document.addEventListener("touchmove", e=>{ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+  document.addEventListener("dblclick", e=>e.preventDefault());
   document.addEventListener("mousemove", ()=>document.body.classList.remove("kb"), {passive:true}); // the mouse takes over: hide the key highlight
   document.addEventListener("mouseover", ev=>{ // and whatever it points at becomes the selection, so the two never disagree
     const scope = navScope(), el = scope && ev.target.closest && ev.target.closest(".card, .choice, button");

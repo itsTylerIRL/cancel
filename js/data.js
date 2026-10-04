@@ -25,13 +25,15 @@ const TOKEN_MAP = {
    exclusions:{"Race":{"Oni Dark":["Hair", "Hat"], "Oni Light":["Hair", "Hat"], "Alien":["Eyes"], "Reptilian":["Eyes"], "Zombie":["Eyes"]}, "Hat":{"Strawberry Hat":["Earrings"]}, "Eyes":{"Southpark":["Brows"]}}, layerExclusions:{"Costume":["Shirt", "Hat", "Glasses", "Hair", "Face"]} },
 };
 
-/* Starting classes, after the Milady style tribes. relic = what you start holding; stat = flat bonuses. */
+/* Starting classes. The names are types of poster, so they fit a Milady or a Remilio alike; the ids are the Milady
+   "Core" traits they grew out of (a token's Core still picks its tribe), and saves and the leaderboard use the ids.
+   relic = what you start holding; stat = flat bonuses. */
 const TRIBES = [
  {id:"hypebeast", name:"HYPEBEAST", icon:"👟", relic:"chrome_hearts",  desc:"+6% crit chance",        stat:{crit:6}},
- {id:"gyaru",     name:"GYARU",     icon:"💅", relic:"silver_coin",    desc:"+60 starting $CULT",     cult:60},
- {id:"lolita",    name:"LOLITA",    icon:"🎀", relic:"strawberry",     desc:"+10 max HP",             stat:{maxhp:10}},
- {id:"harajuku",  name:"HARAJUKU",  icon:"🌈", relic:"cobain_glasses", desc:"+1 SPD",                 stat:{spd:1}},
- {id:"prep",      name:"PREP",      icon:"🎓", relic:"knife",          desc:"+1 ATK, +1 ARM",         stat:{atk:1, arm:1}},
+ {id:"gyaru",     name:"DEGEN TRADER", icon:"📈", relic:"silver_coin",    desc:"+60 starting $CULT",     cult:60},
+ {id:"lolita",    name:"LOVEBOMBER", icon:"💌", relic:"strawberry",     desc:"+10 max HP",             stat:{maxhp:10}},
+ {id:"harajuku",  name:"ACCELERATIONIST", icon:"⚡", relic:"cobain_glasses", desc:"+1 SPD",                 stat:{spd:1}},
+ {id:"prep",      name:"WARTIME POSTER", icon:"🪖", relic:"knife",          desc:"+1 ATK, +1 ARM",         stat:{atk:1, arm:1}},
 ];
 /* Heat: optional difficulty, one level unlocked per win. Level n applies the first n lines. */
 const HEAT = [
@@ -226,7 +228,7 @@ const BOSSES = [
 
 const NAMES = ["milady sonora","charlotte","ruri","yayo","sismo","miyako","lilith","suki",
   "beatrice","ophelia","junko","aiko","mei","hina","sakura","rin","nene","momo",
-  "remilia","reisen","kagami","pixelady","lolita","gyaru","harajuku","prep","hypebeast","milady 9286"];
+  "remilia","reisen","kagami","pixelady","angel","doll","netizen","poster","hypebeast","milady 9286"];
 
 /* Map events. Each choice: fx list applied on success; with odds, `bad` is applied on failure.
    cost = $CULT paid up front; need:"relic" requires holding one, need:"<set id>" a relic of that set.

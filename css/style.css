@@ -869,3 +869,8 @@ body.calm .portrait canvas,body.calm #hud-avatar,body.calm .pfx,body.calm .pfx i
 .vsboss small{flex-basis:100%;text-align:center;font-size:9px;opacity:.8;}
 .vsboss.solo{border:0;justify-content:center;margin:2px 0 6px;font-size:11px;}
 #combat-log .sum,#map-log .sum{color:#bdbdbd;font-size:11px;} #combat-log .sum b,#map-log .sum b{color:var(--gold);} .sum small{color:var(--dim);font-size:9px;}
+/* phones: no zooming by accident. pan-x pan-y allows scrolling but not pinch or double-tap zoom, and iOS zooms
+   into any field whose text is smaller than 16px, so fields are 16px on touch screens. */
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
+@media (hover:none){ .name-in,.nft-row input,.nft-row select,.meme-in,input,select,textarea{font-size:16px !important;} }

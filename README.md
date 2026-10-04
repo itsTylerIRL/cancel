@@ -23,7 +23,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.
 - **Nights.** Hunters path toward you. Campfires burn out after one rest.
-- **Tribes.** Hypebeast, Gyaru, Lolita, Harajuku, Prep. Each starts with its own relic.
+- **Tribes.** Hypebeast, Degen Trader, Lovebomber, Accelerationist, Wartime Poster. Each starts with its own relic.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 
 A few things that keep you from playing blind: draft cards show what each pick does to your odds against the next boss you can't already beat, every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.
