@@ -76,7 +76,7 @@
       </div>
       <div class="board">
         <div class="dlabels"><span style="color:#c54e71">MILADY MAKER</span><span style="color:#7db8ff">REMILIO</span></div>
-        <div class="map-frame"><div id="map-wrap"><div id="map"></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
+        <div class="map-frame"><div id="map-wrap"><div id="map-inner"><div id="map"></div><div id="you-tok"><img id="you-img" alt="you"></div></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
         <div class="dlabels"><span style="color:#a6ff5e">BONKLER</span><span style="color:#ffd75e">CULT</span></div>
         <div id="tile-info"></div>
         <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
@@ -92,7 +92,7 @@
         <div id="map-log"></div>
       </div>
     </div>
-    <div class="hint">click a tile next to you · arrows / WASD · scroll the map to look around · Enter skips a fight · click your relics to inspect your build</div>
+    <div class="hint">arrows / WASD or click to move · click any explored tile to walk there · 1-9 pick options, Enter confirms, Esc backs out · B shows your build</div>
   </section>
 
   <!-- COMBAT -->
@@ -103,14 +103,14 @@
         <div class="fighter">
           <div class="portrait" id="port-you"><canvas id="combat-you" width="600" height="750"></canvas></div>
           <div class="cname" id="you-name">YOU</div>
-          <div class="hpbar"><div id="chp-you"></div><span id="chp-you-t"></span></div>
+          <div class="hpbar"><i id="chp-you-g"></i><div id="chp-you"></div><span id="chp-you-t"></span></div>
           <div id="combat-relics"></div>
         </div>
         <div class="vs">VS</div>
         <div class="fighter">
           <div class="portrait" id="port-foe"><canvas id="combat-foe" width="4" height="5"></canvas></div>
           <div class="cname" id="foe-name">FOE</div>
-          <div class="hpbar foe"><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
+          <div class="hpbar foe"><i id="chp-foe-g"></i><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
         </div>
       </div>
       <div id="combat-choice" class="hidden"></div>

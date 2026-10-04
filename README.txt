@@ -55,6 +55,9 @@ HOW TO PLAY:
   seen enemies show real tokens when online and fall back to trait layers.
 - Phones: swipe on the map to step, tap an explored tile to walk there,
   bigger tiles (7 across), drafts as a list, and images go to the share sheet.
+- Keyboard: arrows / WASD move, 1-9 pick an option in any dialog, Enter
+  confirms, Esc backs out, B opens your build. Hovering an explored tile
+  previews the walk and its length. Ordinary wins continue on their own.
 - Meme maker on the end screen: top text, bottom text, deep fry, save.
 - Derivatives in the maze: SchizoPosters (text-buried elites, an event),
   Radbro (mirror enemy, the Webring event and legendary), MiladyStation

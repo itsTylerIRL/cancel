@@ -182,7 +182,7 @@ h1.game-title .is{color:var(--neon);text-shadow:3px 3px 0 var(--neon2),-1px -1px
 .tile.moveable{cursor:pointer;box-shadow:inset 0 0 0 2px rgba(243,227,181,.3);}
 .tile.moveable:hover{background:color-mix(in srgb,var(--dc,#555) 28%,#1c1a36);transform:scale(1.07);z-index:2;}
 .tile.you{box-shadow:0 0 0 2px var(--acid),0 0 14px rgba(166,255,94,.5);z-index:3;}
-.tile.you .tok{animation:hop .35s ease-out;background:var(--stage);}
+
 @keyframes hop{0%{transform:translateY(-22%) scale(1.12);}60%{transform:translateY(3%) scale(.97);}}
 .tile.hunter{box-shadow:inset 0 0 0 2px var(--red);background:#2a0a14!important;}
 .tile.hunter span{animation:wobble .7s ease-in-out infinite;}
@@ -389,6 +389,44 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .share pre{margin:0;padding:10px 12px;background:#05050a;border:1px solid var(--line);border-radius:12px;font-family:inherit;
   font-size:12px;line-height:1.5;color:var(--txt);white-space:pre-wrap;word-break:break-word;text-align:left;user-select:all;}
 .share .row{margin-top:8px;}
+/* SMOOTHNESS */
+#map-inner{position:relative;}
+#you-tok{position:absolute;aspect-ratio:1;z-index:4;pointer-events:none;border-radius:9px;
+  box-shadow:0 0 0 2px var(--acid),0 0 14px rgba(166,255,94,.5);background:var(--stage);
+  transition:left .16s cubic-bezier(.3,.9,.4,1),top .16s cubic-bezier(.3,.9,.4,1);}
+#you-tok.snap{transition:none;}
+#you-tok img{display:block;width:100%;height:100%;object-fit:cover;border-radius:8px;}
+#you-tok img.hop{animation:hop .26s ease-out;}
+.tile.you{box-shadow:none;}
+.tile.path{box-shadow:inset 0 0 0 2px rgba(166,255,94,.55);background:color-mix(in srgb,var(--acid) 14%,#211f3d);}
+.chip.bump-up{animation:bumpup .7s ease-out;} .chip.bump-down{animation:bumpdown .7s ease-out;}
+@keyframes bumpup{0%{transform:scale(1.35);background:var(--acid);color:#0b2a00;}100%{transform:none;}}
+@keyframes bumpdown{0%{transform:scale(1.35);background:var(--red);color:#2a0000;}100%{transform:none;}}
+.hpbar.bump{animation:bumpbar .6s ease-out;}
+@keyframes bumpbar{0%{box-shadow:0 0 0 3px var(--acid);}100%{box-shadow:0 0 0 1px var(--line);}}
+.splash{position:fixed;left:0;right:0;top:34%;z-index:110;text-align:center;pointer-events:none;padding:14px 10px;
+  font-family:var(--cute);font-weight:bold;font-size:clamp(30px,8vw,62px);letter-spacing:4px;color:var(--neon2);
+  text-shadow:3px 3px 0 var(--neon),0 0 30px rgba(0,0,0,.9);
+  background:linear-gradient(90deg,transparent,rgba(6,5,14,.86) 20%,rgba(6,5,14,.86) 80%,transparent);
+  animation:splash 1.6s cubic-bezier(.2,.9,.3,1) forwards;}
+.splash small{display:block;font-size:.3em;letter-spacing:5px;color:var(--dim);text-shadow:none;margin-top:4px;text-transform:uppercase;}
+.splash.night{color:#d6c9ff;text-shadow:3px 3px 0 #5a43b8,0 0 30px rgba(0,0,0,.9);}
+.splash.boss{color:#ff8899;text-shadow:3px 3px 0 #7a0018,0 0 40px rgba(255,34,68,.8);}
+@keyframes splash{0%{opacity:0;transform:scaleX(1.6) scaleY(.6);letter-spacing:22px;}14%{opacity:1;transform:none;letter-spacing:4px;}
+  76%{opacity:1;transform:none;}100%{opacity:0;transform:translateY(-14px);}}
+#map.night{transition:filter .6s;}
+#map-wrap{transition:background .6s,box-shadow .6s;}
+#map.night ~ #you-tok{box-shadow:0 0 0 2px var(--lilac),0 0 18px rgba(185,164,255,.7);}
+#screen-combat.active .combat-panel{animation:encounter .32s cubic-bezier(.2,.9,.3,1);}
+@keyframes encounter{0%{transform:scale(1.12);opacity:0;filter:brightness(2.2) blur(3px);}100%{transform:none;opacity:1;filter:none;}}
+.portrait.lunge-r{animation:lunger .2s ease-out;} .portrait.lunge-l{animation:lungel .2s ease-out;}
+@keyframes lunger{40%{transform:translateX(16px) rotate(3deg);}} @keyframes lungel{40%{transform:translateX(-16px) rotate(-3deg);}}
+.hpbar>i{position:absolute;left:0;top:0;bottom:0;width:100%;background:#fff;opacity:.6;border-radius:999px;transition:width .45s ease-out .22s;}
+.hpbar>div{position:relative;}
+#btn-combat-done.auto{position:relative;overflow:hidden;}
+#btn-combat-done.auto::after{content:"";position:absolute;left:0;bottom:0;height:5px;width:100%;background:rgba(255,255,255,.75);
+  transform-origin:left;animation:autobar 1.7s linear forwards;}
+@keyframes autobar{from{transform:scaleX(1);}to{transform:scaleX(0);}}
 /* meme maker */
 .meme-cv{display:block;width:min(100%,340px);height:auto;margin:0 auto 10px;border:3px solid var(--neon);border-radius:14px;box-shadow:var(--sticker);}
 .meme-in{display:block;width:100%;margin:6px 0;font-family:Impact,'Arial Black',sans-serif;font-size:18px;letter-spacing:1px;text-transform:uppercase;

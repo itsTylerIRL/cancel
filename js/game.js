@@ -58,6 +58,10 @@ function burst(emojis){ // a pop of emoji confetti from the middle of the screen
     document.body.appendChild(d); setTimeout(()=>d.remove(), 1100);
   }
 }
+function splash(text, cls){ // a line of big type across the screen for a beat; never blocks input
+  const d = document.createElement("div"); d.className = "splash "+(cls||""); d.innerHTML = text;
+  document.body.appendChild(d); setTimeout(()=>d.remove(), 1700);
+}
 function quake(){ const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); }
 function setMute(m){
   META.mute = m; saveMeta();
@@ -224,7 +228,7 @@ function refreshAvatar(){ // repaint the player everywhere after her relics chan
     if(G!==run || tok!==avatarTok) return;
     run.avatar = cv; run.face = faceToken(cv, "Milady");
     paint($("hud-avatar"), cv); paint($("combat-you"), cv);
-    const t = document.querySelector("#map .tile.you .tok"); if(t) t.src = run.face;
+    $("you-img").src = run.face;
   });
 }
 /* CHEESEWORLD treatment: crushed, oversaturated, grainy, with an Impact caption */
@@ -430,7 +434,7 @@ function newRun(ava, opt){
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
   G.relics.push(tribe.relic); discover(tribe.relic);
   if(META.unlocks.secondchance){ G.relics.push("wartime_pfp"); discover("wartime_pfp"); }
-  oddsCache = {}; shownCult = G.cult;
+  oddsCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
   genMap();
@@ -717,7 +721,7 @@ function mlog(msg, cls){
   while(el.childElementCount > 80) el.firstElementChild.remove();
   el.scrollTop=el.scrollHeight;
 }
-let shownCult = 0;
+let shownCult = 0, shownStats = null;
 function renderHUD(){
   const s = G.stats;
   $("hp-fill").style.width = clamp(100*s.hp/s.maxhp,0,100)+"%";
@@ -733,7 +737,11 @@ function renderHUD(){
   document.body.classList.toggle("danger", !G.over && s.hp <= s.maxhp*0.3);
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
+  const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
   $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"");
+  if(shownStats) for(const el of $("hud-chips").children){ const k = el.title, d = now[k]-shownStats[k]; if(d) el.classList.add(d>0?"bump-up":"bump-down"); }
+  if(shownStats && now.HP!==shownStats.HP) { const hb = $("hp-fill").parentNode; hb.classList.remove("bump"); void hb.offsetWidth; hb.classList.add("bump"); }
+  shownStats = now;
   const dist = DISTRICTS[districtAt(G.px,G.py)];
   const tr = TRIBES.find(t=>t.id===G.tribe);
   $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : "");
@@ -772,7 +780,7 @@ function renderTimeline(){
 function renderMap(){
   const m = $("map");
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)";
-  m.style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
+  $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
   m.innerHTML = "";
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
@@ -785,8 +793,7 @@ function renderMap(){
     if(G.sel===key) d.classList.add("sel");
     if(G.map[y][x]===T.WALL){ if(!fogged) d.classList.add("wall"); m.appendChild(d); continue; }
     if(x===G.px && y===G.py){
-      d.classList.add("you");
-      d.innerHTML = G.face ? "<img class='tok' src='"+G.face+"' alt='you'>" : "🌸";
+      d.classList.add("you"); // the token itself is #you-tok, which slides between tiles
     } else if(!fogged){
       const t = G.map[y][x];
       if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunter"); d.innerHTML="<span>🌚</span>"; d.title="FUD demon"; }
@@ -806,7 +813,15 @@ function renderMap(){
     }
     if(G.seedKnown && !G.seedDug && G.seed && x===G.seed[0] && y===G.seed[1] && !(x===G.px && y===G.py)){ d.classList.add("dig"); d.textContent="⛏️"; }
     if(Math.abs(x-G.px)+Math.abs(y-G.py)===1 && !fogged) d.classList.add("moveable");
-    d.onmouseenter = ()=>{ $("tile-info").innerHTML = tileInfo(x,y); };
+    d.onmouseenter = ()=>{
+      let info = tileInfo(x,y);
+      clearPath();
+      if(!fogged && !busy() && Math.abs(x-G.px)+Math.abs(y-G.py)>1){ // preview the walk a click would take
+        const path = pathTo(x,y);
+        if(path){ for(const [qx,qy] of path) m.children[qy*W+qx].classList.add("path"); info += " · <b>"+path.length+" steps</b>"+(path.length>G.movesLeft ? " <span class='bad'>(past "+(G.phase==="day"?"nightfall":"dawn")+")</span>" : ""); }
+      }
+      $("tile-info").innerHTML = info;
+    };
     d.onclick = ()=>{
       // no hover on touch screens: the first tap on a foe shows its odds, the second commits
       const t = G.map[y][x];
@@ -818,16 +833,29 @@ function renderMap(){
     };
     m.appendChild(d);
   }
-  m.onmouseleave = ()=>{ $("tile-info").innerHTML = tileInfo(G.px,G.py); };
+  m.onmouseleave = ()=>{ clearPath(); $("tile-info").innerHTML = tileInfo(G.px,G.py); };
   $("tile-info").innerHTML = tileInfo(G.px,G.py);
+  placeYou();
   centerMap();
   renderMinimap();
   renderHUD();
 }
 /* keep the player in the middle of the window; you can still scroll or drag away to look around */
+function clearPath(){ document.querySelectorAll("#map .tile.path").forEach(t=>t.classList.remove("path")); }
 let camSnap = true;
+const GAP = 3; // px between tiles, as in the stylesheet
+function placeYou(){
+  const t = $("you-tok"), img = $("you-img"), cell = "((100% - "+(W-1)*GAP+"px) / "+W+" + "+GAP+"px)";
+  if(img.getAttribute("src")!==G.face) img.src = G.face;
+  t.classList.toggle("snap", camSnap); // arriving on this screen: appear in place, don't slide in from the last run
+  t.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
+  const moved = t.dataset.at !== G.px+","+G.py;
+  t.style.left = "calc("+G.px+" * "+cell+")"; t.style.top = "calc("+G.py+" * "+cell+")";
+  t.dataset.at = G.px+","+G.py;
+  if(moved && !camSnap){ img.classList.remove("hop"); void img.offsetWidth; img.classList.add("hop"); }
+}
 function centerMap(){
-  const w = $("map-wrap"), m = $("map"), ts = m.scrollWidth/W;
+  const w = $("map-wrap"), m = $("map-inner"), ts = m.scrollWidth/W;
   if(!ts) return;
   w.scrollTo({ left: m.offsetLeft+(G.px+0.5)*ts-w.clientWidth/2, top: m.offsetTop+(G.py+0.5)*ts-w.clientHeight/2, behavior: camSnap ? "auto" : "smooth" });
   camSnap = false;
@@ -974,8 +1002,8 @@ function startDay(){
     const b = runBoss(bi);
     G.bossUnlocked = bi;
     mlog("⚠️ <b>"+b.name+" IS COMING.</b> "+b.intro+"<br><i>"+b.mechanic+"</i>", "bad");
-    sfx("boss"); quake();
-  }
+    sfx("boss"); quake(); splash("⚠️ "+b.name+"<small>is coming</small>", "boss");
+  } else splash("☀️ DAY "+G.day, "day");
   showBanner();
   renderMap();
 }
@@ -987,6 +1015,7 @@ function showBanner(){
 function startNight(){
   G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
   mlog("🌙 <b>NIGHT falls.</b> FUD demons are hunting. Find a campfire.", "bad");
+  splash("🌙 NIGHT FALLS<small>the FUD demons are hunting</small>", "night");
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
@@ -1262,6 +1291,7 @@ function openBossGate(){
 function bossArrives(){
   const b = runBoss(G.bossUnlocked);
   mlog("⛩️ <b>"+b.name+" HAS ARRIVED.</b> There is nowhere left to post.", "bad");
+  quake();
   bossModal(b, b.name+"<br>HAS ARRIVED", "FACE IT", false);
   $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, forced:true, portrait:G.bossLook[G.bossUnlocked].portrait}); };
 }
@@ -1297,10 +1327,16 @@ function clog(msg, cls){
   if(cls)d.className=cls; d.innerHTML=msg; el.appendChild(d); el.scrollTop=el.scrollHeight;
 }
 function combatBars(you, foe){
-  $("chp-you").style.width=clamp(100*you.hp/you.maxhp,0,100)+"%";
+  for(const [id, c] of [["you",you],["foe",foe]]){
+    const w = clamp(100*c.hp/c.maxhp,0,100)+"%";
+    $("chp-"+id).style.width = w; $("chp-"+id+"-g").style.width = w; // the pale ghost bar catches up a moment later
+  }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
-  $("chp-foe").style.width=clamp(100*foe.hp/foe.maxhp,0,100)+"%";
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+}
+function lunge(side){ // the attacker jabs toward the other portrait
+  const c = $("port-"+side), cls = side==="you" ? "lunge-r" : "lunge-l";
+  c.classList.remove(cls); void c.offsetWidth; c.classList.add(cls);
 }
 function floatText(side, text, cls){
   const d=document.createElement("div"); d.className="float "+(cls||""); d.textContent=text;
@@ -1562,7 +1598,7 @@ function startCombat(foeDef, opts={}){
   };
   const io = {
     log: clog,
-    hit: (side,dmg,crit)=>fx(()=>{ floatText(side, "-"+dmg, crit?"crit":"dmg"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit"); if(crit) quake(); }),
+    hit: (side,dmg,crit)=>fx(()=>{ floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit"); if(crit) quake(); }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
     strip: f=>{
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
@@ -1613,7 +1649,13 @@ function startCombat(foeDef, opts={}){
       floatText("foe", "+"+c+" $CULT", "loot");
       sfx("win"); if(boss) burst("👑✨🌸💖");
       btn.textContent="CONTINUE →";
+      let auto = null;
+      if(!boss){ // ordinary wins move on by themselves; a click or Enter is just faster
+        btn.classList.add("auto");
+        auto = setTimeout(()=>{ if(tok===combatTok && $("screen-combat").classList.contains("active")) btn.click(); }, 1700);
+      }
       btn.onclick=()=>{
+        clearTimeout(auto); btn.classList.remove("auto");
         show("screen-map");
         if(boss) onBossDown(boss, opts.forced);
         else if(rnd() < (opts.elite?0.6:0.25)) openDraft("The fallen drops something.", null, opts.elite?1:0);
@@ -1624,6 +1666,7 @@ function startCombat(foeDef, opts={}){
       G.killedBy = foe.name; G.diedToBoss = !!boss;
       clog("💀 You died.", "bad");
       sfx("lose"); quake();
+      btn.classList.remove("auto");
       btn.textContent="LOG OFF 💀";
       btn.onclick=()=>endRun(false);
     }
@@ -1969,13 +2012,28 @@ function initSwipe(){
 
 /* ---------- keyboard ---------- */
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
+const KEY_BACK = ["draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
 function onKey(ev){
-  if(!G || G.over || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if(!G || ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  if(!$("modal").classList.contains("hidden")){ // 1-9 pick an option, Enter confirms, Esc backs out
+    const p = $("modal-panel"), n = parseInt(ev.key, 10);
+    const opts = [...p.querySelectorAll(".card, .choice, .shop-row .btn[data-i], .bet-row .btn")].filter(el=>!el.disabled);
+    let hit = null;
+    if(n>=1 && n<=opts.length) hit = opts[n-1];
+    else if(ev.key==="Enter" || ev.key===" ") hit = p.querySelector(".btn.big:not(:disabled)") || $("ev-ok") || $("fire-yes");
+    else if(ev.key==="Escape") hit = KEY_BACK.map($).find(el=>el && !el.disabled);
+    if(hit){ ev.preventDefault(); hit.click(); }
+    return;
+  }
+  if(G.over) return;
   if($("screen-combat").classList.contains("active")){
-    const done = $("btn-combat-done");
+    const done = $("btn-combat-done"), ask = $("combat-choice");
+    const n = parseInt(ev.key, 10), picks = [...ask.querySelectorAll(".choice:not(:disabled)")];
+    if(!ask.classList.contains("hidden")){ if(n>=1 && n<=picks.length){ ev.preventDefault(); picks[n-1].click(); } return; }
     if(ev.key==="Enter" || ev.key===" "){ ev.preventDefault(); (done.classList.contains("hidden") ? $("btn-skip") : done).click(); }
     return;
   }
+  if(ev.key==="b" || ev.key==="B"){ openBuild(); return; }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
   stopTravel();
