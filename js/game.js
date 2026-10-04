@@ -967,6 +967,8 @@ function show(id){
   $(id).classList.add("active");
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
   window.scrollTo(0,0);
+  if(id==="screen-avatar") navBegin = true;
+  navRefresh();
 }
 
 /* THE CANCEL IS COMING — engine part 2: movement, time, encounters */
@@ -1489,8 +1491,9 @@ function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
   $("modal").classList.remove("hidden");
+  navRefresh();
 }
-function closeModal(){ $("modal").classList.add("hidden"); setTimeout(pump,0); }
+function closeModal(){ $("modal").classList.add("hidden"); setTimeout(pump,0); setTimeout(navRefresh,0); }
 
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */
 function clog(msg, cls){
@@ -1796,6 +1799,7 @@ function startCombat(foeDef, opts={}){
   show("screen-combat");
   $("btn-combat-done").classList.add("hidden");
   $("combat-ctl").classList.remove("hidden");
+  navSet($("btn-skip"));
   $("combat-log").innerHTML="";
   $("combat-title").textContent = opts.label || (boss ? boss.name : "WILD "+foeDef.name.toUpperCase());
   $("foe-name").textContent = foeDef.name.toUpperCase();
@@ -1844,6 +1848,7 @@ function startCombat(foeDef, opts={}){
     const win = F.win;
     $("port-"+(win?"foe":"you")).classList.add("dead");
     const btn=$("btn-combat-done"); btn.classList.remove("hidden");
+    navSet(btn);
     if(win){
       const c = settleWin(F, opts, clog);
       floatText("foe", "+"+c+" $CULT", "loot");
@@ -1885,10 +1890,11 @@ function startCombat(foeDef, opts={}){
     choiceBox.innerHTML = "<div class='kicker'>"+boss.name+" is at half health — your move</div>"
       + opts2.map((o,i)=>"<button class='choice' data-i='"+i+"'"+(o[2]?"":" disabled")+"><b>"+o[0]+"</b><span>"+o[1]+"</span></button>").join("");
     choiceBox.classList.remove("hidden"); $("combat-ctl").classList.add("hidden");
+    navSet(choiceBox.querySelector(".choice:not(:disabled)"));
     sfx("boss");
     choiceBox.querySelectorAll(".choice").forEach(b=>{ b.onclick=()=>{
       opts2[+b.dataset.i][3](); sfx("click");
-      choiceBox.classList.add("hidden"); $("combat-ctl").classList.remove("hidden");
+      choiceBox.classList.add("hidden"); $("combat-ctl").classList.remove("hidden"); navSet($("btn-skip"));
       combatBars(you,foe); timer=setTimeout(loop, 500);
     };});
   }
@@ -2050,7 +2056,7 @@ function openMeme(run, win, back){
     + "<div class='row'><button class='btn big' id='meme-save'>"+(TOUCH?"SHARE":"SAVE")+" 📸</button><button class='btn small' id='meme-back'>← back</button></div>");
   let cv = null;
   const draw = ()=>{ cv = memeCanvas(run, $("meme-top").value, $("meme-bot").value, $("meme-fried").checked); paint($("meme-cv"), cv); };
-  for(const id of ["meme-top","meme-bot"]){ $(id).oninput = draw; $(id).onkeydown = ev=>ev.stopPropagation(); }
+  for(const id of ["meme-top","meme-bot"]){ $(id).oninput = draw; }
   $("meme-fried").onchange = draw;
   $("meme-save").onclick = ()=>{ sfx("click"); saveImage(cv, run.name+"-meme", "THE CANCEL IS COMING"); };
   $("meme-back").onclick = ()=>{ sfx("click"); back(); };
@@ -2152,6 +2158,7 @@ async function genAvatar(nft){
   $("name-in").placeholder = ava.name;
   renderPicks();
   $("btn-begin").disabled = false;
+  if(navBegin){ navBegin = false; navSet($("btn-begin")); } // arriving here, Enter should start the run
 }
 
 /* ---------- title / unlocks ---------- */
@@ -2227,27 +2234,97 @@ function initSwipe(){
 
 /* ---------- keyboard ---------- */
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
+/* Arrow keys drive everything. On the map they move you; anywhere else they move a highlight between the
+   things you can choose, and Enter picks the highlighted one. The highlight only shows once a key has been used. */
 const KEY_BACK = ["set-close","forge-leave","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
+const ARROWS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] };
+let navSel = null, navAt = { scope:"", index:0 }, navBegin = false;
+function navScope(){ // whichever dialog or screen the keys currently belong to; null on the map
+  if(!$("modal").classList.contains("hidden")) return $("modal-panel");
+  for(const id of ["screen-combat","screen-title","screen-avatar"]) if($(id).classList.contains("active")) return $(id);
+  return null;
+}
+function navItems(scope){
+  return [...scope.querySelectorAll(".card, .choice, button, input, select")].filter(el=>!el.disabled && el.offsetParent!==null);
+}
+function navKey(scope){ const h = scope.querySelector("h2"); return scope.id+"|"+(h ? h.textContent : ""); }
+function navSet(el, scroll){
+  if(navSel && navSel!==el) navSel.classList.remove("ksel");
+  navSel = el;
+  if(!el) return;
+  el.classList.add("ksel");
+  const scope = navScope();
+  if(scope) navAt = { scope:navKey(scope), index:navItems(scope).indexOf(el) };
+  if(document.activeElement!==el){ if(!el.hasAttribute("tabindex") && !/^(BUTTON|INPUT|SELECT)$/.test(el.tagName)) el.tabIndex = -1; el.focus({preventScroll:true}); }
+  if(scroll) el.scrollIntoView({block:"nearest", inline:"nearest"});
+}
+function navRefresh(){ // make sure something sensible is highlighted in the current dialog or screen
+  const scope = navScope();
+  if(!scope){ navSet(null); if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); return; }
+  const items = navItems(scope);
+  if(!items.length) return navSet(null);
+  if(navSel && items.includes(navSel)) return navSet(navSel);
+  // the dialog was redrawn (a toggle, a purchase): stay on the same position; otherwise start on the main choice
+  const same = navAt.scope===navKey(scope) && navAt.index>=0;
+  navSet(same ? items[Math.min(navAt.index, items.length-1)]
+    : scope.querySelector(".card, .choice:not(:disabled)") || items.find(el=>el.classList.contains("big")) || items[0], true);
+}
+function navMove(dx, dy){ // step to the nearest choice in that direction
+  const scope = navScope(), items = navItems(scope);
+  if(!items.length) return;
+  if(!navSel || !items.includes(navSel)) return navRefresh();
+  const a = navSel.getBoundingClientRect(), ax = a.left+a.width/2, ay = a.top+a.height/2;
+  let best = null, bestD = Infinity;
+  for(const el of items){
+    if(el===navSel) continue;
+    const r = el.getBoundingClientRect(), ex = r.left+r.width/2, ey = r.top+r.height/2;
+    const along = dx ? (ex-ax)*dx : (ey-ay)*dy, across = dx ? Math.abs(ey-ay) : Math.abs(ex-ax);
+    if(along < (dx ? 4 : (a.height+r.height)/4)) continue; // not in that direction (up and down must reach another row)
+    if(dx && across > Math.max(a.height, r.height)*0.6) continue; // left and right stay on the same row
+    const d = along + across*2.5;
+    if(d<bestD){ bestD = d; best = el; }
+  }
+  if(!best && dx){ // end of a row: wrap along the reading order
+    const i = items.indexOf(navSel); best = items[(i+(dx>0?1:-1)+items.length)%items.length];
+  }
+  if(best){ navSet(best, true); sfx("step"); }
+}
 function onKey(ev){
-  if(!G || ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
-  if(!$("modal").classList.contains("hidden")){ // 1-9 pick an option, Enter confirms, Esc backs out
-    const p = $("modal-panel"), n = parseInt(ev.key, 10);
-    const opts = [...p.querySelectorAll(".card, .choice, .shop-row .btn[data-i], .bet-row .btn")].filter(el=>!el.disabled);
-    let hit = null;
-    if(n>=1 && n<=opts.length) hit = opts[n-1];
-    else if(ev.key==="Enter" || ev.key===" ") hit = p.querySelector(".btn.big:not(:disabled)") || $("ev-ok") || $("fire-yes");
-    else if(ev.key==="Escape") hit = KEY_BACK.map($).find(el=>el && !el.disabled);
-    if(hit){ ev.preventDefault(); hit.click(); }
+  if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  document.body.classList.add("kb");
+  const scope = navScope(), typing = /^(INPUT|TEXTAREA)$/.test(ev.target.tagName) && ev.target.type!=="checkbox", arrow = ARROWS[ev.key];
+  if(scope){
+    if(typing && !(ev.key==="ArrowUp" || ev.key==="ArrowDown" || ev.key==="Enter" || ev.key==="Escape")) return; // let the field have its keys
+    if(arrow){
+      ev.preventDefault();
+      if(ev.target.tagName==="SELECT" && arrow[0]){ // left and right change a dropdown; up and down leave it
+        const sel = ev.target; sel.selectedIndex = (sel.selectedIndex+arrow[0]+sel.options.length)%sel.options.length; sel.dispatchEvent(new Event("change")); return;
+      }
+      return navMove(arrow[0], arrow[1]);
+    }
+    const n = parseInt(ev.key, 10);
+    if(!typing && n>=1 && n<=9){
+      const opts = [...scope.querySelectorAll(".card, .choice, .shop-row .btn[data-i], .bet-row .btn")].filter(el=>!el.disabled && el.offsetParent!==null);
+      if(n<=opts.length){ ev.preventDefault(); navSet(opts[n-1]); opts[n-1].click(); }
+      return;
+    }
+    if(ev.key==="Enter" || (ev.key===" " && !typing)){
+      ev.preventDefault();
+      if(typing){ if(ev.target.id==="nft-id") $("nft-load").click(); else navMove(0,1); return; }
+      if(!navSel || !navItems(scope).includes(navSel)) navRefresh();
+      if(navSel && navSel.tagName!=="SELECT") navSel.click();
+      return;
+    }
+    if(ev.key==="Escape"){
+      const back = KEY_BACK.map($).find(el=>el && !el.disabled && scope.contains(el));
+      if(back){ ev.preventDefault(); back.click(); }
+      return;
+    }
     return;
   }
-  if(G.over) return;
-  if($("screen-combat").classList.contains("active")){
-    const done = $("btn-combat-done"), ask = $("combat-choice");
-    const n = parseInt(ev.key, 10), picks = [...ask.querySelectorAll(".choice:not(:disabled)")];
-    if(!ask.classList.contains("hidden")){ if(n>=1 && n<=picks.length){ ev.preventDefault(); picks[n-1].click(); } return; }
-    if(ev.key==="Enter" || ev.key===" "){ ev.preventDefault(); (done.classList.contains("hidden") ? $("btn-skip") : done).click(); }
-    return;
-  }
+  // the map
+  if(!G || G.over) return;
+  if(ev.key==="Escape"){ openSettings(); return; }
   if(ev.key==="b" || ev.key==="B"){ openBuild(); return; }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
@@ -2285,7 +2362,6 @@ async function init(){
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("name-in").value = META.name || "";
-  $("name-in").onkeydown = ev=>ev.stopPropagation();
   $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
   if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
   const useNft = ()=>{
@@ -2294,7 +2370,7 @@ async function init(){
     sfx("click"); $("btn-begin").disabled = true; genAvatar({kind, id});
   };
   $("nft-load").onclick = useNft;
-  $("nft-id").onkeydown = ev=>{ ev.stopPropagation(); if(ev.key==="Enter") useNft(); };
+
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
     clearRun();
@@ -2314,6 +2390,12 @@ async function init(){
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;
   document.addEventListener("keydown", onKey);
+  document.addEventListener("mousemove", ()=>document.body.classList.remove("kb"), {passive:true}); // the mouse takes over: hide the key highlight
+  document.addEventListener("mouseover", ev=>{ // and whatever it points at becomes the selection, so the two never disagree
+    const scope = navScope(), el = scope && ev.target.closest && ev.target.closest(".card, .choice, button");
+    if(el && scope.contains(el) && !el.disabled && el!==navSel){ if(navSel) navSel.classList.remove("ksel"); navSel = el; el.classList.add("ksel"); navAt = { scope:navKey(scope), index:navItems(scope).indexOf(el) }; }
+  });
+  navRefresh();
   initSwipe();
   if(TOUCH) document.querySelector("#screen-map .hint").textContent = "swipe or tap a neighbouring tile to move · tap any explored tile to walk there · tap a foe once to scout it · tap the minimap to enlarge";
   window.addEventListener("resize", ()=>{ if(G && !G.over && $("screen-map").classList.contains("active")){ camSnap = true; renderMap(); } });

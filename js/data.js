@@ -119,7 +119,8 @@ const SETS = [
 /* draft odds per rarity, and what a shop charges for one */
 const RARITY = { common:{w:10, price:60}, rare:{w:4, price:100}, legendary:{w:1.2, price:170}, cursed:{w:3, price:120} };
 
-/* nft: the token collection this enemy is drawn from (a key of NFT in game.js). It shows a real token when one
+/* Bonklers are bosses only: no ordinary enemy uses Bonkler art.
+   nft: the token collection this enemy is drawn from (a key of NFT in game.js). It shows a real token when one
    can be fetched and falls back to cfg trait layers with fx otherwise. nftFx is applied to the token art.
    The player never meets an enemy of their own collection (nft, or cfg when there is no nft).
    tier: mon | elite | hunter. home: district indexes it spawns in (the CULT district spawns anything).
@@ -132,8 +133,8 @@ const ENEMIES = [
  {id:"reply", name:"Reply Guy", cfg:"Remilio", tier:"mon", home:[1], hp:18, atk:5, arm:0, spd:8, lck:5, cult:[20,35]},
  {id:"poster", name:"Milady Poster", cfg:"Milady", tier:"mon", home:[0], hp:20, atk:6, arm:0, spd:6, lck:12, cult:[20,35]},
  {id:"deriv", name:"Derivative", cfg:"Milady", tier:"mon", home:[0], trait:"mirror", hp:26, atk:4, arm:0, spd:4, lck:5, cult:[25,40]},
- {id:"sniper", name:"Auction Sniper", cfg:"Bonkler", tier:"mon", home:[2], hp:24, atk:6, arm:1, spd:3, lck:25, cult:[25,40]},
- {id:"paper", name:"Paper Hands", cfg:"Bonkler", tier:"mon", home:[2], hp:16, atk:6, arm:0, spd:9, lck:5, cult:[30,50]},
+ {id:"sniper", name:"Auction Sniper", cfg:"Remilio", tier:"mon", home:[2], hp:24, atk:6, arm:1, spd:3, lck:25, cult:[25,40]},
+ {id:"paper", name:"Paper Hands", cfg:"Milady", nft:"pixelady", fx:"pixel", tier:"mon", home:[2], hp:16, atk:6, arm:0, spd:9, lck:5, cult:[30,50]},
  {id:"bagholder", name:"Carpetbagger", cfg:"Remilio", tier:"elite", home:[1], hp:30, atk:12, arm:0, spd:7, lck:15, cult:[50,80]},
  {id:"elite", name:"Remilio Elite", cfg:"Remilio", tier:"elite", home:[1], hp:42, atk:8, arm:1, spd:5, lck:8, cult:[45,70]},
  {id:"journo", name:"Journo", cfg:"Remilio", tier:"elite", home:[0,1], hp:40, atk:9, arm:1, spd:6, lck:10, cult:[50,75]},
@@ -143,15 +144,15 @@ const ENEMIES = [
  {id:"angel", name:"Spring Angel", cfg:"Milady", nft:"seen", tier:"elite", home:[0,3], hp:34, atk:8, arm:1, spd:6, lck:15, cult:[55,85]},
  {id:"station", name:"Player Character", cfg:"Milady", nft:"station", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
  {id:"schizo", name:"Schizoposter", cfg:"Milady", nft:"schizo", tier:"elite", home:[0], fx:"schizo", hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
- {id:"bonk", name:"Wild Bonkler", cfg:"Bonkler", tier:"elite", home:[2], hp:58, atk:10, arm:2, spd:3, lck:10, cult:[70,110]},
- {id:"rugdev", name:"Rug Dev", cfg:"Bonkler", tier:"elite", home:[2], trait:"thief", hp:46, atk:8, arm:2, spd:5, lck:8, cult:[60,90]},
+ {id:"bonk", name:"Whale", cfg:"Remilio", tier:"elite", home:[2], hp:58, atk:10, arm:2, spd:3, lck:10, cult:[70,110]},
+ {id:"rugdev", name:"Rug Dev", cfg:"Remilio", tier:"elite", home:[2], trait:"thief", hp:46, atk:8, arm:2, spd:5, lck:8, cult:[60,90]},
  {id:"goon", name:"Cheddar Goon", cfg:"Remilio", tier:"mon", home:[1,2], trait:"hard", fx:"fried", caption:"THEY GO HARD",
   picks:{Costume:"Frog", Shirt:"Yakuza Suit", Mouth:"Cigarette"}, hp:22, atk:4, arm:0, spd:5, lck:8, cult:[30,45]},
  {id:"kumicho", name:"Shark Kumicho", cfg:"Remilio", tier:"elite", home:[1,2], trait:"hard", fx:"fried", caption:"BIG CHEESE",
   picks:{Costume:"Shark", Shirt:"Scarface Suit", Mouth:"Cigar"}, hp:44, atk:7, arm:1, spd:5, lck:10, cult:[80,120]},
  {id:"griefer", name:"Griefer", cfg:"Remilio", tier:"mon", home:[0,2], trait:"creeper", fx:"blocky", hp:18, atk:6, arm:0, spd:7, lck:5, cult:[20,35]},
  {id:"bomber", name:"Blimp Bomber", cfg:"Remilio", tier:"elite", home:[0], trait:"bomber", fx:"blocky", hp:36, atk:6, arm:1, spd:4, lck:8, cult:[55,85]},
- {id:"fud", name:"FUD Demon", cfg:"Bonkler", tier:"hunter", home:[], hp:26, atk:6, arm:0, spd:6, lck:10, cult:[40,60]},
+ {id:"fud", name:"FUD Demon", cfg:"Milady", nft:"schizo", fx:"schizo", tier:"hunter", home:[], hp:26, atk:6, arm:0, spd:6, lck:10, cult:[40,60]},
 ];
 
 /* slot: 0 = day 3, 1 = day 6, 2 = day 9. Each run draws one boss per slot. */

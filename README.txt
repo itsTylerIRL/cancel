@@ -54,14 +54,17 @@ HOW TO PLAY:
   NFT table in js/game.js: the collections' own sites, the wsrv.nl image
   proxy (resizes and adds the CORS header), the filebase IPFS gateway,
   arweave.net and a public Ethereum node.
+- Bonklers are bosses only; no ordinary enemy uses Bonkler art.
 - You never fight your own collection: a Milady meets no Miladys, a Remilio
   no Remilios. Pixelady, Radbro, SchizoPoster, MiladyStation and oh.. I've
   seen enemies show real tokens when online and fall back to trait layers.
 - Phones: swipe on the map to step, tap an explored tile to walk there,
   bigger tiles (7 across), drafts as a list, and images go to the share sheet.
-- Keyboard: arrows / WASD move, 1-9 pick an option in any dialog, Enter
-  confirms, Esc backs out, B opens your build. Hovering an explored tile
-  previews the walk and its length. Ordinary wins continue on their own.
+- Keyboard: the arrow keys do everything. On the map they move you; in any
+  menu or screen they move a green highlight between the choices, Enter
+  picks the highlighted one and Esc backs out. 1-9 also pick, B opens your
+  build, Esc on the map opens settings. Hovering an explored tile previews
+  the walk and its length. Ordinary wins continue on their own.
 - Settings (the gear): sound, fight speed, auto-continue, skip easy fights,
   calm mode (no shake, flashing or confetti), and abandon run.
 - Fights you cannot lose and that barely scratch you are settled on the map

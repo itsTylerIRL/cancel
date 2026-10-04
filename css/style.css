@@ -508,6 +508,19 @@ body.calm::before{animation:none;}
 @keyframes biout{0%,86%{opacity:1;}100%{opacity:0;}}
 .portrait.slam{animation:slam .6s cubic-bezier(.2,1.5,.4,1);}
 @keyframes slam{0%{transform:translateX(160%) rotate(14deg) scale(1.3);}70%{transform:translateX(-6%) rotate(-2deg);}100%{transform:none;}}
+/* keyboard highlight: what Enter will pick */
+.card,.choice,button,input,select{outline:none;}
+body.kb .ksel{outline:3px solid var(--acid);outline-offset:3px;box-shadow:0 0 0 6px rgba(166,255,94,.22),0 0 22px rgba(166,255,94,.55)!important;
+  z-index:5;animation:kpulse 1.1s ease-in-out infinite;}
+body.kb .card.ksel,body.kb .choice.ksel{transform:translateY(-4px);border-color:var(--acid);}
+body.kb .card.ksel::after,body.kb .choice.ksel::after,body.kb .btn.ksel::after,body.kb .pick.ksel::after,body.kb .tog.ksel::after{
+  content:"▶";position:absolute;left:-2px;top:50%;transform:translate(-100%,-50%);color:var(--acid);font-size:15px;text-shadow:1px 1px 0 #000;
+  animation:knudge .7s ease-in-out infinite;pointer-events:none;}
+body.kb .card.ksel::after{left:50%;top:-4px;transform:translate(-50%,-100%) rotate(90deg);animation:none;}
+body.kb .btn.ksel,body.kb .pick.ksel,body.kb .tog.ksel,body.kb .choice.ksel{position:relative;}
+@keyframes kpulse{50%{outline-color:#e9ffd0;}}
+@keyframes knudge{50%{transform:translate(-130%,-50%);}}
+body.calm.kb .ksel,body.calm.kb .ksel::after{animation:none;}
 /* meme maker */
 .meme-cv{display:block;width:min(100%,340px);height:auto;margin:0 auto 10px;border:3px solid var(--neon);border-radius:14px;box-shadow:var(--sticker);}
 .meme-in{display:block;width:100%;margin:6px 0;font-family:Impact,'Arial Black',sans-serif;font-size:18px;letter-spacing:1px;text-transform:uppercase;
