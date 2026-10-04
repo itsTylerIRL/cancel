@@ -389,6 +389,13 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .share pre{margin:0;padding:10px 12px;background:#05050a;border:1px solid var(--line);border-radius:12px;font-family:inherit;
   font-size:12px;line-height:1.5;color:var(--txt);white-space:pre-wrap;word-break:break-word;text-align:left;user-select:all;}
 .share .row{margin-top:8px;}
+/* meme maker */
+.meme-cv{display:block;width:min(100%,340px);height:auto;margin:0 auto 10px;border:3px solid var(--neon);border-radius:14px;box-shadow:var(--sticker);}
+.meme-in{display:block;width:100%;margin:6px 0;font-family:Impact,'Arial Black',sans-serif;font-size:18px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--txt);background:#0e0d1b;border:2px solid var(--line);border-radius:12px;padding:10px 12px;outline:none;}
+.meme-in:focus{border-color:var(--pink);}
+.meme-fry{display:flex;gap:8px;align-items:center;justify-content:center;font-size:13px;color:var(--dim);margin-top:8px;cursor:pointer;}
+.meme-fry input{width:18px;height:18px;accent-color:var(--neon);}
 /* achievements */
 #toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:130;display:flex;flex-direction:column;gap:8px;
   width:min(360px,calc(100vw - 24px));pointer-events:none;}
@@ -420,11 +427,34 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .codex-grid .relic-ico{width:34px;height:34px;}
 .relic-ico.unknown{display:flex;align-items:center;justify-content:center;color:#4a4670;font-weight:bold;font-size:15px;background:#0e0d1b;border-style:dashed;}
 .relic-ico.rare{border-color:var(--gold);} .relic-ico.cursed{border-color:var(--lilac);}
-@media (max-width:420px){
+/* PHONES */
+#map-wrap{touch-action:none;} /* a finger on the map swipes to move; the camera follows on its own */
+html,body{overscroll-behavior-y:contain;}
+@media (pointer:coarse){
+  .btn.small,.pick,.mute{min-height:40px;padding-left:15px;padding-right:15px;}
+  .choice{padding:13px 14px;}
+  .shop-row .btn{min-width:64px;}
+}
+@media (max-width:520px){
   .screen{padding:10px;} .panel{padding:14px;}
   #hud-avatar{width:60px;} .relic-ico{width:32px;height:32px;}
   #timeline .day.boss em{display:none;} .brand{font-size:15px;}
-  .vs{font-size:18px;} .card img{height:60px;} .float{font-size:20px;} .float.crit{font-size:28px;}
+  .vs{font-size:18px;} .float{font-size:20px;} .float.crit{font-size:28px;}
+  .tile{font-size:26px!important;}
+  #topbar{margin-bottom:6px;} #timeline{margin-bottom:8px;gap:3px;}
+  #doom{flex:1;text-align:right;}
+  .legend{display:none;} /* the tile info line already names what you tap */
+  #tile-info{font-size:12px;}
+  /* drafts read as a list: one relic per row, art on the left */
+  .draft-cards,.draft-cards.four{grid-template-columns:1fr;gap:10px;}
+  .card{display:grid;grid-template-columns:72px 1fr;gap:0 12px;text-align:left;align-items:center;padding:10px;}
+  .card img{grid-row:1 / span 5;width:72px;height:72px;}
+  .card b{margin:0 0 2px;font-size:14px;} .card span{font-size:12px;}
+  .card .delta,.card .sets{justify-content:flex-start;}
+  .card em{left:46px;}
+  #modal{padding:8px;align-items:flex-end;} #modal-panel{max-height:92vh;border-radius:18px 18px 10px 10px;margin:0;}
+  .share .row .btn{flex:1 1 40%;}
+  #minimap.big{width:86%;}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;}

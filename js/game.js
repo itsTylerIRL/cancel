@@ -316,9 +316,45 @@ function undead(src){ // Pixelady WOTLK: a burned token, revived as a Death Knig
   cx.globalCompositeOperation = "source-over";
   return cv;
 }
-const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1, pixel, undead };
-function foePortrait(def, picks){
-  return compositePortrait(def.cfg, picks).then(cv => PORTRAIT_FX[def.fx] ? PORTRAIT_FX[def.fx](cv, def) : cv);
+function frost(src){ // the Death Knight tint on its own, for art that is already pixelated
+  const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
+  const cx = cv.getContext("2d"); cx.drawImage(src,0,0);
+  cx.globalCompositeOperation = "source-atop"; cx.fillStyle = "rgba(60,150,255,.38)"; cx.fillRect(0,0,cv.width,cv.height);
+  cx.globalCompositeOperation = "source-over";
+  return cv;
+}
+const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1, pixel, undead, frost };
+/* You never fight your own collection: a Milady meets no Miladys, a Radbro no Radbros. */
+function playerCollection(){ return G && G.base && G.base.nft ? G.base.nft.kind : "milady"; }
+function collectionOf(def){ return def.nft || def.cfg.toLowerCase(); }
+function clashes(def){ return collectionOf(def)===playerCollection(); }
+function foePool(tier, district){
+  const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e));
+  const local = ok.filter(e=>district===3 || e.home.includes(district));
+  return local.length ? local : ok;
+}
+/* An enemy's portrait. Enemies from a token collection (def.nft) show a real token, picked by number;
+   if it can't be fetched in time they fall back to trait layers with that collection's look. */
+async function foePortrait(def, picks, tok){
+  if(def.nft && tok){
+    try{
+      const im = await Promise.race([loadNft({kind:def.nft, id:tok}), new Promise((_,rej)=>setTimeout(rej, 9000))]);
+      let cv = document.createElement("canvas"); cv.width=600; cv.height=Math.round(600*im.naturalHeight/im.naturalWidth);
+      cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);
+      if(PORTRAIT_FX[def.nftFx]) cv = PORTRAIT_FX[def.nftFx](cv, def);
+      cv.frame = NFT[def.nft].frame;
+      return cv;
+    }catch(e){ /* offline, or a token that doesn't exist: draw one from layers instead */ }
+  }
+  let cfg = def.cfg;
+  if(cfg.toLowerCase()===playerCollection()){ // the fallback must not look like the player's collection either
+    cfg = cfg==="Milady" ? "Remilio" : "Milady";
+    const keep = SEED; SEED = null; picks = randomPicks(cfg); SEED = keep; // a look is cosmetic: don't spend the run's luck on it
+  }
+  let cv = await compositePortrait(cfg, picks);
+  if(PORTRAIT_FX[def.fx]) cv = PORTRAIT_FX[def.fx](cv, def);
+  cv.cfg = cfg;
+  return cv;
 }
 function paint(el, src){
   el.width=src.width; el.height=src.height;
@@ -407,7 +443,7 @@ function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:3, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
   for(const k of RUN_FIELDS) d[k] = G[k];
-  for(const k in G.foes) d.foes[k] = { id:G.foes[k].def.id, picks:G.foes[k].picks };
+  for(const k in G.foes) d.foes[k] = { id:G.foes[k].def.id, picks:G.foes[k].picks, tok:G.foes[k].tok };
   try{ localStorage.setItem(RUN_KEY, JSON.stringify(d)); }catch(e){}
 }
 function clearRun(){ try{ localStorage.removeItem(RUN_KEY); }catch(e){} }
@@ -427,7 +463,7 @@ async function resumeRun(d){
   G.face = faceToken(G.avatar, "Milady"); G.worn = G.relics.join();
   oddsCache = {}; shownCult = G.cult;
   recalcStats(); G.stats.hp = clamp(d.hp, 1, G.stats.maxhp);
-  for(const k in d.foes) spawnFoe(k, ENEMIES.find(e=>e.id===d.foes[k].id), d.foes[k].picks);
+  for(const k in d.foes) spawnFoe(k, ENEMIES.find(e=>e.id===d.foes[k].id), d.foes[k].picks, d.foes[k].tok);
   G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || pinnedPicks(runBoss(i))));
   paint($("hud-avatar"), G.avatar);
   $("map-log").innerHTML = d.log || "";
@@ -437,11 +473,12 @@ async function resumeRun(d){
   renderMap();
 }
 const FACE_CROP = { Milady:[0.14,0.2,0.72], Remilio:[0.14,0.1,0.72], Bonkler:[0.14,0,0.72] }; // x, y, size as fractions of width
+const FRAME_CROP = { milady:[0.14,0.2,0.72], remilio:[0.14,0.1,0.72], square:[0.12,0.06,0.76], poster:[0.14,0.3,0.72] }; // token art, by framing
 function faceToken(cv, cfg){ // head crop of a portrait, used as a map piece
   try{
     const out = document.createElement("canvas"); out.width=96; out.height=96;
-    const w = cv.width, [fx,fy,fs] = FACE_CROP[cfg||"Milady"];
-    const ox = out.getContext("2d"); ox.imageSmoothingEnabled = cfg!=="Bonkler";
+    const w = cv.width, [fx,fy,fs] = FRAME_CROP[cv.frame] || FACE_CROP[cv.cfg||cfg||"Milady"];
+    const ox = out.getContext("2d"); ox.imageSmoothingEnabled = (cv.cfg||cfg)!=="Bonkler";
     ox.drawImage(cv, w*fx, w*fy, w*fs, w*fs, 0,0,96,96);
     return out.toDataURL();
   }catch(e){ return ""; }
@@ -577,7 +614,8 @@ function recalcStats(){
 }
 
 /* ---------- map generation ---------- */
-const W=21, H=21, VIEW=9, SX=10, SY=10; // maze size, tiles visible across, spawn
+const W=21, H=21, SX=10, SY=10; // maze size, spawn
+const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
 const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10 };
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓" };
@@ -646,13 +684,13 @@ function genMap(){
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     const t = G.map[y][x]; if(t!==T.MON && t!==T.ELITE) continue;
     const d = districtAt(x,y), tier = t===T.ELITE ? "elite" : "mon";
-    const def = choice(ENEMIES.filter(e=>e.tier===tier && (d===3 || e.home.includes(d))));
-    spawnFoe(x+","+y, def, pinnedPicks(def));
+    const def = choice(foePool(tier, d));
+    spawnFoe(x+","+y, def, pinnedPicks(def), def.nft ? randi(1, NFT[def.nft].max) : 0);
   }
   updateFog();
 }
-function spawnFoe(key, def, picks){ // a monster tile's foe and its face, composed in the background
-  const run = G, foe = G.foes[key] = { def, picks, face:"", portrait: foePortrait(def, picks) };
+function spawnFoe(key, def, picks, tok){ // a monster tile's foe and its face, composed in the background
+  const run = G, foe = G.foes[key] = { def, picks, tok, face:"", portrait: foePortrait(def, picks, tok) };
   foe.portrait.then(cv=>{ foe.face = faceToken(cv, def.cfg); if(G===run && !busy()) renderMap(); });
 }
 function spawnBoss(i, picks){
@@ -733,7 +771,7 @@ function renderTimeline(){
 function renderMap(){
   const m = $("map");
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)";
-  m.style.width = (W/VIEW*100)+"%"; // VIEW tiles fit across the window; the rest scrolls
+  m.style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
   m.innerHTML = "";
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
@@ -1184,7 +1222,8 @@ function applyFx(list){
         out.push("burned "+relicById(gone).name+(v?" for +"+v+" $CULT":"")); break;
       }
       case "reveal": for(const row of G.fog) row.fill(false); out.push("the whole map is revealed"); break;
-      case "fight": { const def = ENEMIES.find(e=>e.id===v);
+      case "fight": { let def = ENEMIES.find(e=>e.id===v);
+        if(clashes(def)) def = choice(foePool("elite", 3));
         G.queue.unshift(()=>startCombat(foeInstance(def), {elite:true})); out.push(def.name+" attacks"); break; }
     }
   }
@@ -1511,7 +1550,7 @@ function startCombat(foeDef, opts={}){
   for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), G.avatar);
   const fc = $("combat-foe"); fc.width=4; fc.height=5;
-  (opts.portrait || foePortrait(foeDef, pinnedPicks(foeDef))).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
+  (opts.portrait || foePortrait(foeDef, pinnedPicks(foeDef), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
   sfx(boss ? "boss" : "fight");
 
   let quiet=false, timer=null, F=null;
@@ -1679,32 +1718,89 @@ function endRun(win){
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
   html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
-    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button></div></div>";
+    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button></div></div>";
   openModal(html);
-  const run = G;
-  paint($("end-avatar"), win ? G.avatar : fry(G.avatar, "CANCELLED"));
+  const run = G, txt = resultText(run, win, d);
   countUp($("end-drip"), 0, d, 900);
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
-  $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
-  $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
-  const txt = resultText(run, win, d);
-  $("end-text").textContent = txt;
-  $("end-copy").onclick=async()=>{
-    sfx("click");
-    let ok = false;
-    try{ await navigator.clipboard.writeText(txt); ok = true; }
-    catch(e){ // older browsers and non-secure pages: fall back to selecting a hidden field
-      const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
-      document.body.appendChild(ta); ta.select(); try{ ok = document.execCommand("copy"); }catch(e2){} ta.remove();
+  const wireEnd = first => { // also called when coming back from the meme maker
+    paint($("end-avatar"), win ? run.avatar : fry(run.avatar, "CANCELLED"));
+    if(!first) $("end-drip").textContent = d;
+    $("end-text").textContent = txt;
+    $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
+    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
+    $("end-copy").onclick=async()=>{
+      sfx("click");
+      let ok = false;
+      try{ await navigator.clipboard.writeText(txt); ok = true; }
+      catch(e){ // older browsers and non-secure pages: fall back to selecting a hidden field
+        const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+        document.body.appendChild(ta); ta.select(); try{ ok = document.execCommand("copy"); }catch(e2){} ta.remove();
+      }
+      $("end-copy").textContent = ok ? "copied ✓" : "select the text above";
+    };
+    $("end-x").onclick=()=>{ sfx("click"); window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(txt), "_blank", "noopener"); };
+    $("end-card").onclick=async()=>{ sfx("click"); saveImage(await shareCard(run, win, d), run.name+"-card", txt); };
+    $("end-meme").onclick=()=>{ sfx("click"); openMeme(run, win, ()=>{ openModal(html); wireEnd(false); }); };
+  };
+  wireEnd(true);
+}
+/* hand an image to the phone's share sheet when there is one, otherwise download it */
+function saveImage(cv, name, text){
+  cv.toBlob(async b=>{
+    if(!b) return;
+    const file = new File([b], "the-cancel-is-coming-"+name.replace(/\W+/g,"-")+".png", {type:"image/png"});
+    if(TOUCH && navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], text:text||""}); return; }catch(e){ if(e && e.name==="AbortError") return; }
     }
-    $("end-copy").textContent = ok ? "copied ✓" : "select the text above";
+    const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = file.name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  });
+}
+/* ---------- meme maker: top text, bottom text, deep fry ---------- */
+function memeCanvas(run, top, bottom, fried){
+  let cv = document.createElement("canvas"); cv.width=1080; cv.height=1080;
+  let cx = cv.getContext("2d");
+  const bg = cx.createRadialGradient(540,400,40,540,540,760);
+  bg.addColorStop(0,"#ffe9f4"); bg.addColorStop(0.45,"#f3bfdc"); bg.addColorStop(0.8,"#b89be6"); bg.addColorStop(1,"#8468c9");
+  cx.fillStyle = bg; cx.fillRect(0,0,1080,1080);
+  cx.drawImage(run.avatar, 108, 0, 864, 1080);
+  if(fried){ cv = fry(cv); cx = cv.getContext("2d"); }
+  const caption = (text, yTop, fromBottom) => {
+    text = text.trim().toUpperCase(); if(!text) return;
+    let fs = 120, lines;
+    const wrap = () => { // at most two lines; shrink the type until it fits
+      cx.font = "900 "+fs+"px Impact, Haettenschweiler, 'Arial Narrow Bold', 'Arial Black', sans-serif";
+      const words = text.split(/\s+/); lines = [""];
+      for(const w of words){ const t = (lines[lines.length-1]+" "+w).trim(); if(cx.measureText(t).width<=1000 || !lines[lines.length-1]) lines[lines.length-1]=t; else lines.push(w); }
+      return lines.length<=2 && lines.every(l=>cx.measureText(l).width<=1000);
+    };
+    while(!wrap() && fs>44) fs-=8;
+    cx.textAlign="center"; cx.lineJoin="round"; cx.lineWidth=fs/6; cx.strokeStyle="#000"; cx.fillStyle="#fff";
+    lines.forEach((l,i)=>{
+      const y = fromBottom ? 1080-36-(lines.length-1-i)*fs*1.05 : yTop+fs+i*fs*1.05;
+      cx.strokeText(l,540,y); cx.fillText(l,540,y);
+    });
   };
-  $("end-x").onclick=()=>{ sfx("click"); window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(txt), "_blank", "noopener"); };
-  $("end-card").onclick=async()=>{
-    sfx("click");
-    const cv = await shareCard(run, win, d);
-    cv.toBlob(b=>{ if(!b) return; const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="the-cancel-is-coming-"+run.name.replace(/\W+/g,"-")+".png"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000); });
-  };
+  caption(top, 20, false); caption(bottom, 0, true);
+  cx.font = "bold 22px 'Courier New', monospace"; cx.textAlign="right"; cx.fillStyle="rgba(255,255,255,.75)"; cx.strokeStyle="rgba(0,0,0,.7)"; cx.lineWidth=4;
+  cx.strokeText("THE CANCEL IS COMING", 1064, 30); cx.fillText("THE CANCEL IS COMING", 1064, 30);
+  return cv;
+}
+function openMeme(run, win, back){
+  const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;
+  openModal("<h2>🧀 MEME MAKER</h2><canvas id='meme-cv' class='meme-cv'></canvas>"
+    + "<input id='meme-top' class='meme-in' maxlength='60' placeholder='top text' value=\""+top0+"\">"
+    + "<input id='meme-bot' class='meme-in' maxlength='60' placeholder='bottom text' value=\""+bot0.replace(/"/g,"&quot;")+"\">"
+    + "<label class='meme-fry'><input type='checkbox' id='meme-fried' checked> deep fry</label>"
+    + "<div class='row'><button class='btn big' id='meme-save'>"+(TOUCH?"SHARE":"SAVE")+" 📸</button><button class='btn small' id='meme-back'>← back</button></div>");
+  let cv = null;
+  const draw = ()=>{ cv = memeCanvas(run, $("meme-top").value, $("meme-bot").value, $("meme-fried").checked); paint($("meme-cv"), cv); };
+  for(const id of ["meme-top","meme-bot"]){ $(id).oninput = draw; $(id).onkeydown = ev=>ev.stopPropagation(); }
+  $("meme-fried").onchange = draw;
+  $("meme-save").onclick = ()=>{ sfx("click"); saveImage(cv, run.name+"-meme", "THE CANCEL IS COMING"); };
+  $("meme-back").onclick = ()=>{ sfx("click"); back(); };
+  draw();
 }
 /* the run as a few lines of text and emoji, for pasting anywhere */
 function resultText(run, win, drip){
@@ -1855,6 +1951,21 @@ function openTutorial(){
   $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
 }
 
+/* ---------- touch: swipe on the map to step that way ---------- */
+function initSwipe(){
+  const w = $("map-wrap"); let sx=0, sy=0, st=0;
+  w.addEventListener("touchstart", ev=>{ const t=ev.touches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); }, {passive:true});
+  w.addEventListener("touchend", ev=>{
+    const t = ev.changedTouches[0], dx = t.clientX-sx, dy = t.clientY-sy;
+    if(Date.now()-st>600 || Math.max(Math.abs(dx),Math.abs(dy))<28) return; // a tap or a slow drag, not a swipe
+    ev.preventDefault(); // or the lift would also count as a tap on whatever tile is under the finger
+    if(!G || G.over || busy()) return;
+    stopTravel();
+    const d = Math.abs(dx)>Math.abs(dy) ? [Math.sign(dx),0] : [0,Math.sign(dy)];
+    tryMove(G.px+d[0], G.py+d[1]);
+  });
+}
+
 /* ---------- keyboard ---------- */
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
 function onKey(ev){
@@ -1923,5 +2034,8 @@ async function init(){
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;
   document.addEventListener("keydown", onKey);
+  initSwipe();
+  if(TOUCH) document.querySelector("#screen-map .hint").textContent = "swipe or tap a neighbouring tile to move · tap any explored tile to walk there · tap a foe once to scout it · tap the minimap to enlarge";
+  window.addEventListener("resize", ()=>{ if(G && !G.over && $("screen-map").classList.contains("active")){ camSnap = true; renderMap(); } });
 }
 document.addEventListener("DOMContentLoaded", init);

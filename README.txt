@@ -50,6 +50,12 @@ HOW TO PLAY:
   It relies on outside services: the wsrv.nl image proxy (resizes and adds
   the CORS header), the filebase IPFS gateway, radbro.xyz / schizoposters.xyz
   metadata, arweave.net, and a public Ethereum node for oh.. I've seen.
+- You never fight your own collection: a Milady meets no Miladys, a Radbro
+  no Radbros. Pixelady, Radbro, SchizoPoster, MiladyStation and oh.. I've
+  seen enemies show real tokens when online and fall back to trait layers.
+- Phones: swipe on the map to step, tap an explored tile to walk there,
+  bigger tiles (7 across), drafts as a list, and images go to the share sheet.
+- Meme maker on the end screen: top text, bottom text, deep fry, save.
 - Derivatives in the maze: SchizoPosters (text-buried elites, an event),
   Radbro (mirror enemy, the Webring event and legendary), MiladyStation
   (Player Character enemies, an event, the Memory Card), Pixelady (pixel
