@@ -20,7 +20,7 @@ const relicById = id => RELICS.find(r=>r.id===id);
 
 /* ---------- meta (localStorage) ---------- */
 const META_KEY = "tcc_meta_v1";
-let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null};
+let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
@@ -135,10 +135,24 @@ function basePicks(){
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
   return picks;
 }
+/* Play as a token you hold: the collection's public image, fetched through an image proxy that adds the
+   CORS header the collection sites lack (without it the canvas could not be exported for tokens or share cards). */
+const NFT = {
+  milady:  { name:"Milady",  max:9999, url:id=>"www.miladymaker.net/milady/"+id+".png" },
+  remilio: { name:"Remilio", max:9999, url:id=>"remilio.org/remilio/"+id+".png" },
+};
+const nftCache = {};
+function loadNft(n){
+  const key = n.kind+n.id, src = NFT[n.kind].url(n.id);
+  const get = url => new Promise((res,rej)=>{ const im = new Image(); im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=()=>rej(url); im.src=url; });
+  return nftCache[key] || (nftCache[key] = get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src))
+    .catch(()=>get("https://"+src)).catch(e=>{ delete nftCache[key]; throw e; }));
+}
 async function composeAvatar(base, relicIds){
+  const nftIm = base.nft ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
   const slots = {};
   const add = (slot, item)=>{ if(SINGLE.includes(slot)) slots[slot]=[item]; else (slots[slot]=slots[slot]||[]).push(item); };
-  for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
+  if(!nftIm) for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
   for(const id of relicIds){
     const [cfg, layer, name, tint] = relicById(id).icon;
     const slot = (WEAR[cfg]||{})[layer];
@@ -148,6 +162,12 @@ async function composeAvatar(base, relicIds){
   const ims = await Promise.all(items.map(it=>loadImg(it.url).catch(()=>null)));
   const cv = document.createElement("canvas"); cv.width=600; cv.height=750;
   const cx = cv.getContext("2d");
+  if(nftIm){
+    if(base.nft.kind==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
+      cx.drawImage(nftIm, 0, 0, 600, 750); cx.drawImage(nftIm, -70, -32, 762, 762);
+      cx.drawImage(nftIm, 0, nftIm.height*0.97, nftIm.width, nftIm.height*0.03, -70, 729, 762, 21);
+    } else cx.drawImage(nftIm, 0, 0, 600, 750);
+  }
   let friends = 0, props = 0;
   items.forEach((it,i)=>{
     const im = ims[i]; if(!im) return;
@@ -169,7 +189,8 @@ async function composeAvatar(base, relicIds){
     } else cx.drawImage(im, 0, 0, 600, 750);
   });
   cx.filter = "none";
-  return (setCounts(relicIds).cheese||0) >= 2 ? fry(cv) : cv; // CHEESEWORLD builds get deep fried
+  let out = base.ps1 ? ps1(cv) : cv; // booted up a MiladyStation this run
+  return (setCounts(relicIds).cheese||0) >= 2 ? fry(out) : out; // CHEESEWORLD builds get deep fried
 }
 let avatarTok = 0;
 function refreshAvatar(){ // repaint the player everywhere after her relics change
@@ -217,8 +238,49 @@ function blocky(src){
   cx.drawImage(t,0,0,cv.width,cv.height);
   return cv;
 }
+/* SCHIZOPOSTERS treatment: the picture buried under scattered text */
+const SCHIZO_TEXT = ["THEY ARE WATCHING","post through it","i love you","NETWORK SPIRITUALITY","it's all connected","NGMI","do not reply","the wired","remember what they took","wagmi?","LOG OFF","he is coming","read the manifesto","1000x","trust the plan","who is posting","it's over","we're so back"];
+function schizo(src){
+  const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
+  const cx = cv.getContext("2d");
+  cx.filter = "contrast(1.25) saturate(1.3) hue-rotate(-12deg)"; cx.drawImage(src,0,0); cx.filter = "none";
+  cx.globalCompositeOperation = "source-atop";
+  const u = cv.width/600;
+  for(let i=0;i<16;i++){
+    const t = SCHIZO_TEXT[Math.floor(Math.random()*SCHIZO_TEXT.length)], fs = (14+Math.random()*30)*u;
+    cx.save();
+    cx.translate(Math.random()*cv.width, Math.random()*cv.height); cx.rotate((Math.random()-0.5)*0.9);
+    cx.font = (Math.random()<0.5?"bold ":"")+fs+"px "+(Math.random()<0.5 ? "'Courier New', monospace" : "Impact, 'Arial Black', sans-serif");
+    cx.textAlign = "center"; cx.lineWidth = fs/6; cx.strokeStyle = "rgba(0,0,0,.85)";
+    cx.fillStyle = ["#fff","#ff3b3b","#ffe14a","#7dffb0"][Math.floor(Math.random()*4)];
+    cx.strokeText(t,0,0); cx.fillText(t,0,0);
+    cx.restore();
+  }
+  cx.globalCompositeOperation = "source-over";
+  return cv;
+}
+/* MILADYSTATION treatment: a first-generation console render, low resolution with dithered 15-bit colour */
+function ps1(src){
+  const w = 110, h = Math.round(w*src.height/src.width);
+  const t = document.createElement("canvas"); t.width=w; t.height=h;
+  const tx = t.getContext("2d", {willReadFrequently:true}); tx.drawImage(src,0,0,w,h);
+  try{
+    const img = tx.getImageData(0,0,w,h), d = img.data, bayer = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const i = (y*w+x)*4, n = (bayer[(y&3)*4+(x&3)]-7.5)*1.6;
+      for(let c=0;c<3;c++) d[i+c] = clamp(Math.round((d[i+c]+n)/8)*8, 0, 255);
+      d[i+3] = d[i+3]>110 ? 255 : 0;
+    }
+    tx.putImageData(img,0,0);
+  }catch(e){ /* a canvas that can't be read still gets the low resolution */ }
+  const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
+  const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false;
+  cx.drawImage(t,0,0,cv.width,cv.height);
+  return cv;
+}
+const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1 };
 function foePortrait(def, picks){
-  return compositePortrait(def.cfg, picks).then(cv => def.fx==="fried" ? fry(cv, def.caption) : def.fx==="blocky" ? blocky(cv) : cv);
+  return compositePortrait(def.cfg, picks).then(cv => PORTRAIT_FX[def.fx] ? PORTRAIT_FX[def.fx](cv, def) : cv);
 }
 function paint(el, src){
   el.width=src.width; el.height=src.height;
@@ -302,7 +364,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v3";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:3, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -393,6 +455,7 @@ function relicPool(){
 function setCounts(relics){
   const n = {};
   for(const id of relics) for(const k of relicById(id).set) n[k] = (n[k]||0)+1;
+  if(relics.includes("webring")) for(const k in n) n[k]++; // the webring links in to every set you already hold
   return n;
 }
 function computeStats(relics){
@@ -1067,6 +1130,11 @@ function applyFx(list){
         if(G.movesLeft<=0 && !G.queue.includes(endPhase)) G.queue.push(endPhase);
         break;
       case "relic": G.queue.unshift(()=>openDraft("The timeline provides.", null, v||0)); out.push("a relic draft"); break;
+      case "give": { const r = relicById(v);
+        if(hasRelic(v)) out.push("you already hold "+r.name);
+        else { G.queue.unshift(()=>acquireRelic(r, old=>{ closeModal(); mlog("Took <b>"+r.name+"</b> — "+r.desc+(old?" <i>(dropped "+old.name+")</i>":""), "good"); renderMap(); }, ()=>closeModal())); out.push(r.name); }
+        break; }
+      case "ps1": G.base.ps1 = true; refreshAvatar(); out.push("you are low-poly now"); break;
       case "seed":
         if(G.seedDug) out.push("someone already dug it up. it was you");
         else { G.seedKnown = true; out.push("the seed phrase is marked on your map"); }
@@ -1170,7 +1238,7 @@ function shake(side){
 const NOIO = { log(){}, hit(){}, float(){}, strip(){} };
 function fightEngine(foeDef, opts, io){
   const boss = opts.boss || null;
-  const st = { relics:[...G.relics], cult:G.cult }; // what the fight may change; the caller writes it back
+  const st = { relics:[...G.relics], cult:G.cult, memUsed:!!G.memUsed }; // what the fight may change; the caller writes it back
   let base = G.stats;
   // THE CANCEL: cancels one relic at fight start
   if(boss && boss.id==="cancel" && st.relics.length){
@@ -1281,6 +1349,12 @@ function fightEngine(foeDef, opts, io){
     if(you.wartime && act("wartime_pfp")){
       you.wartime=false; you.hp=1; io.log("🕊️ <b>WARTIME PFP</b> saves you!", "good");
       io.float("you","saved!","heal");
+      return false;
+    }
+    if(act("memcard") && !st.memUsed){
+      st.memUsed = true; you.hp = Math.ceil(you.maxhp/2);
+      io.log("💾 <b>MEMORY CARD.</b> Save state loaded. That was your only one.", "good");
+      io.float("you","reloaded!","heal");
       return false;
     }
     if(act("reserve")){
@@ -1431,7 +1505,7 @@ function startCombat(foeDef, opts={}){
     const win = F.win;
     $("port-"+(win?"foe":"you")).classList.add("dead");
     const btn=$("btn-combat-done"); btn.classList.remove("hidden");
-    G.relics = [...F.st.relics]; G.cult = F.st.cult;
+    G.relics = [...F.st.relics]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
     if(win){
       G.kills++;
       achieve("first");
@@ -1462,6 +1536,7 @@ function startCombat(foeDef, opts={}){
       };
     } else {
       G.stats.hp = 0;
+      G.killedBy = foe.name; G.diedToBoss = !!boss;
       clog("💀 You died.", "bad");
       sfx("lose"); quake();
       btn.textContent="LOG OFF 💀";
@@ -1558,19 +1633,47 @@ function endRun(win){
     html += "<div class='next-unlock'><div class='stat-line'><span>"+(can?"you can afford":"next unlock")+"</span><b>"+next.name+" · "+Math.min(META.drip,next.cost)+" / "+next.cost+"</b></div>"
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
-  html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button><button class='btn small' id='end-card'>save card 📸</button></div>";
+  html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
+    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button></div></div>";
   openModal(html);
+  const run = G;
   paint($("end-avatar"), win ? G.avatar : fry(G.avatar, "CANCELLED"));
   countUp($("end-drip"), 0, d, 900);
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
-  $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(); };
+  $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
   $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
-  const run = G;
+  const txt = resultText(run, win, d);
+  $("end-text").textContent = txt;
+  $("end-copy").onclick=async()=>{
+    sfx("click");
+    let ok = false;
+    try{ await navigator.clipboard.writeText(txt); ok = true; }
+    catch(e){ // older browsers and non-secure pages: fall back to selecting a hidden field
+      const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select(); try{ ok = document.execCommand("copy"); }catch(e2){} ta.remove();
+    }
+    $("end-copy").textContent = ok ? "copied ✓" : "select the text above";
+  };
+  $("end-x").onclick=()=>{ sfx("click"); window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(txt), "_blank", "noopener"); };
   $("end-card").onclick=async()=>{
     sfx("click");
     const cv = await shareCard(run, win, d);
-    cv.toBlob(b=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="the-cancel-is-coming-"+run.name.replace(/\W+/g,"-")+".png"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000); });
+    cv.toBlob(b=>{ if(!b) return; const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="the-cancel-is-coming-"+run.name.replace(/\W+/g,"-")+".png"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000); });
   };
+}
+/* the run as a few lines of text and emoji, for pasting anywhere */
+function resultText(run, win, drip){
+  const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
+  const bosses = [0,1,2].map(i => i<run.bossesBeaten ? "🟩" : (!win && run.diedToBoss && i===run.bossesBeaten ? "🟥" : "⬛")).join("");
+  const days = "▰".repeat(run.day)+"▱".repeat(9-run.day);
+  const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.icon).join("");
+  const url = /^https?:/.test(location.protocol) ? location.origin+location.pathname : "";
+  return [
+    "THE CANCEL IS COMING "+(run.daily ? "📅 "+run.daily : "🎲")+(run.heat ? " 🔥"+run.heat : ""),
+    run.name+" · "+tribe.icon+" "+tribe.name,
+    bosses+" "+(win ? "👑 TIMELINE SAVED" : "💀 cancelled by "+(run.killedBy||"the timeline")+", day "+run.day),
+    days+" "+(sets ? sets+" · " : "")+run.relics.length+" relics · "+drip+" DRIP",
+  ].concat(url ? [url] : []).join("\n");
 }
 /* a 1200x630 image of the run, for posting */
 async function shareCard(run, win, drip){
@@ -1630,9 +1733,16 @@ function renderPicks(){
       + "<div class='note'>"+(PICK.heat ? HEAT.slice(0,PICK.heat).join(" · ")+" · +"+25*PICK.heat+"% DRIP" : "beat THE CANCEL to unlock the next heat")+"</div>";
   $("heat-row").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.heat=+b.dataset.h; sfx("click"); renderPicks(); }; });
 }
-async function genAvatar(){
+async function genAvatar(nft){
   const tok = ++avaTok;
   const ava = { picks: basePicks(), name: choice(NAMES) };
+  if(nft){
+    $("nft-msg").textContent = "loading "+NFT[nft.kind].name+" #"+nft.id+"…";
+    const ok = await loadNft(nft).then(()=>true, ()=>false);
+    if(tok!==avaTok) return;
+    $("nft-msg").textContent = ok ? "playing as "+NFT[nft.kind].name+" #"+nft.id+" — reroll to go back to a random Milady" : "couldn't load that one — check the number and your connection";
+    if(ok){ ava.picks.nft = nft; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
+  } else $("nft-msg").textContent = "";
   ava.canvas = await composeAvatar(ava.picks, []);
   if(tok!==avaTok) return;
   AVA = ava;
@@ -1743,6 +1853,14 @@ async function init(){
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
+  if(META.nft){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
+  const useNft = ()=>{
+    const kind = $("nft-kind").value, id = parseInt($("nft-id").value, 10);
+    if(!(id>=0 && id<=NFT[kind].max)){ $("nft-msg").textContent = "enter a token number from 0 to "+NFT[kind].max; return; }
+    sfx("click"); $("btn-begin").disabled = true; genAvatar({kind, id});
+  };
+  $("nft-load").onclick = useNft;
+  $("nft-id").onkeydown = ev=>{ ev.stopPropagation(); if(ev.key==="Enter") useNft(); };
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
     clearRun();

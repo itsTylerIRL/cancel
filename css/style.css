@@ -379,6 +379,16 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .tile:not(.fog):not(.wall){cursor:pointer;}
 #minimap{pointer-events:auto;cursor:zoom-in;transition:width .2s;}
 #minimap.big{width:min(70%,360px);cursor:zoom-out;opacity:1;}
+.nft-row{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--dim);margin:6px 0 2px;}
+.nft-row select,.nft-row input{font-family:inherit;font-size:13px;color:var(--txt);background:#0e0d1b;border:2px solid var(--line);
+  border-radius:999px;padding:6px 10px;outline:none;}
+.nft-row input{width:86px;text-align:center;}
+.nft-row select:focus,.nft-row input:focus{border-color:var(--pink);}
+#nft-msg{min-height:18px;margin:2px 0 8px;font-size:11px;}
+.share{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;}
+.share pre{margin:0;padding:10px 12px;background:#05050a;border:1px solid var(--line);border-radius:12px;font-family:inherit;
+  font-size:12px;line-height:1.5;color:var(--txt);white-space:pre-wrap;word-break:break-word;text-align:left;user-select:all;}
+.share .row{margin-top:8px;}
 /* achievements */
 #toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:130;display:flex;flex-direction:column;gap:8px;
   width:min(360px,calc(100vw - 24px));pointer-events:none;}

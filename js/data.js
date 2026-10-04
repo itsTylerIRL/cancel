@@ -93,6 +93,8 @@ const RELICS = [
  {id:"cigarette", name:"Kumicho's Cigarette", rar:"common", set:["cheese"], desc:"Your crits deal +4 damage.", icon:["Remilio", "Mouth", "Cigarette"], tags:[]},
  {id:"dino", name:"Dino Enforcer", rar:"common", set:["cheese", "squad"], desc:"Companion: bites for 3 every other tick.", icon:["Remilio", "Friend", "Dino"], tags:[]},
  {id:"blockhead", name:"Blockhead", rar:"common", set:["bonkler"], desc:"Minimum viable metaverse: +2 ARM, +8 max HP.", icon:["Bonkler", "Head", "Lego Head"], tags:[]},
+ {id:"webring", name:"Radbro Webring", rar:"legendary", set:[], desc:"Counts as one more relic toward every set you already hold.", icon:["Milady", "Glasses", "Sunglasses"], tags:[]},
+ {id:"memcard", name:"Memory Card", rar:"rare", set:["bonkler"], desc:"MiladyStation save state: once per run, lethal damage reloads you at half HP.", icon:["Bonkler", "Head", "PlayStation Vita"], tags:[]},
  {id:"lain", name:"Lain", rar:"cursed", set:["schizo"], desc:"25% dodge chance.", icon:["Remilio", "Background", "Lain Room"], tags:["blackmarket"]},
  {id:"amogus", name:"Amogus", rar:"cursed", set:["squad"], desc:"Companion: 20% chance to one-shot non-bosses.", icon:["Remilio", "Friend", "Amogus"], tags:["blackmarket"]},
  {id:"gold_ak", name:"Gold AK47", rar:"cursed", set:["armed"], desc:"+13 ATK.", icon:["Remilio", "Weapon", "AK47 Gold"], tags:["blackmarket"]},
@@ -119,7 +121,8 @@ const RARITY = { common:{w:10, price:60}, rare:{w:4, price:100}, legendary:{w:1.
 /* tier: mon | elite | hunter. home: district indexes it spawns in (the CULT district spawns anything).
    trait "mirror" copies part of your ATK, "thief" steals $CULT on hit (kill it to get it back),
    "hard" gains ATK every 3rd tick, "creeper" blows up when it dies, "bomber" bombs you every 4th tick.
-   fx "fried" = CHEESEWORLD deep-fry with a caption, "blocky" = MILADYCRAFT blocks. picks pin trait layers. */
+   fx "fried" = CHEESEWORLD deep-fry with a caption, "blocky" = MILADYCRAFT blocks, "schizo" = SCHIZOPOSTERS
+   text overlay, "ps1" = MILADYSTATION low-poly dither. picks pin trait layers. */
 const ENEMIES = [
  {id:"grunt", name:"Remilio Grunt", cfg:"Remilio", tier:"mon", home:[1], hp:22, atk:5, arm:0, spd:4, lck:5, cult:[20,35]},
  {id:"reply", name:"Reply Guy", cfg:"Remilio", tier:"mon", home:[1], hp:18, atk:5, arm:0, spd:8, lck:5, cult:[20,35]},
@@ -130,7 +133,8 @@ const ENEMIES = [
  {id:"bagholder", name:"Carpetbagger", cfg:"Remilio", tier:"elite", home:[1], hp:30, atk:12, arm:0, spd:7, lck:15, cult:[50,80]},
  {id:"elite", name:"Remilio Elite", cfg:"Remilio", tier:"elite", home:[1], hp:42, atk:8, arm:1, spd:5, lck:8, cult:[45,70]},
  {id:"journo", name:"Journo", cfg:"Milady", tier:"elite", home:[0], hp:40, atk:9, arm:1, spd:6, lck:10, cult:[50,75]},
- {id:"schizo", name:"Schizoposter", cfg:"Milady", tier:"elite", home:[0], hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
+ {id:"station", name:"MiladyStation", cfg:"Milady", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
+ {id:"schizo", name:"Schizoposter", cfg:"Milady", tier:"elite", home:[0], fx:"schizo", hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
  {id:"bonk", name:"Wild Bonkler", cfg:"Bonkler", tier:"elite", home:[2], hp:58, atk:10, arm:2, spd:3, lck:10, cult:[70,110]},
  {id:"rugdev", name:"Rug Dev", cfg:"Bonkler", tier:"elite", home:[2], trait:"thief", hp:46, atk:8, arm:2, spd:5, lck:8, cult:[60,90]},
  {id:"goon", name:"Cheddar Goon", cfg:"Remilio", tier:"mon", home:[1,2], trait:"hard", fx:"fried", caption:"THEY GO HARD",
@@ -188,7 +192,7 @@ const NAMES = ["milady sonora","charlotte","ruri","yayo","sismo","miyako","lilit
 
 /* Map events. Each choice: fx list applied on success; with odds, `bad` is applied on failure.
    cost = $CULT paid up front; need:"relic" requires holding one, need:"<set id>" a relic of that set.
-   fx: cult n | cultpct n | hp n | maxhp n | atk n | spd n | atkboss | moves n | relic [luck] | burn n | reveal | fight id | seed */
+   fx: cult n | cultpct n | hp n | maxhp n | atk n | spd n | atkboss | moves n | relic [luck] | burn n | reveal | fight id | seed | give relicId | ps1 */
 const EVENTS = [
  { id:"rave", name:"MILADY RAVE", icon:"🪩", text:"A basement in London. The bass is doing something to the timeline.",
    choices:[ {label:"dance till dawn", hint:"heal 25 HP, lose 3 moves", fx:[["hp",25],["moves",-3]]},
@@ -230,6 +234,16 @@ const EVENTS = [
    choices:[ {label:"mine all night", hint:"+70 $CULT, lose 4 moves", fx:[["cult",70],["moves",-4]]},
              {label:"build a base", hint:"+10 max HP forever", fx:[["maxhp",10]]},
              {label:"ask about the seed phrase", hint:"marks where it is buried on your map", fx:[["seed"]]} ] },
+ { id:"webring", name:"RADBRO WEBRING", icon:"🕶️", text:"The brother community, one link over on the webring. A radbro waves you in.",
+   choices:[ {label:"join the webring · 80 $CULT", cost:80, hint:"take the Radbro Webring relic: +1 toward every set you hold", fx:[["give","webring"]]},
+             {label:"hang with the radbros", hint:"heal 20 HP, +40 $CULT", fx:[["hp",20],["cult",40]]} ] },
+ { id:"station", name:"MILADYSTATION", icon:"🎮", text:"A grey console hums on the floor. The disc is already in.",
+   choices:[ {label:"boot it up", hint:"+8 max HP forever. you are low-poly now", fx:[["maxhp",8],["ps1"]]},
+             {label:"save your game · 70 $CULT", cost:70, hint:"take the Memory Card relic: one free reload from death", fx:[["give","memcard"]]},
+             {label:"blow on the disc", hint:"50%: +80 $CULT · 50%: nothing", odds:0.5, fx:[["cult",80]], bad:[]} ] },
+ { id:"schizopost", name:"SCHIZOPOSTERS", icon:"📡", text:"A wall of text over an anime girl. It's all connected. You almost see it.",
+   choices:[ {label:"read all of it", hint:"reveal the whole map, take 5 damage", fx:[["reveal"],["hp",-5]]},
+             {label:"post back", hint:"60%: +1 ATK and +1 SPD forever · 40%: lose 3 moves", odds:0.6, fx:[["atk",1],["spd",1]], bad:[["moves",-3]]} ] },
  { id:"treasury", name:"THE TREASURY", icon:"🏦", text:"A dev with the keys is acting strange. September is coming.",
    choices:[ {label:"confront the dev", hint:"fight a Rug Dev (elite)", fx:[["fight","rugdev"]]},
              {label:"look away", hint:"lose 30% of your $CULT", fx:[["cultpct",-30]]} ] },

@@ -37,6 +37,13 @@
       <h2>YOUR MILADY</h2>
       <canvas id="avatar-canvas" width="600" height="750"></canvas>
       <div class="avatar-name" id="avatar-name">…</div>
+      <div class="nft-row">
+        <span>play as your</span>
+        <select id="nft-kind"><option value="milady">Milady</option><option value="remilio">Remilio</option></select>
+        <input id="nft-id" type="number" min="0" max="9999" placeholder="#" inputmode="numeric">
+        <button id="nft-load" class="btn small">load</button>
+      </div>
+      <div id="nft-msg" class="note"></div>
       <div class="kicker">tribe</div>
       <div class="pick-row" id="tribes"></div>
       <div id="tribe-desc"></div>

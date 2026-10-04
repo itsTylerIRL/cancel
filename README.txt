@@ -41,7 +41,16 @@ HOW TO PLAY:
   and saved with the run, so reloading replays the same outcome.
 - Daily run: one seed per (UTC) day, same maze and same luck for everyone.
 - Heat: each win unlocks a harder optional modifier worth more DRIP.
-- The end screen can save a share card (PNG) of your Milady and build.
+- The end screen gives a copyable emoji result, a share-to-X button and a
+  share card (PNG) of your Milady and build.
+- Play as your own NFT: enter a Milady or Remilio token number on the
+  avatar screen. The token image is fetched from the collection's public
+  URL through the wsrv.nl image proxy (it adds the CORS header those sites
+  lack). Ownership is not checked. To drop the third-party proxy, serve the
+  images from your own domain and change loadNft() in js/game.js.
+- Derivatives: Schizoposters (text-buried elites and an event), the Radbro
+  Webring (event and a legendary that adds +1 to every set you hold), and
+  MiladyStation (low-poly enemies, an event, and the Memory Card relic).
 - Death converts your run into DRIP, spent on permanent unlocks.
 - Achievements are permanent too. Each one adds a relic to the loot pool
   of every later run (the list is on the title screen and in js/data.js).
