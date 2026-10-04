@@ -152,3 +152,12 @@ SIGN IN WITH REMILIANET (optional)
     https://cancel-api.tylerirl.com/api/auth/callback
   On the droplet, in /etc/cancel-api.env:  CANCEL_RN_ON=1   (the button stays hidden until this is set)
     CANCEL_RN_CLIENT=tpa-cancel-game   CANCEL_RN_SECRET=...  (only if the client is a confidential one)
+
+SHARE LINKS WITH THE RUN'S OWN CARD
+  Every posted run gets a link like https://cancel-api.tylerirl.com/r/k3f9x2ab. Link previews (X, Discord) show
+  that run's card; people who open it are forwarded to the game on the same map. The card is drawn on the server
+  by server/card.py (Pillow) from the run's data and the game's own art: nothing is uploaded. Cards last 90 days.
+  server/card_spec.json holds the layer rules and relic art list, exported from the game's source. After changing
+  relics or layers run:  node server/make_spec.mjs   and copy card_spec.json (and any new art) to the droplet.
+  Droplet needs: python3-pil, /opt/cancel-api/{card.py,card_spec.json,fonts/}, the art at /opt/cancel-api/assets/img
+  (CANCEL_ASSETS), and the /r/ location in nginx.

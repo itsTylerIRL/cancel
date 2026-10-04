@@ -11,6 +11,8 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   GET  /api/hall    the best run of every daily map
   GET  /api/auth/login?return=URL   start "Sign in with RemiliaNET" (OIDC Authorization Code + PKCE)
   GET  /api/auth/callback           RemiliaNET sends the player back here; they return to the game signed in
+  GET  /r/ID        a run's share link: link previews get that run's card, people are forwarded to the same map
+  GET  /api/card/ID.png   the card, drawn here from the run's data (card.py); nothing is uploaded
   GET  /api/health
 
 The game runs entirely in the browser, so a score cannot be proven. Submissions are
@@ -35,6 +37,11 @@ RN_API = os.environ.get("CANCEL_RN_API", "https://www.remilia.net/api/v1")
 RN_CLIENT = os.environ.get("CANCEL_RN_CLIENT", "tpa-cancel-game")
 RN_SECRET = os.environ.get("CANCEL_RN_SECRET", "")  # empty for a public login client, which has none
 RN_REDIRECT = os.environ.get("CANCEL_RN_REDIRECT", "https://cancel-api.tylerirl.com/api/auth/callback")
+SITE = os.environ.get("CANCEL_SITE", "https://cancel.tylerirl.com/")           # where share links forward to
+PUBLIC = os.environ.get("CANCEL_PUBLIC", "https://cancel-api.tylerirl.com")   # this service, as the world sees it
+CARDS = os.environ.get("CANCEL_CARDS", os.path.join(os.path.dirname(DB) or ".", "cards"))  # drawn cards, kept on disk
+CARD_DAYS = 90
+RE_CARD = re.compile(r"^[a-z0-9]{8}$")
 RN_ON = os.environ.get("CANCEL_RN_ON") == "1"  # the game only offers sign-in once RemiliaNET has approved the client
 SESSION_DAYS = 30
 RE_HANDLE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
@@ -66,6 +73,9 @@ CREATE TABLE IF NOT EXISTS runs (
   score INTEGER NOT NULL, day INTEGER NOT NULL, win INTEGER NOT NULL, bosses INTEGER NOT NULL, kills INTEGER NOT NULL,
   heat INTEGER NOT NULL, tribe TEXT NOT NULL, collection TEXT NOT NULL, relics TEXT NOT NULL, killed_by TEXT NOT NULL,
   daily INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cards (
+  id TEXT PRIMARY KEY, created INTEGER NOT NULL, data TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
@@ -334,7 +344,10 @@ def parse_run(d):
             raise Bad("bad seed")
         boards.append("seed:" + seed)
 
-    row = dict(player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
+    cult = d.get("cult", 0)
+    cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else 0
+    row = dict(cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
+               player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
     return boards, row
@@ -406,12 +419,86 @@ def hall(limit):
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
 
 
+def forget_old_cards(con, now):
+    old = [r[0] for r in con.execute("SELECT id FROM cards WHERE created<?", (now - CARD_DAYS * 86400,))]
+    con.execute("DELETE FROM cards WHERE created<?", (now - CARD_DAYS * 86400,))
+    for cid in old:
+        try:
+            os.remove(os.path.join(CARDS, cid + ".png"))
+        except OSError:
+            pass
+
+
+def card_run(cid):
+    if not RE_CARD.match(cid):
+        return None
+    with db() as con:
+        r = con.execute("SELECT data FROM cards WHERE id=?", (cid,)).fetchone()
+    return json.loads(r[0]) if r else None
+
+
+_draw_lock = threading.Lock()  # one card at a time: drawing is the only heavy thing this service does
+
+
+def card_png(cid):
+    path = os.path.join(CARDS, cid + ".png")
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        pass
+    run = card_run(cid)
+    if not run:
+        return None
+    with _draw_lock:
+        if not os.path.exists(path):
+            import card  # Pillow is only needed here
+            png = card.render(run, cid)
+            os.makedirs(CARDS, exist_ok=True)
+            with open(path + ".tmp", "wb") as f:
+                f.write(png)
+            os.replace(path + ".tmp", path)
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def esc(v):
+    return str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def share_page(cid, run):
+    """What a link preview reads. People are forwarded to the game, onto the same map."""
+    to = SITE + ("?daily=" + run["daily"] if run.get("daily") else "?seed=" + run["seed"] if run.get("seed") else "")
+    title = "%s %s · %d drip" % (run["name"], "saved the timeline" if run["win"] else "was cancelled on day %d" % run["day"], run["score"])
+    desc = "THE CANCEL IS COMING, a neochibi roguelite autobattler. " + (
+        "Play the same map." if run.get("daily") or run.get("seed") else "9 days. 3 bosses. One timeline.")
+    img = "%s/api/card/%s.png" % (PUBLIC, cid)
+    return ("<!doctype html><html><head><meta charset='utf-8'><title>{t}</title>"
+            "<meta property='og:type' content='website'><meta property='og:title' content=\"{t}\">"
+            "<meta property='og:description' content=\"{d}\"><meta property='og:image' content=\"{i}\">"
+            "<meta property='og:image:width' content='1200'><meta property='og:image:height' content='630'>"
+            "<meta property='og:url' content=\"{u}\"><meta name='twitter:card' content='summary_large_image'>"
+            "<meta name='twitter:title' content=\"{t}\"><meta name='twitter:description' content=\"{d}\">"
+            "<meta name='twitter:image' content=\"{i}\"><meta name='theme-color' content='#8be9fd'>"
+            "<meta http-equiv='refresh' content=\"0;url={to}\"></head>"
+            "<body style='background:#000;color:#8be9fd;font-family:monospace'><a style='color:#8be9fd' href=\"{to}\">enter the timeline</a>"
+            "</body></html>").format(t=esc(title), d=esc(desc), i=esc(img), u=esc(PUBLIC + "/r/" + cid), to=esc(to))
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "cancel-api"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):  # one short line per request, no addresses, no sign-in codes
         print("%s %s" % (self.command, re.sub(r"(/api/auth/\w+)\?\S*", r"\1?…", fmt % args)), flush=True)
+
+    def raw(self, code, ctype, data, cache):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", cache)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def redirect(self, url):
         self.send_response(302)
@@ -470,6 +557,21 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON})
         if u.path == "/api/stats":
             return self.send(200, run_stats())
+        if u.path.startswith("/r/"):
+            run = card_run(u.path[3:])
+            if not run:
+                return self.redirect(SITE)  # expired or mistyped: the link still opens the game
+            return self.raw(200, "text/html; charset=utf-8", share_page(u.path[3:], run).encode(), "public, max-age=300")
+        if u.path.startswith("/api/card/") and u.path.endswith(".png"):
+            cid = u.path[10:-4]
+            try:
+                png = card_png(cid) if RE_CARD.match(cid) else None
+            except Exception as e:  # a card that can't be drawn must not take the service down
+                print("card failed: %s %s" % (type(e).__name__, e), flush=True)
+                png = None
+            if not png:
+                return self.send(404, {"error": "no such card"})
+            return self.raw(200, "image/png", png, "public, max-age=86400")
         if u.path == "/api/auth/login":
             back = one("return").split("#")[0]
             if not RN_ON:
@@ -564,7 +666,17 @@ class Handler(BaseHTTPRequestHandler):
             con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily)
                            VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
-        self.send(200, {"ok": True, "boards": ranks})
+            # and as a card: what the share link's preview is drawn from
+            share = "".join(secrets.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(8))
+            con.execute("INSERT INTO cards (id, created, data) VALUES (?,?,?)", (share, now, json.dumps({
+                "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]), "bosses": row["bosses"],
+                "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],
+                "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
+                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"],
+                "killedBy": row["killed_by"]}, separators=(",", ":"))))
+            if secrets.randbelow(50) == 0:
+                forget_old_cards(con, now)
+        self.send(200, {"ok": True, "boards": ranks, "share": PUBLIC + "/r/" + share})
 
 
 if __name__ == "__main__":

@@ -2230,7 +2230,7 @@ function endRun(win){
     + "<div id='end-rank' class='end-rank'></div>"
     + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
   openModal(html);
-  const run = G, txt = resultText(run, win, d);
+  const run = G; let txt = resultText(run, win, d);
   countUp($("end-drip"), 0, d, 900);
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
@@ -2259,6 +2259,10 @@ function endRun(win){
   wireEnd(true);
   submitRun(run, win, d).then(res=>{ // fills in when the service answers; the end screen doesn't wait for it
     if(res) res.sent = d;
+    if(res && /^https:\/\/[a-z0-9.-]+\/r\/[a-z0-9]{8}$/.test(res.share||"") || (res && res.share && res.share.startsWith(apiBase()+"/r/"))){ // links now carry this run's card
+      run.shareUrl = res.share; txt = resultText(run, win, d);
+      if($("end-text")) $("end-text").textContent = txt;
+    }
     rankHtml = res ? rankLines(res) : online() ? "<div class='dim'>leaderboard unavailable — your score wasn't posted</div>" : "";
     if($("end-rank")) $("end-rank").innerHTML = rankHtml;
   });
@@ -2322,6 +2326,7 @@ function openMeme(run, win, back){
 }
 /* A link that puts whoever opens it in the same maze: ?daily=2026-10-04 or ?seed=k3x9ab. */
 function runLink(run){
+  if(run.shareUrl) return run.shareUrl; // the service's link: its preview is this run's own card, and it opens the same map
   if(!/^https?:/.test(location.protocol)) return "";
   return location.origin+location.pathname+(run.daily ? "?daily="+run.daily : run.seedCode ? "?seed="+run.seedCode : "");
 }
@@ -2388,7 +2393,8 @@ async function renderRn(msg){
   else $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+encodeURIComponent(location.origin+location.pathname+location.search)); };
 }
 function playerId(){ // an anonymous id made once per browser, so a player has one row per board
-  if(rnUser()) return rnUser().player; // signed in: the account's id, the same on every device  if(!META.pid){ META.pid = Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""); saveMeta(); }
+  if(rnUser()) return rnUser().player; // signed in: the account's id, the same on every device
+  if(!META.pid){ META.pid = Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""); saveMeta(); }
   return META.pid;
 }
 const esc = v => String(v).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2418,7 +2424,7 @@ function submitRun(run, win, drip){
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), look: lookOf(run.base), session: rnUser() ? rnUser().token : undefined,
+    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base), session: rnUser() ? rnUser().token : undefined,
   });
 }
 async function loadPulse(){ // everyone's games and wins, on the title screen
