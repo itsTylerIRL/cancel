@@ -1,0 +1,363 @@
+{
+ "Milady": {
+  "Background": [
+   "Casino.webp",
+   "Harajuku.webp",
+   "Streets.webp",
+   "Sunrise.webp",
+   "Sunset.webp",
+   "XP.webp",
+   "lain.webp",
+   "puripurin.webp"
+  ],
+  "Brows": [
+   "Complacent A.webp",
+   "Complacent B.webp",
+   "Concerned A.webp",
+   "Concerned B.webp",
+   "Concerned C.webp",
+   "Flat.webp"
+  ],
+  "Earrings": [
+   "Burger Earring.webp",
+   "Chain Earrings.webp",
+   "Cherry Earring.webp",
+   "Chrome Cross.webp",
+   "Diamond Stud.webp",
+   "Strawberry Earring.webp"
+  ],
+  "Eye Color": [
+   "Aqua.webp",
+   "Blue.webp",
+   "Brown.webp",
+   "Gold.webp",
+   "Green.webp",
+   "Grey.webp",
+   "Leaf.webp",
+   "Lilac.webp"
+  ],
+  "Eyes": [
+   "Alien.webp",
+   "Classic.webp",
+   "Closed.webp",
+   "Dilated.webp",
+   "Heart.webp",
+   "Smug.webp",
+   "Sparkle.webp",
+   "Spiral.webp"
+  ],
+  "Face": [
+   "Big Blush.webp",
+   "Blush.webp",
+   "Freckles.webp",
+   "Line Blush.webp",
+   "Oval Blush.webp"
+  ],
+  "Face Decoration": [
+   "Crescent Tattoo.webp",
+   "Milady Pilled Tattoo.webp",
+   "Nose Ring Gold.webp",
+   "Nose Ring Silver.webp",
+   "Snakebites.webp",
+   "Star Heart Tattoo.webp"
+  ],
+  "Glasses": [
+   "Cobain Glasses.webp",
+   "Mottega Sunglasses Blue.webp",
+   "Mottega Sunglasses Yellow.webp",
+   "Round Glasses.webp",
+   "Sunglasses.webp",
+   "YY Glasses.webp"
+  ],
+  "Hair": [
+   "Bowl Harajuku Dye.webp",
+   "Braids Harajuku Dye.webp",
+   "OG Black.webp",
+   "OG Blue.webp",
+   "OG Frosted Blonde.webp",
+   "OG Frosted Purple.webp",
+   "OG Green.webp",
+   "OG Orange.webp",
+   "Short Green.webp",
+   "Short Pink.webp",
+   "Straight Black.webp",
+   "Tuft Purple.webp"
+  ],
+  "Hat": [
+   "Alien Hat.webp",
+   "Bear Ears.webp",
+   "Cake Hat.webp",
+   "Cat Ears with Bell.webp",
+   "Fez.webp",
+   "Halo.webp",
+   "Maid Hat.webp",
+   "Pink Bow.webp",
+   "Trucker Anime.webp",
+   "Trucker Black.webp",
+   "Trucker Oasis.webp",
+   "Trucker White Rabbit.webp"
+  ],
+  "Mouth": [
+   "Cat.webp",
+   "Open.webp",
+   "Pout.webp",
+   "Smile C.webp",
+   "Smoking.webp",
+   "Smug.webp",
+   "Vamp.webp",
+   "W.webp"
+  ],
+  "Necklaces": [
+   "Cherry Necklace.webp",
+   "ETH Necklace.webp",
+   "Evil Eye Necklace.webp",
+   "Milady Beads.webp",
+   "Silver Coin Necklace.webp",
+   "Smiley Bead Necklace.webp"
+  ],
+  "Shirt": [
+   "Bosozuku Jacket.webp",
+   "Gold Spray Puffer.webp",
+   "Hikki Condition Shirt.webp",
+   "Im Cute Im Punk Shirt.webp",
+   "Jesus Tank.webp",
+   "Maid.webp",
+   "Mape Hoodie.webp",
+   "Remilia Tank.webp",
+   "Super Lover Shirt.webp",
+   "Tie Dye Shirt.webp"
+  ],
+  "Skin": [
+   "Alien.webp",
+   "Black.webp",
+   "Clay.webp",
+   "Pale.webp",
+   "Pink.webp",
+   "Tan.webp"
+  ]
+ },
+ "Remilio": {
+  "Background": [
+   "Backrooms.webp",
+   "Casino.webp",
+   "Chainlink.webp",
+   "Lain Room.webp",
+   "Remilia Heaven.webp",
+   "Space.webp",
+   "Stocks.webp",
+   "de_dust2.webp"
+  ],
+  "Costume": [
+   "Astronaut.webp",
+   "Frog.webp",
+   "Kenny.webp",
+   "Nun.webp",
+   "Pikachu.webp",
+   "Shark.webp"
+  ],
+  "Earrings": [
+   "Airpod Pro.webp",
+   "Chrome Hearts.webp",
+   "Sonic Emerald.webp",
+   "Star Emoji.webp"
+  ],
+  "Eyes": [
+   "Cartoon Blue.webp",
+   "Meth.webp",
+   "Southpark.webp",
+   "Stars.webp",
+   "Tired Green.webp",
+   "Void.webp"
+  ],
+  "Face": [
+   "Angry.webp",
+   "Blush.webp",
+   "Kitty.webp",
+   "Scar.webp",
+   "Snake Bites.webp",
+   "War.webp"
+  ],
+  "Friend": [
+   "Amogus.webp",
+   "Apey.webp",
+   "Bear.webp",
+   "Dino.webp",
+   "Gnome.webp",
+   "Gold Sonic.webp",
+   "Hobbes.webp",
+   "Mimogus.webp",
+   "Tails.webp",
+   "Woodstock.webp"
+  ],
+  "Glasses": [
+   "Balenciaga Bat.webp",
+   "Clout Goggles.webp",
+   "Fire.webp",
+   "Matrix.webp",
+   "Shutter Shades.webp",
+   "Vintage.webp"
+  ],
+  "Hair": [
+   "Aquarium Pink.webp",
+   "Charlie Blonde.webp",
+   "Charlie Glowing.webp",
+   "Lemaire Neon.webp",
+   "Lukas Black.webp",
+   "Madoka White.webp",
+   "Ninja.webp",
+   "Widow Purple.webp"
+  ],
+  "Hat": [
+   "911 Hat.webp",
+   "Burger King Crown.webp",
+   "FBI Cap.webp",
+   "HODL.webp",
+   "Halo.webp",
+   "Tinfoil.webp",
+   "Trump 2024.webp",
+   "Viking.webp"
+  ],
+  "Mouth": [
+   "Cigar.webp",
+   "Cigarette.webp",
+   "Lollipop.webp",
+   "Smug.webp",
+   "Troll.webp",
+   "Vampire.webp"
+  ],
+  "Race": [
+   "Alien.webp",
+   "Ghost.webp",
+   "Pink.webp",
+   "Reptilian.webp",
+   "White.webp",
+   "Zombie.webp"
+  ],
+  "Shirt": [
+   "Milady Happiness.webp",
+   "Money Gang.webp",
+   "Scarface Suit.webp",
+   "Stone Island Puffer.webp",
+   "Supreme Fox Jersey.webp",
+   "WWE Champion Belt.webp",
+   "XP.webp",
+   "Yakuza Suit.webp"
+  ],
+  "Weapon": [
+   "AK47 Gold.webp",
+   "BFG9000.webp",
+   "Katana.webp",
+   "Money Phone.webp"
+  ]
+ },
+ "Bonkler": {
+  "Armor": [
+   "Dragon.webp",
+   "Handycam.webp",
+   "Mithril.webp",
+   "Terminator.webp"
+  ],
+  "BG": [
+   "Aquarium.webp",
+   "Bonkler St.webp",
+   "Dungeon.webp",
+   "Milady World.webp",
+   "Sunset.webp",
+   "The Moon Zone.webp"
+  ],
+  "Body": [
+   "Burger Bonkler Laser.webp",
+   "Lego Skeleton.webp",
+   "Rilakkuma.webp",
+   "Sony PVM.webp",
+   "Suit.webp",
+   "Vending Machine.webp"
+  ],
+  "Face": [
+   ">_<.webp",
+   "Deal With It.webp",
+   "Evil.webp",
+   "Grin.webp",
+   "Star Struck.webp",
+   "Sunglasses.webp",
+   "T_T.webp",
+   "^-^.webp"
+  ],
+  "Hand": [
+   "Energy Sword.webp",
+   "Golden Axe.webp",
+   "Knife.webp",
+   "Mexican Coke.webp"
+  ],
+  "Head": [
+   "Flame Emoji.webp",
+   "GameCube.webp",
+   "Lego Head.webp",
+   "PlayStation Vita.webp",
+   "Strawberry Hat.webp",
+   "iDog.webp"
+  ],
+  "Offhand": [
+   "Cookie.webp",
+   "FBI Badge.webp",
+   "Game & Watch.webp",
+   "Remilia Crest.webp"
+  ],
+  "Pilot": [
+   "Alien Milady.webp",
+   "Hamtaro.webp",
+   "Milady.webp",
+   "Rei.webp",
+   "Snoopy Plush.webp",
+   "Zatsune Miku.webp"
+  ]
+ },
+ "order": {
+  "Milady": [
+   "Background",
+   "Skin",
+   "Shirt",
+   "Necklaces",
+   "Hair",
+   "Eyes",
+   "Mouth",
+   "Brows",
+   "Face",
+   "Face Decoration",
+   "Earrings",
+   "Glasses",
+   "Hat"
+  ],
+  "Remilio": [
+   "Background",
+   "Race",
+   "Costume",
+   "Shirt",
+   "Hair",
+   "Eyes",
+   "Mouth",
+   "Face",
+   "Earrings",
+   "Glasses",
+   "Hat",
+   "Friend",
+   "Weapon"
+  ],
+  "Bonkler": [
+   "BG",
+   "Body",
+   "Armor",
+   "Head",
+   "Face",
+   "Hand",
+   "Offhand",
+   "Pilot"
+  ]
+ },
+ "_notes": {
+  "Milady": "fullRes-sourced (2000x2500 downscaled to 600x750 webp); thumbnails are cropped previews and do NOT composite. Eye Color files are 20x25 color swatches, not positioned layers \u2014 excluded from order.",
+  "Remilio": "thumbnail-sourced (600x600), composites correctly.",
+  "Bonkler": "thumbnail-sourced (150x200); verified identical to fullRes. Chaotic official positioning is correct.",
+  "cult_coin": "img/cult_coin.png \u2014 CULT DAO logo via CoinGecko (cult.inc returned 502)."
+ }
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>THE CANCEL IS COMING</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- TITLE -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <img class="title-coin" src="assets/img/cult_coin.png" alt="CULT">
+      <div class="kicker">a remilia roguelite autobattler</div>
+      <h1 class="game-title"><span>THE CANCEL</span><br><span class="is">IS COMING</span></h1>
+      <div class="title-sub">9 days. 3 bosses. one timeline.</div>
+      <button id="btn-continue" class="btn big hidden">CONTINUE</button>
+      <div><button id="btn-start" class="btn big">ENTER THE TIMELINE</button></div>
+      <div class="meta-bar">
+        <div class="meta-stat">DRIP <b id="meta-drip">0</b></div>
+        <div class="meta-stat">WINS <b id="meta-wins">0</b></div>
+        <div class="meta-stat">BEST <b id="meta-best">—</b></div>
+      </div>
+      <div class="unlock-shop" id="unlock-shop"></div>
+      <div class="codex" id="codex"></div>
+      <div class="unlock-shop" id="achievements"></div>
+      <button class="mute btn small" title="sound">🔊</button>
+      <div class="foot">official remilia trait assets · copyleft · not affiliated</div>
+    </div>
+  </section>
+
+  <!-- AVATAR -->
+  <section id="screen-avatar" class="screen">
+    <div class="panel">
+      <h2>YOUR MILADY</h2>
+      <canvas id="avatar-canvas" width="600" height="750"></canvas>
+      <div class="avatar-name" id="avatar-name">…</div>
+      <div class="row">
+        <button id="btn-reroll" class="btn">REROLL</button>
+        <button id="btn-begin" class="btn big">BEGIN →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section id="screen-map" class="screen">
+    <header id="topbar">
+      <div class="brand">THE CANCEL <b>IS COMING</b></div>
+      <div class="top-right"><div id="doom"></div><button class="mute" title="sound">🔊</button></div>
+    </header>
+    <div id="timeline"></div>
+    <div id="boss-banner" class="hidden"></div>
+    <div class="play">
+      <div id="hud">
+        <canvas id="hud-avatar" width="600" height="750" title="your build"></canvas>
+        <div class="hud-stats">
+          <div class="hud-top"><span id="hud-name"></span><span id="hud-day"></span></div>
+          <div class="hpbar"><div id="hp-fill"></div><span id="hp-text"></span></div>
+          <div class="hud-row"><span class="chip cult"><img class="cult-coin" src="assets/img/cult_coin.png" alt="$CULT"><b id="hud-cult">0</b></span><span id="hud-chips"></span></div>
+          <div id="hud-moves"></div>
+          <div id="hud-district"></div>
+        </div>
+      </div>
+      <div class="board">
+        <div class="dlabels"><span style="color:#c54e71">MILADY MAKER</span><span style="color:#7db8ff">REMILIO</span></div>
+        <div class="map-frame"><div id="map-wrap"><div id="map"></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
+        <div class="dlabels"><span style="color:#a6ff5e">BONKLER</span><span style="color:#ffd75e">CULT</span></div>
+        <div id="tile-info"></div>
+        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
+      </div>
+      <div class="box" id="relic-box">
+        <div class="box-h">RELICS <span id="relic-count"></span></div>
+        <div id="relic-bar" title="your build"></div>
+        <div class="box-h syn-h">SYNERGIES</div>
+        <div id="syn-bar"></div>
+      </div>
+      <div class="box" id="log-box">
+        <div class="box-h">TIMELINE FEED</div>
+        <div id="map-log"></div>
+      </div>
+    </div>
+    <div class="hint">click a tile next to you · arrows / WASD · scroll the map to look around · Enter skips a fight · click your relics to inspect your build</div>
+  </section>
+
+  <!-- COMBAT -->
+  <section id="screen-combat" class="screen">
+    <div class="panel combat-panel">
+      <h2 id="combat-title">FIGHT</h2>
+      <div class="fighters">
+        <div class="fighter">
+          <div class="portrait" id="port-you"><canvas id="combat-you" width="600" height="750"></canvas></div>
+          <div class="cname" id="you-name">YOU</div>
+          <div class="hpbar"><div id="chp-you"></div><span id="chp-you-t"></span></div>
+          <div id="combat-relics"></div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="fighter">
+          <div class="portrait" id="port-foe"><canvas id="combat-foe" width="4" height="5"></canvas></div>
+          <div class="cname" id="foe-name">FOE</div>
+          <div class="hpbar foe"><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
+        </div>
+      </div>
+      <div id="combat-log"></div>
+      <div class="row" id="combat-ctl">
+        <button id="btn-speed" class="btn small">1X</button>
+        <button id="btn-skip" class="btn small">SKIP ⏩</button>
+      </div>
+      <button id="btn-combat-done" class="btn big hidden">CONTINUE →</button>
+    </div>
+  </section>
+
+  <div id="toasts"></div>
+  <!-- MODAL -->
+  <div id="modal" class="hidden"><div class="panel" id="modal-panel"></div></div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
