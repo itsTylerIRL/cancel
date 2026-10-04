@@ -1,12 +1,16 @@
 THE CANCEL IS COMING — a Remilia roguelite autobattler
 
-DEPLOY: serve this folder statically (index.html + css/ + js/ + assets/),
-or upload dist.html on its own — it is the whole game in a single file.
-No server needed. Opening index.html by double-click does not work in most
-browsers (local file restrictions); use dist.html or `python3 -m http.server`.
+DEPLOY: this repo is the site. GitHub Pages serves index.html (plus css/,
+js/ and assets/) at https://cancel.tylerirl.com — the CNAME file names the
+domain, and the DNS record is a CNAME from "cancel" to
+itstylerirl.github.io. In the repo: Settings -> Pages -> Deploy from a
+branch -> main, / (root). No build step.
 
-BUILD: `python3 build.py` regenerates dist.html from the sources.
-Run it after any change to index.html, css/, js/ or assets/.
+To try it locally: `python3 -m http.server` in this folder. Opening
+index.html by double-click does not work in most browsers.
+
+SINGLE FILE: `python3 build.py` writes dist.html, the whole game in one
+file. It is not committed; it is only for handing the game around.
 
 HOW TO PLAY:
 - Name yourself on the avatar screen (or leave it blank for the default).
