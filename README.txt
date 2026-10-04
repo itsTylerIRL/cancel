@@ -36,7 +36,7 @@ HOW TO PLAY:
   the coloured dot on each foe is the same estimate at a glance.
 - A relic you already hold can drop again. The copy takes no slot; bring
   2 copies to Remilia Jackson (the smiley on the map) to fuse it to GOLD
-  (numbers x1.5) and 4 for DIAMOND (x2). She also sells copies for $CULT.
+  (numbers x1.5) and 4 for DIAMOND (x2). He only fuses; copies must be found.
 - Relics come in common / rare / legendary (and cursed, from the Black
   Market unlock). Each belongs to one or two sets — ARMED, HYPEBEAST, DEGEN,
   KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD. Hold enough of a set and its

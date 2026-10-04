@@ -952,7 +952,7 @@ const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
   [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night.", [T.EVENT]:"<b>???</b> — something is happening here.",
-  [T.FORGE]:"<b>Remilia Jackson</b> — bring two of the same relic and she fuses them: normal → gold → diamond." };
+  [T.FORGE]:"<b>Remilia Jackson</b> — bring him two of the same relic and he fuses them: normal → gold → diamond." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -1429,18 +1429,15 @@ function openBuild(){
   $("build-close").onclick=()=>closeModal();
 }
 
-/* ---------- Remilia Jackson: fuses copies of a relic into its next tier ---------- */
-const COPY_PRICE = 90;
+/* ---------- Remilia Jackson: fuses copies of a relic into its next tier ----------
+   He only fuses. Copies have to be found (drafts, shops, drops); he never sells them. */
 function openForge(note){
-  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>REMILIA JACKSON</h2><img class='npc-face' src='"+coinSrc()+"' alt=''>"
-    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>2 copies fuse into 🥇 GOLD (numbers ×1.5) · 4 into 💎 DIAMOND (×2)</div>"
-    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div>";
+    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>2 copies fuse into 🥇 GOLD (numbers ×1.5) · 4 into 💎 DIAMOND (×2)<br>find the copies yourself: he doesn't sell them</div>";
   G.relics.forEach((id,i)=>{
     const r = relicById(id), t = tierOf(id), n = copiesOf(id), next = TIERS[t+1];
     const prog = next ? "<div class='delta'><i class='"+(n>=next.need?"up":"")+"'>"+n+" / "+next.need+" copies for "+next.icon+" "+next.name+"</i></div>" : "<div class='delta'><i class='up'>fully fused</i></div>";
-    const btn = !next ? "" : n>=next.need ? "<button class='btn small fuse' data-fuse='"+i+"'>fuse → "+next.icon+"</button>"
-      : "<button class='btn small price' data-copy='"+i+"'"+(G.cult<COPY_PRICE?" disabled":"")+" title='buy another copy'>+1 · "+coin+COPY_PRICE+"</button>";
+    const btn = next && n>=next.need ? "<button class='btn small fuse' data-fuse='"+i+"'>fuse → "+next.icon+"</button>" : "";
     html += relicRow(r, prog, btn);
   });
   if(!G.relics.length) html += "<div class='note'>\"You've got nothing for me to work with.\"</div>";
@@ -1454,12 +1451,6 @@ function openForge(note){
     sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
     mlog("✨ Remilia Jackson fused <b>"+r.name+"</b> into "+TIERS[G.tier[id]].icon+" <b>"+TIERS[G.tier[id]].name+"</b>.", "gold");
     renderMap(); openForge(r.name+" is now "+TIERS[G.tier[id]].name+".");
-  };});
-  p.querySelectorAll("[data-copy]").forEach(b=>{ b.onclick=()=>{
-    const id = G.relics[+b.dataset.copy];
-    if(G.cult<COPY_PRICE) return;
-    G.cult -= COPY_PRICE; G.copies[id] = copiesOf(id)+1; sfx("coin");
-    renderMap(); openForge("One more "+relicById(id).name+".");
   };});
   $("forge-leave").onclick=()=>closeModal();
 }
