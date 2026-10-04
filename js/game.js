@@ -585,12 +585,16 @@ function pinnedPicks(def){ // random look, with any layers the data pins down
 /* ---------- relic engine ---------- */
 function hasRelic(id){ return G.relics.includes(id); }
 /* Tiers. Every relic you hold is its own item in its own slot, duplicates included, and G.tiers[i] is the tier of
-   G.relics[i]. Two copies of the same relic give nothing extra until Remilia Jackson fuses them: two normal make one
-   GOLD (numbers x1.5), two gold make one DIAMOND (x2). A relic's effect uses the best copy you hold. */
-const TIERS = [null, {name:"", mult:1}, {name:"GOLD", mult:1.5, icon:"🥇"}, {name:"DIAMOND", mult:2, icon:"💎"}];
+   G.relics[i]. Copies stack: two of the same relic give twice its numbers. Remilia Jackson fuses a pair into one
+   item worth both, which frees a slot: two normal make one GOLD (x2), two gold make one DIAMOND (x4). */
+const TIERS = [null, {name:"", mult:1}, {name:"GOLD", mult:2, icon:"🥇"}, {name:"DIAMOND", mult:4, icon:"💎"}];
 const tierAt = i => (G && G.tiers && G.tiers[i]) || 1;
 const tierOf = id => { let t = 1; if(G && G.relics) G.relics.forEach((x,i)=>{ if(x===id && tierAt(i)>t) t = tierAt(i); }); return t; };
-const tm = id => TIERS[tierOf(id)].mult; // how much a relic's numbers are multiplied by
+const tm = id => { // how much a relic's numbers are multiplied by: every copy you hold adds its tier's worth
+  let m = 0;
+  if(G && G.relics) G.relics.forEach((x,i)=>{ if(x===id) m += TIERS[tierAt(i)].mult; });
+  return m || 1;
+};
 const tierCls = t => ["","","gold","diamond"][t||1];
 const tierLabel = t => t>1 ? " <small class='tier-tag "+tierCls(t)+"'>"+TIERS[t].icon+" "+TIERS[t].name+"</small>" : "";
 const tierClass = id => tierCls(tierOf(id));
@@ -624,7 +628,9 @@ function achieve(id){
 }
 /* what equipping r would do to the numbers on your sheet, as little +/- chips */
 function statDelta(r){
-  const a = G.stats, b = computeStats([...G.relics, r.id]);
+  G.relics.push(r.id); G.tiers.push(1); // as if you held it: a copy of something you already hold stacks
+  const a = G.stats, b = computeStats(G.relics);
+  G.relics.pop(); G.tiers.pop();
   return [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
     const d = Math.round(b[k]-a[k]);
     return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
@@ -650,7 +656,7 @@ function computeStats(relics){
     const without = rawStats(relics.filter(x=>x!==id));
     let any = false;
     for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0){ s[k] += Math.round(d*(m-1)); any = true; } }
-    if(!any && !TIER_IN_FIGHT.includes(id)){ s.atk += 2*(tierOf(id)-1); s.maxhp += 6*(tierOf(id)-1); } // nothing numeric to scale: a flat bonus instead
+    if(!any && !TIER_IN_FIGHT.includes(id)){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
   }
   return s;
 }
@@ -1032,9 +1038,9 @@ function renderMinimap(){
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
-  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
-  [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night.", [T.EVENT]:"<b>???</b> — something is happening here.",
-  [T.FORGE]:"<b>Remilia Jackson</b> — bring him two of the same relic and he fuses them: normal → gold → diamond." };
+  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
+  [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
+  [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -1228,17 +1234,17 @@ function foeInstance(def){
 
 /* ---------- relic draft ---------- */
 function relicExtras(r, preview){ // what taking r would do: stat changes and set progress, or what a duplicate is for
-  if(preview && hasRelic(r.id)){
-    const t = tierOf(r.id);
-    return "<div class='delta'><i class='down'>duplicate: takes a slot, no extra effect</i></div><div class='sets'><i style='--sc:#50fa7b'>"
-      + (t>1 ? "two "+TIERS[t].name+" fuse into "+(TIERS[t+1] ? TIERS[t+1].icon+" "+TIERS[t+1].name : "nothing more")+"; this one is normal" : "Remilia Jackson fuses two into 🥇 GOLD")+"</i></div>";
+  if(preview && hasRelic(r.id)){ // a copy stacks with the one you hold
+    const d = statDelta(r), worth = tm(r.id);
+    return "<div class='delta'>"+(d || "<i class='up'>its numbers ×"+(worth+1)+(worth>1 ? " (now ×"+worth+")" : "")+"</i>")+"</div>"
+      + "<div class='sets'><i style='--sc:#50fa7b'>stacks with yours</i><i style='--sc:#50fa7b'>takes a slot until fused</i></div>";
   }
   return (preview ? "<div class='delta'>"+statDelta(r)+"</div>" : "")+setChips(r, preview);
 }
 function relicCard(r, attr, delta, tier){ // tier: when the card stands for a relic you hold, that item's tier
   const rar = rarity(r);
   return "<div class='card "+rar+" "+tierCls(tier)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+r.desc+"</span>"
-    + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>duplicate</u>" : "") : "<u>new!</u>")+"</div>";
+    + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>stacks</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
   const n = setCounts(G.relics.filter(id=>id!==r.id));
@@ -1328,17 +1334,21 @@ function openShop(note){
     const it=shop.stock[+b.dataset.i], r=relicById(it.id), p=Math.round(it.base*disc);
     if(G.cult<p) return;
     acquireRelic(r, old=>{
-      G.cult-=p; shop.stock.splice(shop.stock.indexOf(it), 1);
+      G.cult-=p; shop.stock.splice(shop.stock.indexOf(it), 1); shop.used = true;
       mlog("Bought <b>"+r.name+"</b> for "+p+" $CULT."+(old?" <i>(dropped "+old.name+")</i>":""), "good");
       renderMap(); openShop("Bought "+r.name+".");
     }, ()=>openShop());
   };});
   $("shop-heal").onclick=()=>{
     if(G.cult<healCost || !hurt) return;
-    G.cult-=healCost; G.stats.hp=G.stats.maxhp; sfx("heal");
+    G.cult-=healCost; G.stats.hp=G.stats.maxhp; sfx("heal"); shop.used = true;
     mlog("Healed to full.", "good"); renderMap(); openShop("Healed to full.");
   };
-  $("shop-leave").onclick=()=>{ closeModal(); };
+  $("shop-leave").textContent = shop.used ? "leave (the mart closes)" : "leave";
+  $("shop-leave").onclick=()=>{ // one visit's worth of business, then it shutters
+    if(shop.used){ clearTile(); delete G.shops[key]; mlog("🏪 The mart pulls its shutters down behind you.", ""); renderMap(); }
+    closeModal();
+  };
 }
 
 /* ---------- shrine (the gambler's corner) ---------- */
@@ -1455,11 +1465,11 @@ function applyFx(list){
 /* ---------- campfire ---------- */
 function openFire(){
   const day = G.phase==="day";
-  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Rest until "+(day?"nightfall":"dawn")+"? You heal to full and skip the rest of this "+(day?"day":"night")+" safely — no loot, no fights."
+  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Rest until "+(day?"nightfall":"dawn")+"? You heal to full and skip the rest of this "+(day?"day":"night")+" safely — no loot, no fights. The fire burns out once you've used it."
     + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
     + "</div><div class='row'><button class='btn' id='fire-yes'>REST</button><button class='btn small' id='fire-no'>keep moving</button></div>");
   $("fire-yes").onclick=()=>{
-    G.stats.hp=G.stats.maxhp; mlog("Rested. HP restored.", "good"); sfx("heal");
+    G.stats.hp=G.stats.maxhp; clearTile(); mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal");
     G.queue = G.queue.filter(f=>f!==endPhase); G.queue.push(endPhase);
     closeModal();
   };
@@ -1511,8 +1521,8 @@ function openBuild(){
    He only fuses. Copies have to be found (drafts, shops, drops); he never sells them. */
 function openForge(note){
   let html = "<h2>REMILIA JACKSON</h2><img class='npc-face' src='"+coinSrc()+"' alt=''>"
-    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>two of the same relic fuse into one 🥇 GOLD (numbers ×1.5) · two GOLD fuse into one 💎 DIAMOND (×2)"
-    + "<br>every copy takes a slot until it's fused, and he doesn't sell them</div>";
+    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>copies already stack. fusing two puts both in one slot: 🥇 GOLD is worth two, 💎 DIAMOND (two GOLD) is worth four"
+    + "<br>he doesn't sell copies, and he moves on once he has fused for you</div>";
   const used = new Set(); let pairs = 0;
   G.relics.forEach((id,i)=>{
     const r = relicById(id), t = tierAt(i), next = TIERS[t+1];
@@ -1533,11 +1543,17 @@ function openForge(note){
   $("modal-panel").querySelectorAll("[data-a]").forEach(b=>{ b.onclick=()=>{
     const i = +b.dataset.a, j = +b.dataset.b, id = G.relics[i], r = relicById(id), t = tierAt(i)+1;
     G.tiers[i] = t; dropRelicAt(j); recalcStats(); // two become one: a slot comes free
+    G.forged = G.px+","+G.py; // he works once per spot: he leaves when you do
     sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
     mlog("✨ Remilia Jackson fused two <b>"+r.name+"</b> into "+TIERS[t].icon+" <b>"+TIERS[t].name+"</b>.", "gold");
     renderMap(); openForge(r.name+" is now "+TIERS[t].name+". A slot is free.");
   };});
-  $("forge-leave").onclick=()=>closeModal();
+  const done = G.forged===G.px+","+G.py;
+  $("forge-leave").textContent = done ? "leave (he moves on)" : "leave";
+  $("forge-leave").onclick=()=>{
+    if(done){ G.forged = ""; clearTile(); mlog("🙂 Remilia Jackson moonwalks off into the maze.", ""); renderMap(); }
+    closeModal();
+  };
 }
 
 /* ---------- settings ---------- */
