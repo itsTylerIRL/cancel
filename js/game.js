@@ -336,6 +336,43 @@ function refreshAvatar(){ // repaint the player everywhere after her relics chan
     $("you-img").src = run.face;
   });
 }
+/* ---------- the living portrait: she blinks, and shuts her eyes when she is hit ----------
+   The shut-eyed frame is the same character composed again with closed eyes, so relics, eye tint and effects match. */
+function blinkBase(base){
+  if(base.token){
+    const layers = {...base.token.layers};
+    if(base.token.cfg==="Milady") layers.Eyes = "Closed.webp"; else delete layers.Eyes; // Remilios have no closed-eye trait: theirs go blank for a frame
+    return {...base, token:{...base.token, layers}};
+  }
+  return base.nft ? null : {...base, Eyes:"Closed.webp"}; // a flat token picture can't blink
+}
+function ensureShut(){ // build the shut-eyed frame for the portrait as it is now, once
+  const run = G, av = run && run.avatar;
+  if(!av || run.shutFor===av || run.shutBusy===av) return;
+  const bb = blinkBase(run.base); if(!bb) return;
+  run.shutBusy = av;
+  composeAvatar(bb, run.relics).then(cv=>{ if(run.avatar===av){ run.avatarShut = cv; run.shutFor = av; } }).catch(()=>{});
+}
+function showEyes(shut){
+  if(!G || G.over || !G.avatar) return;
+  const cv = shut && G.shutFor===G.avatar ? G.avatarShut : G.avatar;
+  for(const id of ["hud-avatar","combat-you"]){ const el = $(id); if(el && el.offsetParent!==null) paint(el, cv); }
+}
+let shutTimer = 0;
+function shutEyes(ms){
+  if(META.calm || !G || G.over) return;
+  ensureShut(); showEyes(true);
+  clearTimeout(shutTimer); shutTimer = setTimeout(()=>showEyes(false), ms);
+}
+(function blinkLoop(){
+  setTimeout(()=>{
+    if(G && !G.over && !document.hidden){
+      shutEyes(110+Math.random()*60);
+      if(Math.random()<0.2) setTimeout(()=>shutEyes(100), 320); // now and then, twice
+    }
+    blinkLoop();
+  }, 2400+Math.random()*3800);
+})();
 /* CHEESEWORLD treatment: crushed, oversaturated, grainy, with an Impact caption */
 function fry(src, caption){
   const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
@@ -791,10 +828,10 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16 };
-const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp" }; // their own profile pictures
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17 };
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -859,7 +896,7 @@ function genMap(){
   put(T.VAULT,5,true); // locked rooms at dead ends; the keys are somewhere else entirely
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
-  put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); // placed last, so everything above stays where it always was on a given seed
+  put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); // placed last, so everything above stays where it always was on a given seed
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
@@ -916,6 +953,7 @@ function renderHUD(){
   const s = G.stats;
   $("hp-fill").style.width = clamp(100*s.hp/s.maxhp,0,100)+"%";
   $("hp-fill").classList.toggle("low", s.hp <= s.maxhp*0.3);
+  $("hud-avatar").classList.toggle("hurt", s.hp <= s.maxhp*0.3);
   $("hp-text").textContent = s.hp+" / "+s.maxhp;
   if(shownCult!==G.cult){
     const d = G.cult-shownCult, c = $("hud-cult");
@@ -1073,7 +1111,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1095,7 +1133,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
-  [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier, get one random relic of the next tier up. One trade." };
+  [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier, get one random relic of the next tier up. One trade.",
+  [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -1300,6 +1339,7 @@ function enterTile(t){
     case T.FOUNTAIN: openFountain(); break;
     case T.ONNO: openOnno(); break;
     case T.FANG: openFang(); break;
+    case T.SCEARPO: openScearpo(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one.", "bad"); break; }
@@ -1759,6 +1799,35 @@ function openFang(note, picked){
   $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); renderMap(); } closeModal(); };
 }
 
+/* ---------- Scearpo: scorched earth policy. One relic, one coin flip: doubled, or ash ---------- */
+function openScearpo(note, cls){
+  const here = G.px+","+G.py, done = G.traded===here;
+  let html = "<h2>SCEARPO</h2><img class='npc-face scorch' src='"+localFile(NPC_ART[T.SCEARPO])+"' alt=''>"
+    + "<div class='note'><i>\"Scorched earth policy. Hand me one. It comes back worth double, or it doesn't come back.\"</i><br>50 / 50 · doubled means the next tier: normal → 🥇 GOLD → 💎 DIAMOND · one flip</div>";
+  if(note) html += "<div class='note "+(cls||"good")+"'>"+note+"</div>";
+  if(!done) G.relics.forEach((id,i)=>{ const r = relicById(id), t = tierAt(i);
+    html += relicRow(r, TIERS[t+1] ? "" : "<div class='delta'><i>already the top tier</i></div>",
+      TIERS[t+1] ? "<button class='btn small' data-burn='"+i+"'>flip for "+TIERS[t+1].icon+"</button>" : "", t, G.relics.indexOf(id)!==i); });
+  if(!G.relics.length) html += "<div class='note'>\"Nothing to burn. Come back with something you love.\"</div>";
+  html += "<div class='row'><button class='btn small' id='npc-leave'>"+(done ? "leave (he moves on)" : "leave")+"</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-burn]").forEach(b=>{ b.onclick=()=>{
+    if(!b.dataset.sure){ b.dataset.sure = 1; b.textContent = "sure?"; b.classList.add("danger"); sfx("click"); return; } // it can't be undone
+    const i = +b.dataset.burn, r = relicById(G.relics[i]), t = tierAt(i);
+    G.traded = here;
+    if(rnd()<0.5){
+      G.tiers[i] = t+1; recalcStats(); sfx("fanfare"); burst("🔥✨"+TIERS[t+1].icon); flyRelic(r.id);
+      mlog("🔥 Scearpo's flip came up yours: <b>"+r.name+"</b> is now "+TIERS[t+1].icon+" <b>"+TIERS[t+1].name+"</b> — "+relicText(r, TIERS[t+1].mult), "gold");
+      renderMap(); openScearpo("Doubled. "+TIERS[t+1].icon+" "+TIERS[t+1].name+" <b>"+r.name+"</b>: "+relicText(r, TIERS[t+1].mult));
+    } else {
+      dropRelicAt(i); recalcStats(); refreshAvatar(); sfx("hurt"); burst("🔥💨");
+      mlog("🔥 Scearpo's flip came up ash: your "+(t>1 ? TIERS[t].name+" " : "")+"<b>"+r.name+"</b> is gone.", "bad");
+      renderMap(); openScearpo("Ash. Your "+(t>1 ? TIERS[t].name+" " : "")+"<b>"+r.name+"</b> is gone.", "bad");
+    }
+  };});
+  $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Scearpo leaves. The ground where he stood is still warm.", ""); renderMap(); } closeModal(); };
+}
+
 /* ---------- settings ---------- */
 function openSettings(){
   if(G && !G.over && $("screen-combat").classList.contains("active")) return;
@@ -1842,6 +1911,10 @@ function combatBars(you, foe){
   }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+  // the portraits wear what is happening to them
+  const pf = $("port-foe"), py = $("port-you");
+  for(const [c,on] of [["burning",foe.burn>0],["bleeding",foe.bleed>0],["chilled",foe.chill>0],["poisoned",foe.poison>0],["stunned",foe.stun>0]]) pf.classList.toggle(c, !!on);
+  py.classList.toggle("hurt", you.hp>0 && you.hp<=you.maxhp*0.3); py.classList.toggle("shielded", you.shield>0); py.classList.toggle("stunned", (you.stun||0)>0);
   $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["💫",foe.stun,"stunned"]]
     .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
 }
@@ -1856,6 +1929,8 @@ function floatText(side, text, cls){
 }
 function shake(side){
   const c=$("port-"+side); c.classList.remove("hit"); void c.offsetWidth; c.classList.add("hit");
+  setTimeout(()=>c.classList.remove("hit"), 300); // back to breathing
+  if(side==="you") shutEyes(240); // she flinches
 }
 
 /* The fight itself: no DOM and no writes to G, so the same rules can be played on screen

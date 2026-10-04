@@ -103,7 +103,7 @@
         <div class="map-frame"><div id="map-wrap"><div id="map-inner"><div id="map"></div><div id="you-tok"><img id="you-img" alt="you"></div></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
         <div class="dlabels"><span style="color:#50fa7b">BONKLER</span><span style="color:#f1fa8c">CULT</span></div>
         <div id="tile-info"></div>
-        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>🙂 Remilia Jackson</span><span>⛲ fountain</span><span>👤 onno · Charlotte Fang</span><span>🗝️ key</span><span>🔐 vault</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
+        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>🙂 Remilia Jackson</span><span>⛲ fountain</span><span>👤 onno · Charlotte Fang · Scearpo</span><span>🗝️ key</span><span>🔐 vault</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
       </div>
       <div class="box" id="relic-box">
         <div class="box-h">RELICS <span id="relic-count"></span></div>
@@ -127,14 +127,14 @@
       <h2 id="combat-title">FIGHT</h2>
       <div class="fighters">
         <div class="fighter">
-          <div class="portrait" id="port-you"><canvas id="combat-you" width="600" height="750"></canvas></div>
+          <div class="portrait" id="port-you"><canvas id="combat-you" width="600" height="750"></canvas><div class="pfx"><i class="fx-burn"></i><i class="fx-bleed"></i><i class="fx-chill"></i><i class="fx-psn"></i><i class="fx-stun">💫</i></div></div>
           <div class="cname" id="you-name">YOU</div>
           <div class="hpbar"><i id="chp-you-g"></i><div id="chp-you"></div><span id="chp-you-t"></span></div>
           <div id="combat-relics"></div>
         </div>
         <div class="vs">VS</div>
         <div class="fighter">
-          <div class="portrait" id="port-foe"><canvas id="combat-foe" width="4" height="5"></canvas></div>
+          <div class="portrait" id="port-foe"><canvas id="combat-foe" width="4" height="5"></canvas><div class="pfx"><i class="fx-burn"></i><i class="fx-bleed"></i><i class="fx-chill"></i><i class="fx-psn"></i><i class="fx-stun">💫</i></div></div>
           <div class="cname" id="foe-name">FOE</div>
           <div class="hpbar foe"><i id="chp-foe-g"></i><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
           <div id="foe-status" class="statuses"></div>
