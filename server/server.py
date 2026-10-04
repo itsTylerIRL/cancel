@@ -5,6 +5,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
 
   POST /api/score   submit a finished run (JSON)
   GET  /api/board   ?daily=YYYY-MM-DD | ?seed=CODE | ?all=1   [&limit=50] [&player=ID]
+  GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
   GET  /api/health
 
 The game runs entirely in the browser, so a score cannot be proven. Submissions are
@@ -12,7 +13,7 @@ checked for shape and plausibility and rate-limited; that keeps the board tidy, 
 
 Environment: CANCEL_DB, CANCEL_PORT, CANCEL_SALT, CANCEL_ORIGINS (comma separated), CANCEL_DEV=1
 """
-import hashlib, json, os, re, sqlite3, threading, time
+import hashlib, json, os, re, sqlite3, threading, time, urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -45,7 +46,53 @@ CREATE TABLE IF NOT EXISTS scores (
   UNIQUE(board, player)
 );
 CREATE INDEX IF NOT EXISTS scores_board ON scores(board, score DESC, created ASC);
+CREATE TABLE IF NOT EXISTS tokens (
+  kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
+  PRIMARY KEY(kind, id)
+);
 """
+
+# Token traits. The collection sites don't allow other sites' pages to read them, so the game asks here.
+# Traits never change, so each token is fetched once and kept.
+TOKEN_SOURCES = {
+    "milady": ["https://maker.remilia.org/metadata/Milady/%d", "https://www.miladymaker.net/milady/json/%d"],
+    "remilio": ["https://maker.remilia.org/metadata/Remilio/%d", "https://remilio.org/remilio/json/%d"],
+}
+LOOKUPS_PER_HOUR = 60  # uncached lookups per client address
+
+
+def fetch_traits(kind, tid):
+    for url in TOKEN_SOURCES[kind]:
+        try:
+            req = urllib.request.Request(url % tid, headers={"User-Agent": "cancel-api (tylerirl.com)"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = json.loads(r.read(65536))
+            out = []
+            for a in data.get("attributes", [])[:40]:
+                t, v = clean_text(a.get("trait_type"), 40), clean_text(str(a.get("value", "")), 60)
+                if t and v:
+                    out.append([t, v])
+            if out:
+                return out
+        except Exception:
+            continue
+    return None
+
+
+def token_traits(kind, tid, key):
+    with db() as con:
+        row = con.execute("SELECT attrs FROM tokens WHERE kind=? AND id=?", (kind, tid)).fetchone()
+    if row:
+        return json.loads(row["attrs"]), 200
+    if not rate_ok("t:" + key, LOOKUPS_PER_HOUR):
+        return None, 429
+    attrs = fetch_traits(kind, tid)
+    if attrs is None:
+        return None, 502
+    with db() as con:
+        con.execute("INSERT OR REPLACE INTO tokens (kind, id, attrs, fetched) VALUES (?,?,?,?)",
+                    (kind, tid, json.dumps(attrs, separators=(",", ":")), int(time.time())))
+    return attrs, 200
 
 
 def db():
@@ -77,11 +124,11 @@ _hits = {}
 _hits_lock = threading.Lock()
 
 
-def rate_ok(key):
+def rate_ok(key, limit=POSTS_PER_HOUR):
     now = time.time()
     with _hits_lock:
         recent = [t for t in _hits.get(key, []) if now - t < 3600]
-        if len(recent) >= POSTS_PER_HOUR:
+        if len(recent) >= limit:
             _hits[key] = recent
             return False
         recent.append(now)
@@ -241,6 +288,14 @@ class Handler(BaseHTTPRequestHandler):
         one = lambda k: (q.get(k) or [""])[0]
         if u.path == "/api/health":
             return self.send(200, {"ok": True, "today": utc_today().isoformat()})
+        if u.path == "/api/token":
+            kind = one("kind")
+            if kind not in TOKEN_SOURCES or not re.match(r"^\d{1,4}$", one("id")):
+                return self.send(400, {"error": "bad token"})
+            attrs, code = token_traits(kind, int(one("id")), self.client_key())
+            if attrs is None:
+                return self.send(code, {"error": "slow down" if code == 429 else "traits unavailable"})
+            return self.send(200, {"kind": kind, "id": int(one("id")), "attributes": attrs})
         if u.path != "/api/board":
             return self.send(404, {"error": "not found"})
         if one("daily"):

@@ -9,6 +9,22 @@ const DISTRICTS = [
   { name:"CULT",         color:"#f1fa8c", rule:"shrines win 65% of flips" },
 ];
 
+/* How a token's metadata traits map onto trait layers, taken from maker.remilia.org's own configuration.
+   names: metadata trait -> layer folder. values: metadata value -> file name where title-casing isn't enough.
+   exclusions: a trait value that hides other layers. layerExclusions: a layer that hides others whenever present.
+   tint: Milady eye colour recolours the iris of the listed eye styles through a mask. */
+const TOKEN_MAP = {
+ milady: { cfg:"Milady", body:"Skin", transform:"titlecase",
+   names:{"Race":"Skin", "Necklace":"Necklaces", "Eyebrows":"Brows", "Earring":"Earrings"},
+   values:{"Race":{"clay":"Clay", "pale":"Pale", "tan":"Tan", "black":"Black", "pink":"Pink", "alien":"Alien"}, "Eyes":{"heart eyes":"Heart"}, "Hair":{"og black":"OG Black", "og blonde":"OG Blonde", "og blue":"OG Blue", "og frosted blonde":"OG Frosted Blonde", "og frosted purple":"OG Frosted Purple", "og green":"OG Green", "og orange":"OG Orange", "og slate":"OG Slate"}, "Hat":{"denim usa cap":"Denim USA Cap", "cat ears with bell":"Cat Ears with Bell"}, "Shirt":{"mwo shirt":"MWO Shirt", "sweater and tie":"Sweater and Tie"}, "Necklace":{"eth necklace":"ETH Necklace", "pearl necklace":"Mestwood Pearl Necklace"}, "Glasses":{"yy glasses":"YY Glasses"}, "Mouth":{"smile":"Smile A", "smileb":"Smile B", "smilec":"Smile C"}, "Eyebrows":{"complacent":"Complacent A", "complacentb":"Complacent B", "concerneda":"Concerned A", "concernedb":"Concerned B", "concernedc":"Concerned C"}},
+   exclusions:{"Hat":{"Strawberry Hat":["Hair", "Earrings"]}, "Eyes":{"Chinese":["Brows"]}}, layerExclusions:{},
+   tint:{ by:"Eye Color", mask:"Eyes-Mask", values:["Classic", "Crying", "Dilated", "Heart", "Sleepy", "Sparkle", "Teary"], darken:{Brown:0.47, Leaf:0.28, Blue:0.8, Gold:0.7} } },
+ remilio: { cfg:"Remilio", body:"Race", transform:"none",
+   names:{"Overlays":"Overlay", "Eyebrow":"Brows"},
+   values:{"Hair":{"Ulenka Golden Painted":"Ulenka Golden"}, "Glasses":{"Cobain":"Clout Goggles"}},
+   exclusions:{"Race":{"Oni Dark":["Hair", "Hat"], "Oni Light":["Hair", "Hat"], "Alien":["Eyes"], "Reptilian":["Eyes"], "Zombie":["Eyes"]}, "Hat":{"Strawberry Hat":["Earrings"]}, "Eyes":{"Southpark":["Brows"]}}, layerExclusions:{"Costume":["Shirt", "Hat", "Glasses", "Hair", "Face"]} },
+};
+
 /* Starting classes, after the Milady style tribes. relic = what you start holding; stat = flat bonuses. */
 const TRIBES = [
  {id:"hypebeast", name:"HYPEBEAST", icon:"👟", relic:"chrome_hearts",  desc:"+6% crit chance",        stat:{crit:6}},

@@ -60,12 +60,16 @@ HOW TO PLAY:
 - The end screen gives a copyable emoji result, a share-to-X button and a
   share card (PNG) of your Milady and build.
 - Play as your own Milady or Remilio: enter a token number on the avatar
-  screen. Ownership is not checked. Every other collection (Pixelady,
-  Radbro, SchizoPosters, MiladyStation, oh.. I've seen) appears only as
-  enemies and NPCs. Token images come from outside services, listed in the
-  NFT table in js/game.js: the collections' own sites, the wsrv.nl image
-  proxy (resizes and adds the CORS header), the filebase IPFS gateway,
-  arweave.net and a public Ethereum node.
+  screen. The token is rebuilt from its own trait layers (the service
+  looks its traits up once and caches them), with no background, so a
+  relic hat or shirt replaces what it wears instead of covering it. The
+  layering, exclusions and eye-colour tint follow maker.remilia.org.
+  If the traits can't be read it falls back to the token's flat picture.
+  Ownership is not checked. assets/img holds every wearable Milady and
+  Remilio layer (about 680 files), so nothing is fetched to draw them.
+- Every other collection (Pixelady, Radbro, SchizoPosters, MiladyStation,
+  oh.. I've seen) appears only as enemies and NPCs; their token pictures
+  come from outside services listed in the NFT table in js/game.js.
 - Bonklers are bosses only; no ordinary enemy uses Bonkler art.
 - You never fight your own collection: a Milady meets no Miladys, a Remilio
   no Remilios. Pixelady, Radbro, SchizoPoster, MiladyStation and oh.. I've

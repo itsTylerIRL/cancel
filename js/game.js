@@ -114,6 +114,8 @@ function randomPicks(cfg, pinned){
   for(const k in (pinned||{})) picks[k] = pinned[k]+".webp";
   // a costume is a full hood and body: nothing else goes on the head or torso unless the data asks for it
   if(picks.Costume) for(const k of ["Hair","Hat","Shirt","Earrings"]) if(!(pinned||{})[k]) delete picks[k];
+  const M = TOKEN_MAP[cfg.toLowerCase()]; // and what the collection itself hides (a Southpark face has no brows)
+  if(M) for(const layer in M.exclusions){ const v = picks[layer] && picks[layer].slice(0,-5); for(const gone of (M.exclusions[layer][v]||[])) if(!(pinned||{})[gone]) delete picks[gone]; }
   return picks;
 }
 /* Layers are composited at their native size (each collection has its own aspect ratio);
@@ -138,11 +140,73 @@ const WEAR = {
   Bonkler: { Body:"prop", Armor:"prop", Hand:"prop", Offhand:"prop", Head:"prop" },
 };
 const SINGLE = ["hat","glasses","shirt","hair","eyes","costume"];
-const DRAW_ORDER = ["skin","shirt","neck","hair","costume","eyes","mouth","brows","face","deco","smoke","ear","glasses","hat","weapon","friend","prop"];
+/* back-to-front order of the slots, following each collection's own layering (hair sits over the eyes, brows over the hair) */
+const DRAW_ORDER = {
+  Milady:  ["skin","face","eyes","mouth","necktat","neck","shirt","hair","costume","brows","smoke","ear","deco","glasses","hat","weapon","friend","prop"],
+  Remilio: ["skin","brows","eyes","hair","face","deco","shirt","neck","mouth","smoke","costume","ear","glasses","hat","weapon","friend","prop"],
+};
+/* which slot each of a token's own trait layers fills */
+const TOKEN_SLOTS = {
+  Milady:  { Skin:"skin", Face:"face", Eyes:"eyes", Mouth:"mouth", Neck:"necktat", Necklaces:"neck", Shirt:"shirt", Hair:"hair", Brows:"brows",
+             Earrings:"ear", "Face Decoration":"deco", Glasses:"glasses", Hat:"hat" },
+  Remilio: { Race:"skin", Brows:"brows", Eyes:"eyes", Hair:"hair", Face:"face", Shirt:"shirt", Mouth:"mouth", Costume:"costume",
+             Earrings:"ear", Glasses:"glasses", Hat:"hat", Weapon:"weapon", Friend:"friend" },
+};
 function basePicks(){
   const picks = {};
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
+  picks.eyeColor = choice(ASSETS.Milady["Eye Color"]).slice(0,-5);
   return picks;
+}
+/* ---------- a token rebuilt from its own traits, so a relic hat replaces its hat instead of sitting on top ---------- */
+async function tokenTraits(nft){ const r = await api("/api/token?kind="+nft.kind+"&id="+nft.id); return r && r.attributes; }
+function tokenLayers(kind, attrs){ // [[trait, value], ...] -> { cfg, layers:{Layer: file}, eyeColor } or null
+  const M = TOKEN_MAP[kind], files = ASSETS[M.cfg], layers = {};
+  const title = v => v.split(" ").map(w=>w ? w[0].toUpperCase()+w.slice(1) : w).join(" ");
+  let eyeColor = "";
+  for(const [trait, value] of attrs){
+    const layer = M.names[trait] || trait;
+    const want = (M.values[trait]||{})[value] || (M.transform==="titlecase" ? title(value) : value);
+    if(M.tint && layer===M.tint.by){ eyeColor = want; continue; }
+    if(!TOKEN_SLOTS[M.cfg][layer] || !files[layer]) continue; // backgrounds, overlays and scores are not worn
+    const f = files[layer].find(x=>x.toLowerCase()===(want+".webp").toLowerCase());
+    if(f) layers[layer] = f;
+  }
+  // traits that the collection itself hides under others
+  for(const layer in M.exclusions){ const v = layers[layer] && layers[layer].slice(0,-5); for(const gone of (M.exclusions[layer][v]||[])) delete layers[gone]; }
+  for(const layer in M.layerExclusions) if(layers[layer]) for(const gone of M.layerExclusions[layer]) delete layers[gone];
+  return layers[M.body] ? { cfg:M.cfg, layers, eyeColor } : null;
+}
+function rgb2hsl(r,g,b){ // degrees, percent, percent
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, d=mx-mn;
+  let h=0, s=0;
+  if(d){ s = d/(1-Math.abs(2*l-1)); h = mx===r ? ((g-b)/d)%6 : mx===g ? (b-r)/d+2 : (r-g)/d+4; h*=60; if(h<0) h+=360; }
+  return [h, s*100, l*100];
+}
+function hsl2rgb(h,s,l){
+  s/=100; l/=100;
+  const k = n => (n+h/30)%12, a = s*Math.min(l,1-l), f = n => l-a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  return [255*f(0), 255*f(8), 255*f(4)];
+}
+/* Milady eye colour, as the maker does it: inside the eye mask, keep each pixel's lightness and take the colour's hue and saturation */
+function tintEyes(cx, mask, swatch, darken){
+  const W=600, Y=180, H=320; // the eyes sit in this band
+  const t = document.createElement("canvas"); t.width=W; t.height=750;
+  const tx = t.getContext("2d", {willReadFrequently:true});
+  tx.drawImage(swatch,0,0,W,750);
+  const c = tx.getImageData(300,375,1,1).data, [th,ts] = rgb2hsl(c[0],c[1],c[2]);
+  tx.clearRect(0,0,W,750); tx.drawImage(mask,0,0,W,750);
+  const m = tx.getImageData(0,Y,W,H), e = cx.getImageData(0,Y,W,H), md = m.data, ed = e.data;
+  for(let i=0;i<md.length;i+=4){
+    if(md[i+3]<128 || md[i]+md[i+1]+md[i+2]<180){ md[i+3]=0; continue; } // black or empty: not the iris
+    let l = rgb2hsl(ed[i],ed[i+1],ed[i+2])[2];
+    if(darken) l = l<5 ? 5 : l*darken;
+    const [r,g,b] = hsl2rgb(th,ts,l);
+    md[i]=r; md[i+1]=g; md[i+2]=b; md[i+3]=255;
+  }
+  tx.clearRect(0,0,W,750); tx.putImageData(m,0,Y);
+  cx.drawImage(t,0,0);
 }
 /* Token art. You can play as a Milady or Remilio you hold; the other collections supply enemy portraits. Each collection says where its token images live and how the art is framed.
    Images go through an image proxy that resizes them and adds the CORS header most hosts lack (without it
@@ -182,19 +246,33 @@ function loadNft(n){
     .catch(e=>{ delete nftCache[key]; throw e; }));
 }
 async function composeAvatar(base, relicIds){
-  const nftIm = base.nft && NFT[base.nft.kind] ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
+  const tk = base.token || null, body = tk ? tk.cfg : "Milady";
+  // a token whose traits couldn't be read falls back to its flat picture; with no token at all, the generated look
+  const nftIm = !tk && base.nft && NFT[base.nft.kind] ? await loadNft(base.nft).catch(()=>null) : null;
   const slots = {};
   const add = (slot, item)=>{ if(SINGLE.includes(slot)) slots[slot]=[item]; else (slots[slot]=slots[slot]||[]).push(item); };
-  if(!nftIm) for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
+  if(tk){
+    for(const layer in tk.layers){ const slot = TOKEN_SLOTS[tk.cfg][layer]; if(slot) add(slot, {cfg:tk.cfg, url:assetURL(tk.cfg, layer, tk.layers[layer]), own:true, file:tk.layers[layer]}); }
+  } else if(!nftIm){
+    for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer]), own:true, file:base[layer]});
+  }
   for(const id of new Set(relicIds)){
     const [cfg, layer, name, tint] = relicById(id).icon;
     const slot = (WEAR[cfg]||{})[layer];
     if(slot) add(slot, {cfg, url:assetURL(cfg, layer, name+".webp"), tint});
   }
-  const items = DRAW_ORDER.flatMap(slot => (slots[slot]||[]).map(it=>({...it, slot})));
+  // on a Remilio body a costume hides what the collection hides under one; a relic you put on still shows
+  if(body==="Remilio" && slots.costume) for(const k of ["shirt","hat","glasses","hair","face"]) if(slots[k]) slots[k] = slots[k].filter(it=>!it.own);
+  const items = DRAW_ORDER[body].flatMap(slot => (slots[slot]||[]).map(it=>({...it, slot})));
   const ims = await Promise.all(items.map(it=>loadImg(it.url).catch(()=>null)));
+  // eye colour applies to her own eyes, when they are a kind that takes a colour
+  const TINT = TOKEN_MAP.milady.tint, eyes = (slots.eyes||[])[0], colour = tk ? tk.eyeColor : base.eyeColor;
+  let tintWith = null;
+  if(body==="Milady" && !nftIm && eyes && eyes.own && colour && TINT.values.includes(eyes.file.slice(0,-5))){
+    tintWith = await Promise.all([loadImg(assetURL("Milady", TINT.mask, eyes.file)), loadImg(assetURL("Milady", TINT.by, colour+".webp"))]).catch(()=>null);
+  }
   const cv = document.createElement("canvas"); cv.width=600; cv.height=750;
-  const cx = cv.getContext("2d");
+  const cx = cv.getContext("2d", {willReadFrequently:true});
   if(nftIm){
     const frame = NFT[base.nft.kind].frame;
     if(frame==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
@@ -223,6 +301,7 @@ async function composeAvatar(base, relicIds){
       cx.save(); cx.beginPath(); cx.ellipse(330, 300, 225, 255, 0, 0, Math.PI*2); cx.clip();
       cx.drawImage(im, 0, 0, 600, 750); cx.restore();
     } else cx.drawImage(im, 0, 0, 600, 750);
+    if(it===items.find(x=>x.slot==="eyes") && tintWith){ cx.filter = "none"; try{ tintEyes(cx, tintWith[0], tintWith[1], TINT.darken[colour]||0); }catch(e){} }
   });
   cx.filter = "none";
   let out = base.ps1 ? ps1(cv) : cv; // booted up a MiladyStation this run
@@ -2237,13 +2316,18 @@ async function genAvatar(nft){
   const ava = { picks: basePicks(), name: choice(NAMES) };
   if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
-    $("nft-msg").textContent = "loading "+NFT[nft.kind].name+" #"+nft.id+"…";
+    const label = NFT[nft.kind].name+" #"+nft.id;
+    $("nft-msg").textContent = "loading "+label+"…";
     $("avatar-canvas").classList.add("loading"); $("nft-load").disabled = true;
-    const ok = await loadNft(nft).then(()=>true, ()=>false);
+    // first choice: its traits, so it can be rebuilt in layers. failing that, its flat picture
+    const traits = await tokenTraits(nft), tk = traits ? tokenLayers(nft.kind, traits) : null;
+    const ok = tk ? true : await loadNft(nft).then(()=>true, ()=>false);
     $("avatar-canvas").classList.remove("loading"); $("nft-load").disabled = false;
     if(tok!==avaTok) return;
-    $("nft-msg").textContent = ok ? "playing as "+NFT[nft.kind].name+" #"+nft.id+" — reroll to go back to a random Milady" : "couldn't load that one — check the number and your connection";
-    if(ok){ ava.picks.nft = nft; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
+    $("nft-msg").textContent = tk ? "playing as "+label+", rebuilt from its traits: relics replace what it wears"
+      : ok ? "playing as "+label+" — its traits couldn't be read, so relics are drawn over its picture"
+      : "couldn't load that one — check the number and your connection";
+    if(ok){ ava.picks.nft = nft; if(tk) ava.picks.token = tk; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
   } else $("nft-msg").textContent = "";
   ava.canvas = await composeAvatar(ava.picks, []);
   if(tok!==avaTok) return;
