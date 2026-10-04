@@ -20,7 +20,7 @@ const relicById = id => RELICS.find(r=>r.id===id);
 
 /* ---------- meta (localStorage) ---------- */
 const META_KEY = "tcc_meta_v1";
-let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null};
+let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, auto:true, quick:true, calm:false};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
@@ -49,6 +49,7 @@ function sfx(name){
   }catch(e){}
 }
 function burst(emojis){ // a pop of emoji confetti from the middle of the screen
+  if(META.calm) return;
   const chars = [...emojis];
   for(let i=0;i<18;i++){
     const d = document.createElement("div"); d.className="confetti"; d.textContent=chars[Math.floor(Math.random()*chars.length)];
@@ -62,7 +63,7 @@ function splash(text, cls){ // a line of big type across the screen for a beat; 
   const d = document.createElement("div"); d.className = "splash "+(cls||""); d.innerHTML = text;
   document.body.appendChild(d); setTimeout(()=>d.remove(), 1700);
 }
-function quake(){ const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); }
+function quake(){ if(META.calm) return; const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); }
 function setMute(m){
   META.mute = m; saveMeta();
   document.querySelectorAll(".mute").forEach(b=>{ b.textContent = m ? "🔇" : "🔊"; });
@@ -796,12 +797,12 @@ function renderMap(){
       d.classList.add("you"); // the token itself is #you-tok, which slides between tiles
     } else if(!fogged){
       const t = G.map[y][x];
-      if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunter"); d.innerHTML="<span>🌚</span>"; d.title="FUD demon"; }
+      if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunted"); d.title="FUD demon"; } // drawn by placeHunters
       else if(t!==T.EMPTY){
         const foe = G.foes[x+","+y];
         if(foe && (t===T.MON || t===T.ELITE)){
           d.classList.add("foe"); if(t===T.ELITE) d.classList.add("elite");
-          d.innerHTML = foe.face ? "<img class='tok' src='"+foe.face+"' alt=''>" : T_EMOJI[t];
+          d.innerHTML = foe.face ? "<img class='tok' src='"+foe.face+"' alt=''>" : "<i class='tok ph'></i>"; // its portrait is still being put together
           d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
         } else {
           d.classList.add("poi", "t"+t);
@@ -835,7 +836,7 @@ function renderMap(){
   }
   m.onmouseleave = ()=>{ clearPath(); $("tile-info").innerHTML = tileInfo(G.px,G.py); };
   $("tile-info").innerHTML = tileInfo(G.px,G.py);
-  placeYou();
+  placeYou(); placeHunters();
   centerMap();
   renderMinimap();
   renderHUD();
@@ -853,6 +854,23 @@ function placeYou(){
   t.style.left = "calc("+G.px+" * "+cell+")"; t.style.top = "calc("+G.py+" * "+cell+")";
   t.dataset.at = G.px+","+G.py;
   if(moved && !camSnap){ img.classList.remove("hop"); void img.offsetWidth; img.classList.add("hop"); }
+}
+function placeHunters(){ // one sliding token per demon you can see
+  const inner = $("map-inner"), live = {}, cell = "((100% - "+(W-1)*GAP+"px) / "+W+" + "+GAP+"px)";
+  for(const h of G.hunters){
+    if(G.fog[h.y][h.x]) continue;
+    h.id = h.id || Math.random().toString(36).slice(2,9); live[h.id] = 1;
+    let el = inner.querySelector(".hunter-tok[data-id='"+h.id+"']");
+    if(!el){ el = document.createElement("div"); el.className="hunter-tok"; el.dataset.id=h.id; el.innerHTML="<span>🌚</span>"; inner.appendChild(el); }
+    el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
+    el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
+  }
+  inner.querySelectorAll(".hunter-tok").forEach(el=>{ if(!live[el.dataset.id]) el.remove(); });
+}
+function mapFloat(text, cls){ // a line of text that rises off the player's tile
+  const t = $("you-tok"), d = document.createElement("div"); d.className = "map-float "+(cls||""); d.textContent = text;
+  d.style.left = t.style.left; d.style.top = t.style.top; d.style.width = t.style.width;
+  $("map-inner").appendChild(d); setTimeout(()=>d.remove(), 1500);
 }
 function centerMap(){
   const w = $("map-wrap"), m = $("map-inner"), ts = m.scrollWidth/W;
@@ -1116,19 +1134,29 @@ function openDraft(flavor, pool, luck){
 }
 
 /* ---------- shop ---------- */
+const coinSrc = () => document.querySelector(".cult-coin").src;
+function relicRow(r, extra, tail){ // a relic as a row: art, name, text, then whatever goes on the right
+  return "<div class='shop-row "+r.rar+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name
+    + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+r.desc+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
+}
 function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
   shop.stock = shop.stock.filter(it=>!hasRelic(it.id));
-  const disc = G.stats.shopDisc * (districtAt(G.px,G.py)===2 ? 0.8 : 1);
-  const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp;
-  let html = "<h2>🏪 REMILIO MART</h2><div class='stat-line'><span>your $CULT</span><b>"+G.cult+"</b></div>";
+  const cheap = districtAt(G.px,G.py)===2, disc = G.stats.shopDisc * (cheap ? 0.8 : 1);
+  const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
+  let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
+    + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
+    + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")+"</div>";
   shop.stock.forEach((it,i)=>{
     const r = relicById(it.id), p = Math.round(it.base*disc);
-    html+="<div class='shop-row "+r.rar+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b>"+r.name+"</b><span>"+r.desc+"</span><div class='delta'>"+statDelta(r)+"</div>"+setChips(r, true)+"</div><button class='btn small' data-i='"+i+"'"+(G.cult<p?" disabled":"")+">"+p+"</button></div>";
+    html += relicRow(r, "<div class='delta'>"+statDelta(r)+"</div>"+setChips(r, true),
+      "<button class='btn small price' data-i='"+i+"'"+(G.cult<p?" disabled":"")+">"+coin+p+"</button>");
   });
   if(!shop.stock.length) html += "<div class='note'>sold out. thank u for shopping.</div>";
-  html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Full heal</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP</span></div><button class='btn small' id='shop-heal'"+(G.cult<healCost||!hurt?" disabled":"")+">"+healCost+"</button></div>";
+  html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Full heal</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP</span>"
+    + "<div class='bar hp'><div style='width:"+clamp(100*G.stats.hp/G.stats.maxhp,0,100)+"%'></div></div></div>"
+    + "<button class='btn small price' id='shop-heal'"+(G.cult<healCost||!hurt?" disabled":"")+">"+coin+healCost+"</button></div>";
   if(note) html += "<div class='note good'>"+note+"</div>";
   html += "<div class='row'><button class='btn small' id='shop-leave'>leave</button></div>";
   openModal(html);
@@ -1299,20 +1327,51 @@ function bossArrives(){
 /* ---------- build inspector ---------- */
 function openBuild(){
   if(!G || G.over || busy()) return;
-  const s = G.stats;
-  let html = "<h2>YOUR BUILD</h2>"
-    + "<div class='stat-line'><span>HP</span><b>"+s.hp+" / "+s.maxhp+"</b></div>"
-    + "<div class='stat-line'><span>ATK · ARM · SPD</span><b>"+s.atk+" · "+s.arm+" · "+s.spd+"</b></div>"
-    + "<div class='stat-line'><span>crit · dodge</span><b>"+s.crit+"% · "+s.dodge+"%</b></div>"
-    + "<div class='stat-line'><span>relic slots</span><b>"+G.relics.length+" / "+G.maxSlots+"</b></div>";
-  G.relics.forEach(id=>{ const r=relicById(id);
-    html += "<div class='shop-row "+r.rar+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b>"+r.name+"</b><span>"+r.desc+"</span>"+setChips(r, false)+"</div></div>"; });
+  const s = G.stats, tr = TRIBES.find(t=>t.id===G.tribe), cell = (k,v) => "<div><span>"+k+"</span><b>"+v+"</b></div>";
+  let html = "<h2>YOUR BUILD</h2><div class='build-top'><canvas id='build-ava'></canvas><div class='stat-grid'>"
+    + cell("HP", s.hp+" / "+s.maxhp)+cell("ATK", s.atk)+cell("ARM", s.arm)+cell("SPD", s.spd)
+    + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
+    + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
+    + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
+    + (G.bonus.atk||G.bonus.maxhp||G.bonus.spd ? "<span class='chip sale'>events: "+[G.bonus.atk&&"+"+G.bonus.atk+" ATK", G.bonus.maxhp&&"+"+G.bonus.maxhp+" HP", G.bonus.spd&&"+"+G.bonus.spd+" SPD"].filter(Boolean).join(", ")+"</span>" : "")+"</div>";
+  G.relics.forEach(id=>{ const r = relicById(id); html += relicRow(r, setChips(r, false)); });
   if(!G.relics.length) html += "<div class='note'>no relics yet. go loot something.</div>";
   html += "<div class='box-h' style='margin-top:12px'>SYNERGIES</div><div class='syn-list'>"+setsHTML(G.relics, true)+"</div>";
   html += "<div class='row'><button class='btn small' id='build-close'>close</button></div>";
   openModal(html);
+  paint($("build-ava"), G.avatar);
   $("build-close").onclick=()=>closeModal();
 }
+
+/* ---------- settings ---------- */
+function openSettings(){
+  if(G && !G.over && $("screen-combat").classList.contains("active")) return;
+  const inRun = G && !G.over && $("screen-map").classList.contains("active") && !G.queue.length;
+  const row = (label, hint, ctl) => "<div class='set-row'><div><b>"+label+"</b><span>"+hint+"</span></div>"+ctl+"</div>";
+  const tog = (k, on) => "<button class='tog"+(on?" on":"")+"' data-k='"+k+"'>"+(on?"on":"off")+"</button>";
+  openModal("<h2>⚙️ SETTINGS</h2>"
+    + row("Sound", "synth effects, no music", tog("sound", !META.mute))
+    + row("Fight speed", "how fast fights play out", "<div class='seg'>"+[1,2,4].map(v=>"<button class='tog"+(META.speed===v?" on":"")+"' data-speed='"+v+"'>"+v+"×</button>").join("")+"</div>")
+    + row("Auto-continue", "ordinary wins move on by themselves", tog("auto", META.auto!==false))
+    + row("Skip easy fights", "settle fights you can't lose on the map", tog("quick", META.quick!==false))
+    + row("Calm mode", "no screen shake, flashing or confetti", tog("calm", !!META.calm))
+    + (inRun ? "<div class='row'><button class='btn small danger' id='set-quit'>abandon this run</button></div>" : "")
+    + "<div class='row'><button class='btn' id='set-close'>done</button></div>");
+  const p = $("modal-panel");
+  p.querySelectorAll(".tog[data-k]").forEach(b=>{ b.onclick=()=>{
+    const k = b.dataset.k;
+    if(k==="sound") setMute(!META.mute); else { META[k] = !(k==="calm" ? META.calm : META[k]!==false); saveMeta(); }
+    applyCalm(); sfx("click"); openSettings();
+  };});
+  p.querySelectorAll(".tog[data-speed]").forEach(b=>{ b.onclick=()=>{ META.speed = +b.dataset.speed; saveMeta(); sfx("click"); openSettings(); }; });
+  $("set-close").onclick=()=>{ sfx("click"); closeModal(); };
+  if(inRun) $("set-quit").onclick=()=>{
+    const b = $("set-quit");
+    if(b.dataset.sure){ G.killedBy = "giving up"; G.diedToBoss = false; endRun(false); }
+    else { b.dataset.sure = 1; b.textContent = "really abandon? click again"; }
+  };
+}
+function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
 
 /* ---------- modal helpers ---------- */
 function openModal(html){
@@ -1573,8 +1632,53 @@ function oddsText(o){
   return "<span class='odds "+o.tag+"'>"+o.tag+" · win "+Math.round(o.p*100)+"%"+(o.p?" · ~"+o.hp+" HP left":"")+"</span>";
 }
 
+/* everything a won fight changes: loot, post-fight heals, achievements. log(msg, cls) receives the lines. */
+function settleWin(F, opts, log){
+  const you = F.you, foe = F.foe, boss = opts.boss || null;
+  G.relics = [...F.st.relics]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
+  G.kills++;
+  achieve("first");
+  if(foe.id==="kumicho") achieve("shark");
+  if(F.dodges>=5) achieve("dodge");
+  if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
+  if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
+  let c = randi(foe.cult[0], foe.cult[1]);
+  c = Math.round(c * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
+  if(hasRelic("no_meme") && rnd()<0.2){ c*=3; log("💌 There is no meme. I love you. The floor triples.", "crit"); }
+  G.cult += c + foe.stolen;
+  log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
+  if(hasRelic("silver_coin")){ G.cult+=15; log("🪙 Silver Coin: +15 $CULT.", "good"); }
+  const hm = hasRelic("heart_tattoo") ? 2 : 1;
+  for(const [id,n,label] of [["birthday_hat",15,"🎂 Birthday Hat"],["maid",6,"🧹 Maid Outfit"],["strawberry",3,"🍓 Strawberry Earring"]])
+    if(hasRelic(id)){ you.hp=Math.min(you.maxhp,you.hp+n*hm); log(label+": +"+n*hm+" HP.", "good"); }
+  const hp = clamp(Math.round(you.hp),1,you.maxhp);
+  recalcStats(); // kills and burned relics change the build
+  G.stats.hp = Math.min(hp, G.stats.maxhp);
+  return c;
+}
+/* A fight you cannot lose and that barely scratches you is settled on the map, without the fight screen. */
+function trivial(foeDef, opts){
+  if(opts.boss || META.quick===false) return false;
+  const def = ENEMIES.find(e=>e.id===foeDef.id);
+  if(!def) return false;
+  const o = fightOdds(def, opts);
+  return o.p===1 && o.hp >= G.stats.hp*0.85;
+}
+function quickFight(foeDef, opts){
+  const keep = SEED, F = fightEngine(foeDef, opts, NOIO);
+  for(let n=0; !F.over && n<3000; n++) F.step();
+  if(!F.win){ SEED = keep; return false; } // not so easy after all: rewind the luck and play it out on screen
+  const before = G.stats.hp, c = settleWin(F, opts, ()=>{}), lost = before-G.stats.hp;
+  mlog("⚔️ Stomped <b>"+foeDef.name+"</b>"+(lost>0 ? ", took "+lost : "")+". <b>+"+c+" $CULT.</b>", "good");
+  renderMap();
+  mapFloat("⚔️ +"+c+(lost>0 ? "  −"+lost+" HP" : ""), "loot");
+  sfx("win");
+  if(rnd() < (opts.elite?0.6:0.25)) G.queue.unshift(()=>openDraft("The fallen drops something.", null, opts.elite?1:0));
+  return true;
+}
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
+  if(trivial(foeDef, opts) && quickFight(foeDef, opts)) return;
   const boss = opts.boss || null, tok = ++combatTok;
   show("screen-combat");
   $("btn-combat-done").classList.add("hidden");
@@ -1626,31 +1730,13 @@ function startCombat(foeDef, opts={}){
     const win = F.win;
     $("port-"+(win?"foe":"you")).classList.add("dead");
     const btn=$("btn-combat-done"); btn.classList.remove("hidden");
-    G.relics = [...F.st.relics]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
     if(win){
-      G.kills++;
-      achieve("first");
-      if(foe.id==="kumicho") achieve("shark");
-      if(F.dodges>=5) achieve("dodge");
-      if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
-      if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
-      let c = randi(foe.cult[0], foe.cult[1]);
-      c = Math.round(c * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
-      if(hasRelic("no_meme") && rnd()<0.2){ c*=3; clog("💌 There is no meme. I love you. The floor triples.", "crit"); }
-      G.cult += c + foe.stolen;
-      clog("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
-      if(hasRelic("silver_coin")){ G.cult+=15; clog("🪙 Silver Coin: +15 $CULT.", "good"); }
-      const hm = hasRelic("heart_tattoo") ? 2 : 1;
-      for(const [id,n,label] of [["birthday_hat",15,"🎂 Birthday Hat"],["maid",6,"🧹 Maid Outfit"],["strawberry",3,"🍓 Strawberry Earring"]])
-        if(hasRelic(id)){ you.hp=Math.min(you.maxhp,you.hp+n*hm); clog(label+": +"+n*hm+" HP.", "good"); }
-      const hp = clamp(Math.round(you.hp),1,you.maxhp);
-      recalcStats(); // kills and burned relics change the build
-      G.stats.hp = Math.min(hp, G.stats.maxhp);
+      const c = settleWin(F, opts, clog);
       floatText("foe", "+"+c+" $CULT", "loot");
       sfx("win"); if(boss) burst("👑✨🌸💖");
       btn.textContent="CONTINUE →";
       let auto = null;
-      if(!boss){ // ordinary wins move on by themselves; a click or Enter is just faster
+      if(!boss && META.auto!==false){ // ordinary wins move on by themselves; a click or Enter is just faster
         btn.classList.add("auto");
         auto = setTimeout(()=>{ if(tok===combatTok && $("screen-combat").classList.contains("active")) btn.click(); }, 1700);
       }
@@ -1664,6 +1750,7 @@ function startCombat(foeDef, opts={}){
     } else {
       G.stats.hp = 0;
       G.killedBy = foe.name; G.diedToBoss = !!boss;
+      G.relics = [...F.st.relics]; G.cult = F.st.cult;
       clog("💀 You died.", "bad");
       sfx("lose"); quake();
       btn.classList.remove("auto");
@@ -1923,7 +2010,9 @@ async function genAvatar(nft){
   const ava = { picks: basePicks(), name: choice(NAMES) };
   if(nft){
     $("nft-msg").textContent = "loading "+NFT[nft.kind].name+" #"+nft.id+"…";
+    $("avatar-canvas").classList.add("loading"); $("nft-load").disabled = true;
     const ok = await loadNft(nft).then(()=>true, ()=>false);
+    $("avatar-canvas").classList.remove("loading"); $("nft-load").disabled = false;
     if(tok!==avaTok) return;
     $("nft-msg").textContent = ok ? "playing as "+NFT[nft.kind].name+" #"+nft.id+" — reroll to go back to a random Milady" : "couldn't load that one — check the number and your connection";
     if(ok){ ava.picks.nft = nft; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
@@ -2012,7 +2101,7 @@ function initSwipe(){
 
 /* ---------- keyboard ---------- */
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
-const KEY_BACK = ["draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
+const KEY_BACK = ["set-close","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
 function onKey(ev){
   if(!G || ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
   if(!$("modal").classList.contains("hidden")){ // 1-9 pick an option, Enter confirms, Esc backs out
@@ -2043,7 +2132,8 @@ function onKey(ev){
 
 /* ---------- init ---------- */
 async function init(){
-  loadMeta(); renderTitle(); setMute(META.mute);
+  loadMeta(); renderTitle(); setMute(META.mute); applyCalm();
+  document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
   let ready = loadAssets().then(renderCodex); // start loading right away so ENTER is instant
   ready.catch(()=>{});
   $("btn-continue").onclick=async()=>{

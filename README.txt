@@ -58,6 +58,10 @@ HOW TO PLAY:
 - Keyboard: arrows / WASD move, 1-9 pick an option in any dialog, Enter
   confirms, Esc backs out, B opens your build. Hovering an explored tile
   previews the walk and its length. Ordinary wins continue on their own.
+- Settings (the gear): sound, fight speed, auto-continue, skip easy fights,
+  calm mode (no shake, flashing or confetti), and abandon run.
+- Fights you cannot lose and that barely scratch you are settled on the map
+  without opening the fight screen.
 - Meme maker on the end screen: top text, bottom text, deep fry, save.
 - Derivatives in the maze: SchizoPosters (text-buried elites, an event),
   Radbro (mirror enemy, the Webring event and legendary), MiladyStation
