@@ -186,7 +186,7 @@ async function composeAvatar(base, relicIds){
   const slots = {};
   const add = (slot, item)=>{ if(SINGLE.includes(slot)) slots[slot]=[item]; else (slots[slot]=slots[slot]||[]).push(item); };
   if(!nftIm) for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
-  for(const id of relicIds){
+  for(const id of new Set(relicIds)){
     const [cfg, layer, name, tint] = relicById(id).icon;
     const slot = (WEAR[cfg]||{})[layer];
     if(slot) add(slot, {cfg, url:assetURL(cfg, layer, name+".webp"), tint});
@@ -435,15 +435,15 @@ function newRun(ava, opt){
     hunters: [], shops: {}, foes: {}, seen: [], bossLook: [],
     bonus: {maxhp:0, atk:0, spd:0},
     queue: [], over: false, newSeen: 0, sel: "", lit: {},
-    copies: {}, tier: {}, // per relic id: how many copies you hold (1-4) and what Remilia Jackson has fused it to (1-3)
+    tiers: [], // tiers[i] is the tier of relics[i]: 1 normal, 2 gold, 3 diamond
     bossesBeaten: 0, bossUnlocked: -1,
     kills: 0, tilesSeen: 0,
     stats: null,
   };
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
-  G.relics.push(tribe.relic); discover(tribe.relic);
-  if(META.unlocks.secondchance){ G.relics.push("wartime_pfp"); discover("wartime_pfp"); }
+  addRelic(tribe.relic); discover(tribe.relic);
+  if(META.unlocks.secondchance){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
   oddsCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
@@ -453,7 +453,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","copies","tier","seedCode","linked"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -473,7 +473,7 @@ function loadRun(){
 async function resumeRun(d){
   G = { queue:[], over:false, sel:"", foes:{}, bossLook:[], stats:null };
   for(const k of RUN_FIELDS) G[k] = d[k];
-  G.copies = G.copies || {}; G.tier = G.tier || {};
+  if(!Array.isArray(G.tiers)) G.tiers = G.relics.map(id=>(d.tier||{})[id]||1); // a save from before relics had their own slots
   SEED = d.rng;
   G.avatar = await composeAvatar(G.base, G.relics);
   G.face = faceToken(G.avatar, "Milady"); G.worn = G.relics.join();
@@ -505,14 +505,18 @@ function pinnedPicks(def){ // random look, with any layers the data pins down
 
 /* ---------- relic engine ---------- */
 function hasRelic(id){ return G.relics.includes(id); }
-/* Tiers. A second copy of a relic you hold doesn't take a slot: it is banked on that relic, and
-   Remilia Jackson fuses 2 copies into GOLD and 4 into DIAMOND. Gold is 1.5x, diamond 2x. */
-const TIERS = [null, {name:"", need:1, mult:1}, {name:"GOLD", need:2, mult:1.5, icon:"🥇"}, {name:"DIAMOND", need:4, mult:2, icon:"💎"}];
-const copiesOf = id => (G.copies && G.copies[id]) || 1;
-const tierOf = id => (G && G.tier && G.tier[id]) || 1;
+/* Tiers. Every relic you hold is its own item in its own slot, duplicates included, and G.tiers[i] is the tier of
+   G.relics[i]. Two copies of the same relic give nothing extra until Remilia Jackson fuses them: two normal make one
+   GOLD (numbers x1.5), two gold make one DIAMOND (x2). A relic's effect uses the best copy you hold. */
+const TIERS = [null, {name:"", mult:1}, {name:"GOLD", mult:1.5, icon:"🥇"}, {name:"DIAMOND", mult:2, icon:"💎"}];
+const tierAt = i => (G && G.tiers && G.tiers[i]) || 1;
+const tierOf = id => { let t = 1; if(G && G.relics) G.relics.forEach((x,i)=>{ if(x===id && tierAt(i)>t) t = tierAt(i); }); return t; };
 const tm = id => TIERS[tierOf(id)].mult; // how much a relic's numbers are multiplied by
-const tierClass = id => ["","","gold","diamond"][tierOf(id)];
-const tierTag = id => tierOf(id)>1 ? " <small class='tier-tag "+tierClass(id)+"'>"+TIERS[tierOf(id)].icon+" "+TIERS[tierOf(id)].name+"</small>" : "";
+const tierCls = t => ["","","gold","diamond"][t||1];
+const tierLabel = t => t>1 ? " <small class='tier-tag "+tierCls(t)+"'>"+TIERS[t].icon+" "+TIERS[t].name+"</small>" : "";
+const tierClass = id => tierCls(tierOf(id));
+function addRelic(id, tier){ G.relics.push(id); G.tiers.push(tier||1); }
+function dropRelicAt(i){ G.relics.splice(i,1); G.tiers.splice(i,1); }
 /* relics whose fight numbers are scaled where they are used (in fightEngine and settleWin); the rest get their
    stat bonuses scaled in computeStats, or a flat bonus per tier if they have no numbers at all */
 const TIER_IN_FIGHT = ["network_spirituality","jesus_tank","cookie","cult_robe","lollipop","snakebites","pikachu","remilio_friend","tails","dino",
@@ -551,19 +555,18 @@ function relicPool(){
   return RELICS.filter(r => {
     if(r.tags.includes("blackmarket") && !META.unlocks.blackmarket) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]]) return false;
-    if(G.relics.includes(r.id) && copiesOf(r.id)>=4) return false; // a relic you hold can drop again, to be fused
     return true;
   });
 }
 function setCounts(relics){
   const n = {};
-  for(const id of relics) for(const k of relicById(id).set) n[k] = (n[k]||0)+1;
+  for(const id of new Set(relics)) for(const k of relicById(id).set) n[k] = (n[k]||0)+1; // a duplicate doesn't count twice
   if(relics.includes("webring")) for(const k in n) n[k]++; // the webring links in to every set you already hold
   return n;
 }
 function computeStats(relics){
   const base = rawStats(relics), s = {...base};
-  for(const id of relics){ // an upgraded relic's positive stat bonuses grow with its tier
+  for(const id of new Set(relics)){ // an upgraded relic's positive stat bonuses grow with its tier
     const m = tm(id); if(m===1) continue;
     const without = rawStats(relics.filter(x=>x!==id));
     let any = false;
@@ -635,7 +638,7 @@ function setsHTML(relics, full){
 /* weighted relic roll: rarer is scarcer, luck tilts toward rare, and sets you already hold come up more */
 function rollRelics(n, luck){
   const held = setCounts(G.relics), out = [];
-  const pool = relicPool().map(r=>({ r, w: RARITY[r.rar].w * (r.rar==="common" ? 1 : 1+(luck||0)) * (r.set.some(k=>held[k]) ? 2 : 1) * (G.relics.includes(r.id) ? 1.5 : 1) }));
+  const pool = relicPool().map(r=>({ r, w: RARITY[r.rar].w * (r.rar==="common" ? 1 : 1+(luck||0)) * (r.set.some(k=>held[k]) ? 2 : 1) }));
   while(out.length<n && pool.length){
     let x = rnd()*pool.reduce((a,p)=>a+p.w,0), i = 0;
     while(i<pool.length-1 && (x-=pool[i].w) > 0) i++;
@@ -648,7 +651,7 @@ function recalcStats(){
   const ratio = G.stats ? G.stats.hp / G.stats.maxhp : 1;
   G.stats = s;
   G.stats.hp = clamp(Math.round(ratio * s.maxhp), 1, s.maxhp);
-  for(const k of ["copies","tier"]) for(const id in G[k]) if(!G.relics.includes(id)) delete G[k][id]; // a relic that is gone takes its copies with it
+  G.tiers = G.relics.map((_,i)=>tierAt(i)); // keep one tier per slot
   if((G.worn||"") !== G.relics.join()){ G.worn = G.relics.join(); refreshAvatar(); }
   if(setRows(G.relics).some(r=>!r.next)) achieve("synergy");
 }
@@ -808,7 +811,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && relicById(G.relics[i]);
-    rb += rel ? "<div class='relic' title='"+rel.name+" — "+rel.desc.replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierClass(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(copiesOf(rel.id)>TIERS[tierOf(rel.id)].need ? "<i class='copies'>×"+copiesOf(rel.id)+"</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierTag(rel.id)+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+rel.desc+"</span></div></div>"
+    rb += rel ? "<div class='relic' title='"+rel.name+" — "+rel.desc.replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>dup</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+(G.relics.indexOf(rel.id)!==i ? "duplicate: no effect until fused" : rel.desc)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1145,17 +1148,18 @@ function foeInstance(def){
 }
 
 /* ---------- relic draft ---------- */
-function relicExtras(r, preview){ // what taking r would do: stat changes and set progress, or copy progress if you already hold it
+function relicExtras(r, preview){ // what taking r would do: stat changes and set progress, or what a duplicate is for
   if(preview && hasRelic(r.id)){
-    const n = copiesOf(r.id)+1, next = TIERS[Math.min(3, tierOf(r.id)+1)];
-    return "<div class='delta'><i class='up'>copy "+n+" of "+next.need+" for "+next.icon+" "+next.name+"</i></div><div class='sets'><i style='--sc:#7dffb0'>no slot needed</i><i style='--sc:#7dffb0'>fuse at Remilia Jackson</i></div>";
+    const t = tierOf(r.id);
+    return "<div class='delta'><i class='down'>duplicate: takes a slot, no extra effect</i></div><div class='sets'><i style='--sc:#50fa7b'>"
+      + (t>1 ? "two "+TIERS[t].name+" fuse into "+(TIERS[t+1] ? TIERS[t+1].icon+" "+TIERS[t+1].name : "nothing more")+"; this one is normal" : "Remilia Jackson fuses two into 🥇 GOLD")+"</i></div>";
   }
   return (preview ? "<div class='delta'>"+statDelta(r)+"</div>" : "")+setChips(r, preview);
 }
-function relicCard(r, attr, delta){
-  const rar = rarity(r), held = G.relics.includes(r.id);
-  return "<div class='card "+rar+" "+tierClass(r.id)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+(held?tierTag(r.id):"")+"</b><span>"+r.desc+"</span>"
-    + relicExtras(r, delta)+(META.seen[r.id] ? (delta && held ? "<u class='dup'>copy</u>" : "") : "<u>new!</u>")+"</div>";
+function relicCard(r, attr, delta, tier){ // tier: when the card stands for a relic you hold, that item's tier
+  const rar = rarity(r);
+  return "<div class='card "+rar+" "+tierCls(tier)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+r.desc+"</span>"
+    + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>duplicate</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
   const n = setCounts(G.relics.filter(id=>id!==r.id));
@@ -1184,19 +1188,14 @@ function flyRelic(id){ // the relic leaps from the middle of the screen onto you
 }
 /* Equip r, asking which relic to drop when slots are full. onDone(dropped) / onBack(). */
 function acquireRelic(r, onDone, onBack){
-  if(hasRelic(r.id)){ // a copy is banked on the relic you already hold
-    G.copies[r.id] = copiesOf(r.id)+1; gotRelic(r);
-    mlog("📦 <b>"+r.name+"</b> ×"+G.copies[r.id]+". Take them to <b>Remilia Jackson</b> to fuse.", "gold");
-    return onDone(null);
-  }
-  if(G.relics.length < G.maxSlots){ G.relics.push(r.id); recalcStats(); gotRelic(r); return onDone(null); }
+  if(G.relics.length < G.maxSlots){ addRelic(r.id); recalcStats(); gotRelic(r); return onDone(null); }
   let h = "<h2>SLOTS FULL — DROP ONE</h2><div class='stat-line'><span>to make room for</span><b>"+r.name+"</b></div><div class='draft-cards'>";
-  G.relics.forEach((id,j)=>{ h += relicCard(relicById(id), "data-j='"+j+"'"); });
+  G.relics.forEach((id,j)=>{ h += relicCard(relicById(id), "data-j='"+j+"'", false, tierAt(j)); });
   h += "</div><div class='row'><button class='btn small' id='drop-back'>← back</button></div>";
   openModal(h);
   document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick=()=>{
     const old = relicById(G.relics[+c.dataset.j]);
-    G.relics[+c.dataset.j]=r.id; recalcStats(); gotRelic(r); onDone(old);
+    G.relics[+c.dataset.j]=r.id; G.tiers[+c.dataset.j]=1; recalcStats(); gotRelic(r); onDone(old);
   };});
   $("drop-back").onclick = onBack;
 }
@@ -1222,8 +1221,8 @@ function openDraft(flavor, pool, luck){
 
 /* ---------- shop ---------- */
 const coinSrc = () => document.querySelector(".cult-coin").src;
-function relicRow(r, extra, tail){ // a relic as a row: art, name, text, then whatever goes on the right
-  return "<div class='shop-row "+r.rar+" "+(G.relics.includes(r.id)?tierClass(r.id):"")+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+(G.relics.includes(r.id)?tierTag(r.id):"")
+function relicRow(r, extra, tail, tier){ // a relic as a row: art, name, text, then whatever goes on the right
+  return "<div class='shop-row "+r.rar+" "+tierCls(tier)+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+r.desc+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 function openShop(note){
@@ -1361,7 +1360,7 @@ function applyFx(list){
         else { G.seedKnown = true; out.push("the seed phrase is marked on your map"); }
         break;
       case "burn": {
-        const gone = choice(G.relics); G.relics = G.relics.filter(r=>r!==gone); recalcStats();
+        const gi = Math.floor(rnd()*G.relics.length), gone = G.relics[gi]; dropRelicAt(gi); recalcStats();
         if(v) G.cult+=v;
         out.push("burned "+relicById(gone).name+(v?" for +"+v+" $CULT":"")); break;
       }
@@ -1420,7 +1419,7 @@ function openBuild(){
     + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
     + (G.bonus.atk||G.bonus.maxhp||G.bonus.spd ? "<span class='chip sale'>events: "+[G.bonus.atk&&"+"+G.bonus.atk+" ATK", G.bonus.maxhp&&"+"+G.bonus.maxhp+" HP", G.bonus.spd&&"+"+G.bonus.spd+" SPD"].filter(Boolean).join(", ")+"</span>" : "")+"</div>";
-  G.relics.forEach(id=>{ const r = relicById(id); html += relicRow(r, setChips(r, false)); });
+  G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='down'>duplicate: no effect until fused</i></div>" : setChips(r, false), "", tierAt(i)); });
   if(!G.relics.length) html += "<div class='note'>no relics yet. go loot something.</div>";
   html += "<div class='box-h' style='margin-top:12px'>SYNERGIES</div><div class='syn-list'>"+setsHTML(G.relics, true)+"</div>";
   html += "<div class='row'><button class='btn small' id='build-close'>close</button></div>";
@@ -1433,24 +1432,31 @@ function openBuild(){
    He only fuses. Copies have to be found (drafts, shops, drops); he never sells them. */
 function openForge(note){
   let html = "<h2>REMILIA JACKSON</h2><img class='npc-face' src='"+coinSrc()+"' alt=''>"
-    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>2 copies fuse into 🥇 GOLD (numbers ×1.5) · 4 into 💎 DIAMOND (×2)<br>find the copies yourself: he doesn't sell them</div>";
+    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>two of the same relic fuse into one 🥇 GOLD (numbers ×1.5) · two GOLD fuse into one 💎 DIAMOND (×2)"
+    + "<br>every copy takes a slot until it's fused, and he doesn't sell them</div>";
+  const used = new Set(); let pairs = 0;
   G.relics.forEach((id,i)=>{
-    const r = relicById(id), t = tierOf(id), n = copiesOf(id), next = TIERS[t+1];
-    const prog = next ? "<div class='delta'><i class='"+(n>=next.need?"up":"")+"'>"+n+" / "+next.need+" copies for "+next.icon+" "+next.name+"</i></div>" : "<div class='delta'><i class='up'>fully fused</i></div>";
-    const btn = next && n>=next.need ? "<button class='btn small fuse' data-fuse='"+i+"'>fuse → "+next.icon+"</button>" : "";
-    html += relicRow(r, prog, btn);
+    const r = relicById(id), t = tierAt(i), next = TIERS[t+1];
+    // a partner is another copy of the same relic at the same tier
+    const j = next && !used.has(i) ? G.relics.findIndex((x,k)=>k>i && x===id && tierAt(k)===t && !used.has(k)) : -1;
+    let prog, btn = "";
+    if(used.has(i)) prog = "<div class='delta'><i class='up'>goes into the fuse above</i></div>";
+    else if(!next) prog = "<div class='delta'><i class='up'>fully fused</i></div>";
+    else if(j>=0){ used.add(i); used.add(j); pairs++; prog = "<div class='delta'><i class='up'>you hold two: ready</i></div>"; btn = "<button class='btn small fuse' data-a='"+i+"' data-b='"+j+"'>fuse → "+next.icon+"</button>"; }
+    else prog = "<div class='delta'><i>needs a second "+(t>1 ? TIERS[t].name+" " : "")+r.name+"</i></div>";
+    html += relicRow(r, prog, btn, t);
   });
   if(!G.relics.length) html += "<div class='note'>\"You've got nothing for me to work with.\"</div>";
+  else if(!pairs) html += "<div class='note'>\"No pairs. Come back when you've found a second one.\"</div>";
   if(note) html += "<div class='note good'>"+note+"</div>";
   html += "<div class='row'><button class='btn small' id='forge-leave'>leave</button></div>";
   openModal(html);
-  const p = $("modal-panel");
-  p.querySelectorAll("[data-fuse]").forEach(b=>{ b.onclick=()=>{
-    const id = G.relics[+b.dataset.fuse], r = relicById(id);
-    G.tier[id] = tierOf(id)+1; recalcStats();
+  $("modal-panel").querySelectorAll("[data-a]").forEach(b=>{ b.onclick=()=>{
+    const i = +b.dataset.a, j = +b.dataset.b, id = G.relics[i], r = relicById(id), t = tierAt(i)+1;
+    G.tiers[i] = t; dropRelicAt(j); recalcStats(); // two become one: a slot comes free
     sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
-    mlog("✨ Remilia Jackson fused <b>"+r.name+"</b> into "+TIERS[G.tier[id]].icon+" <b>"+TIERS[G.tier[id]].name+"</b>.", "gold");
-    renderMap(); openForge(r.name+" is now "+TIERS[G.tier[id]].name+".");
+    mlog("✨ Remilia Jackson fused two <b>"+r.name+"</b> into "+TIERS[t].icon+" <b>"+TIERS[t].name+"</b>.", "gold");
+    renderMap(); openForge(r.name+" is now "+TIERS[t].name+". A slot is free.");
   };});
   $("forge-leave").onclick=()=>closeModal();
 }
@@ -1525,12 +1531,13 @@ function shake(side){
 const NOIO = { log(){}, hit(){}, float(){}, strip(){} };
 function fightEngine(foeDef, opts, io){
   const boss = opts.boss || null;
-  const st = { relics:[...G.relics], cult:G.cult, memUsed:!!G.memUsed }; // what the fight may change; the caller writes it back
+  const st = { relics:[...G.relics], tiers:G.relics.map((_,i)=>tierAt(i)), cult:G.cult, memUsed:!!G.memUsed };
+  const lose = i => { st.relics.splice(i,1); st.tiers.splice(i,1); }; // one item goes; a duplicate of it would stay // what the fight may change; the caller writes it back
   let base = G.stats;
   // THE CANCEL: cancels one relic at fight start
   if(boss && boss.id==="cancel" && st.relics.length){
-    const gone = choice(st.relics);
-    st.relics = st.relics.filter(r=>r!==gone);
+    const gi = Math.floor(rnd()*st.relics.length), gone = st.relics[gi];
+    lose(gi);
     const s = computeStats(st.relics);
     base = {...s, hp: clamp(Math.round(G.stats.hp/G.stats.maxhp*s.maxhp), 1, s.maxhp)};
     io.log("📵 THE CANCEL has cancelled <b>"+relicById(gone).name+"</b>. It is gone.", "bad");
@@ -1652,7 +1659,7 @@ function fightEngine(foeDef, opts, io){
       return false;
     }
     if(act("reserve")){
-      st.relics = st.relics.filter(r=>r!=="reserve"); you.hp=you.maxhp; io.strip(F);
+      lose(st.relics.indexOf("reserve")); you.hp=you.maxhp; io.strip(F);
       io.log("🔥 <b>BURN TO REDEEM.</b> The Bonkler Reserve is gone. You are whole.", "good");
       io.float("you","redeemed!","heal");
       return false;
@@ -1749,7 +1756,7 @@ function oddsText(o){
 /* everything a won fight changes: loot, post-fight heals, achievements. log(msg, cls) receives the lines. */
 function settleWin(F, opts, log){
   const you = F.you, foe = F.foe, boss = opts.boss || null;
-  G.relics = [...F.st.relics]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
+  G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
   G.kills++;
   achieve("first");
   if(foe.id==="kumicho") achieve("shark");
@@ -1821,9 +1828,9 @@ function startCombat(foeDef, opts={}){
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
     strip: f=>{
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
-      if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.worn=G.relics.join(); refreshAvatar(); }
-      $("combat-relics").innerHTML = f.st.relics.map(id=>{ const r=relicById(id);
-        return "<img class='relic-ico "+tierClass(id)+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"; }).join("");
+      if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
+      $("combat-relics").innerHTML = f.st.relics.map((id,n)=>{ const r=relicById(id);
+        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
@@ -1867,7 +1874,7 @@ function startCombat(foeDef, opts={}){
     } else {
       G.stats.hp = 0;
       G.killedBy = foe.name; G.diedToBoss = !!boss;
-      G.relics = [...F.st.relics]; G.cult = F.st.cult;
+      G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult;
       clog("💀 You died.", "bad");
       sfx("lose"); quake();
       btn.classList.remove("auto");
@@ -2119,7 +2126,7 @@ function submitRun(run, win, drip){
   return api("/api/score", {
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
-    relics: run.relics.slice(0,8).map(id=>[id, (run.tier||{})[id]||1]), killedBy: win ? "" : (run.killedBy||""),
+    relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
     daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null),
   });
 }

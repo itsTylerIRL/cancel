@@ -766,3 +766,5 @@ h1.game-title .is::after{content:"_";animation:tirlblink 1s steps(2) infinite;}
 .brow em{font-style:normal;font-weight:700;color:var(--gold);text-align:right;font-size:14px;}
 #modal-panel:has(.board){max-width:620px;}
 @media (max-width:520px){ .brel{display:none;} .brow{grid-template-columns:28px minmax(0,1fr) 50px;} }
+.relic .copies{left:20px;top:-5px;background:#ffb86c;color:#2a1400;border-radius:3px;font-family:var(--label);letter-spacing:.05em;}
+.card u.dup{background:#ffb86c;color:#2a1400;}

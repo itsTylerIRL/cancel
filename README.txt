@@ -34,9 +34,11 @@ HOW TO PLAY:
 - Combat is automatic — your relic build fights for you.
   Hover a foe (or tap it once on a phone) to see your odds before you commit;
   the coloured dot on each foe is the same estimate at a glance.
-- A relic you already hold can drop again. The copy takes no slot; bring
-  2 copies to Remilia Jackson (the smiley on the map) to fuse it to GOLD
-  (numbers x1.5) and 4 for DIAMOND (x2). He only fuses; copies must be found.
+- A relic you already hold can drop again. The duplicate takes its own
+  slot and does nothing extra until Remilia Jackson (the smiley on the map)
+  fuses the pair: two normal make one GOLD (numbers x1.5), two GOLD make one
+  DIAMOND (x2). He only fuses; copies have to be found. A diamond therefore
+  needs four copies and enough free slots to carry them to him.
 - Relics come in common / rare / legendary (and cursed, from the Black
   Market unlock). Each belongs to one or two sets — ARMED, HYPEBEAST, DEGEN,
   KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD. Hold enough of a set and its
