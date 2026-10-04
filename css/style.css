@@ -159,7 +159,8 @@ h1.game-title .is{color:var(--neon);text-shadow:3px 3px 0 var(--neon2),-1px -1px
     color-mix(in srgb,var(--dc,#555) 7%,#0d0c18)!important;
   border-color:#000;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);}
 .board{--board:74vh;}
-#map{display:grid;gap:3px;}
+#map{display:grid;gap:3px;aspect-ratio:1;
+  background:repeating-linear-gradient(45deg,#0a0a13 0 6px,#0d0d18 6px 12px);border-radius:6px;} /* undrawn cells are the fog */
 .tile{font-size:clamp(15px,calc(var(--board)/20),26px)!important;}
 .tile{aspect-ratio:1;min-width:0;border-radius:9px;
   background:color-mix(in srgb,var(--dc,#555) 20%,#211f3d);
@@ -471,6 +472,42 @@ body.calm #boss-banner,body.calm .hpbar>div.low,body.calm #timeline .day.boss.no
 body.calm.danger::after{animation:none;}
 body.calm::before{animation:none;}
 @media (max-width:520px){ .stat-grid{grid-template-columns:repeat(2,1fr);} #build-ava{width:96px;} .shop-row img,.heal-ico{width:48px;height:48px;} }
+.tile{aspect-ratio:auto!important;}
+.tile.poi .npc{width:86%;height:86%;border-radius:50%;object-fit:cover;display:block;}
+.tile.poi.t11 span{border-color:#7dffb0;background:#12301f;box-shadow:0 2px 0 #000,0 0 12px rgba(125,255,176,.55);animation:bob 2.4s ease-in-out infinite;}
+.name-in{display:block;width:min(100%,300px);margin:10px auto;text-align:center;background:#0e0d1b;border:2px solid var(--line);border-radius:999px;
+  padding:8px 14px;outline:none;font-size:20px;}
+.name-in:focus{border-color:var(--pink);}
+.name-in::placeholder{color:var(--neon2);opacity:.75;}
+/* tiers */
+.card .delta i,.card .sets i{white-space:normal;text-align:center;}
+.relic-ico.gold{border-color:#ffd75e;background:radial-gradient(circle,#6b5410,#1c1505 80%);box-shadow:0 0 8px rgba(255,215,94,.7);}
+.relic-ico.diamond{border-color:#9ff3ff;background:radial-gradient(circle,#1d5f73,#06161c 80%);box-shadow:0 0 10px rgba(159,243,255,.85);animation:shine 2.2s ease-in-out infinite;}
+.tier-tag{font-size:9px;letter-spacing:1px;border-radius:999px;padding:0 6px;vertical-align:1px;white-space:nowrap;}
+.tier-tag.gold{color:#221a00;background:#ffd75e;} .tier-tag.diamond{color:#002a33;background:#9ff3ff;}
+.shop-row.gold{border-color:#ffd75e;} .shop-row.diamond{border-color:#9ff3ff;box-shadow:0 0 12px rgba(159,243,255,.4);}
+.relic{position:relative;}
+.relic .copies{position:absolute;left:24px;top:-4px;font-style:normal;font-size:10px;font-weight:bold;color:#0b2a00;background:#7dffb0;border-radius:999px;padding:0 5px;z-index:1;}
+.card u.dup{background:#7dffb0;}
+.btn.fuse{border-color:#7dffb0;color:#0b2a00;background:#7dffb0;animation:blink 1s steps(2) infinite;}
+.npc-face{display:block;width:96px;height:96px;margin:0 auto 4px;border-radius:50%;object-fit:cover;border:3px solid #7dffb0;
+  box-shadow:0 0 0 3px #000,0 0 26px rgba(125,255,176,.5);animation:bob 2.6s ease-in-out infinite;}
+.fly-relic{position:fixed;left:0;top:0;width:96px;height:96px;z-index:140;pointer-events:none;filter:drop-shadow(0 0 14px rgba(255,215,94,.9));}
+#hud-avatar.equip{animation:equip .5s cubic-bezier(.3,1.6,.5,1);}
+@keyframes equip{0%{transform:scale(1.35) rotate(-6deg);box-shadow:0 0 0 4px var(--gold),0 0 30px var(--gold);}100%{transform:none;}}
+/* boss entrance */
+.combat-panel{position:relative;overflow:hidden;}
+#boss-intro{display:none;}
+#boss-intro.show{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;position:absolute;inset:0;z-index:20;padding:16px;
+  background:repeating-linear-gradient(-45deg,rgba(40,0,10,.93) 0 22px,rgba(18,0,5,.93) 22px 44px);animation:biout 2.1s ease-in forwards;pointer-events:none;}
+.bi-warn{font-family:var(--cute);font-weight:bold;letter-spacing:8px;color:#ff2244;font-size:15px;animation:blink .35s steps(2) infinite;}
+.bi-name{font-family:var(--cute);font-weight:bold;font-size:clamp(30px,8vw,54px);letter-spacing:3px;color:#fff;text-align:center;line-height:1;
+  text-shadow:4px 4px 0 #ff2244,0 0 40px rgba(255,34,68,.9);animation:bistamp .55s cubic-bezier(.2,1.6,.4,1) .15s backwards;}
+.bi-mech{max-width:420px;text-align:center;font-size:13px;line-height:1.5;color:#ffb3bf;animation:fadein .4s ease-out .8s backwards;}
+@keyframes bistamp{0%{transform:scale(3.4) rotate(-8deg);opacity:0;}100%{transform:none;opacity:1;}}
+@keyframes biout{0%,86%{opacity:1;}100%{opacity:0;}}
+.portrait.slam{animation:slam .6s cubic-bezier(.2,1.5,.4,1);}
+@keyframes slam{0%{transform:translateX(160%) rotate(14deg) scale(1.3);}70%{transform:translateX(-6%) rotate(-2deg);}100%{transform:none;}}
 /* meme maker */
 .meme-cv{display:block;width:min(100%,340px);height:auto;margin:0 auto 10px;border:3px solid var(--neon);border-radius:14px;box-shadow:var(--sticker);}
 .meme-in{display:block;width:100%;margin:6px 0;font-family:Impact,'Arial Black',sans-serif;font-size:18px;letter-spacing:1px;text-transform:uppercase;

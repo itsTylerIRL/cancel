@@ -36,7 +36,8 @@
     <div class="panel">
       <h2>YOUR MILADY</h2>
       <canvas id="avatar-canvas" width="600" height="750"></canvas>
-      <div class="avatar-name" id="avatar-name">…</div>
+      <input id="name-in" class="avatar-name name-in" maxlength="18" autocomplete="off" spellcheck="false" placeholder="name" aria-label="your name">
+      <div class="note" style="margin-top:-4px">type a name, or leave it blank to keep the one shown</div>
       <div class="nft-row">
         <span>play as your</span>
         <select id="nft-kind"></select>
@@ -79,7 +80,7 @@
         <div class="map-frame"><div id="map-wrap"><div id="map-inner"><div id="map"></div><div id="you-tok"><img id="you-img" alt="you"></div></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
         <div class="dlabels"><span style="color:#a6ff5e">BONKLER</span><span style="color:#ffd75e">CULT</span></div>
         <div id="tile-info"></div>
-        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
+        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>🙂 Remilia Jackson</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
       </div>
       <div class="box" id="relic-box">
         <div class="box-h">RELICS <span id="relic-count"></span></div>
@@ -113,6 +114,7 @@
           <div class="hpbar foe"><i id="chp-foe-g"></i><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
         </div>
       </div>
+      <div id="boss-intro"></div>
       <div id="combat-choice" class="hidden"></div>
       <div id="combat-log"></div>
       <div class="row" id="combat-ctl">

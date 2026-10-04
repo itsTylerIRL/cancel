@@ -167,7 +167,8 @@ h1.game-title .is{color:var(--neon);text-shadow:3px 3px 0 var(--neon2),-1px -1px
     color-mix(in srgb,var(--dc,#555) 7%,#0d0c18)!important;
   border-color:#000;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);}
 .board{--board:74vh;}
-#map{display:grid;gap:3px;}
+#map{display:grid;gap:3px;aspect-ratio:1;
+  background:repeating-linear-gradient(45deg,#0a0a13 0 6px,#0d0d18 6px 12px);border-radius:6px;} /* undrawn cells are the fog */
 .tile{font-size:clamp(15px,calc(var(--board)/20),26px)!important;}
 .tile{aspect-ratio:1;min-width:0;border-radius:9px;
   background:color-mix(in srgb,var(--dc,#555) 20%,#211f3d);
@@ -479,6 +480,42 @@ body.calm #boss-banner,body.calm .hpbar>div.low,body.calm #timeline .day.boss.no
 body.calm.danger::after{animation:none;}
 body.calm::before{animation:none;}
 @media (max-width:520px){ .stat-grid{grid-template-columns:repeat(2,1fr);} #build-ava{width:96px;} .shop-row img,.heal-ico{width:48px;height:48px;} }
+.tile{aspect-ratio:auto!important;}
+.tile.poi .npc{width:86%;height:86%;border-radius:50%;object-fit:cover;display:block;}
+.tile.poi.t11 span{border-color:#7dffb0;background:#12301f;box-shadow:0 2px 0 #000,0 0 12px rgba(125,255,176,.55);animation:bob 2.4s ease-in-out infinite;}
+.name-in{display:block;width:min(100%,300px);margin:10px auto;text-align:center;background:#0e0d1b;border:2px solid var(--line);border-radius:999px;
+  padding:8px 14px;outline:none;font-size:20px;}
+.name-in:focus{border-color:var(--pink);}
+.name-in::placeholder{color:var(--neon2);opacity:.75;}
+/* tiers */
+.card .delta i,.card .sets i{white-space:normal;text-align:center;}
+.relic-ico.gold{border-color:#ffd75e;background:radial-gradient(circle,#6b5410,#1c1505 80%);box-shadow:0 0 8px rgba(255,215,94,.7);}
+.relic-ico.diamond{border-color:#9ff3ff;background:radial-gradient(circle,#1d5f73,#06161c 80%);box-shadow:0 0 10px rgba(159,243,255,.85);animation:shine 2.2s ease-in-out infinite;}
+.tier-tag{font-size:9px;letter-spacing:1px;border-radius:999px;padding:0 6px;vertical-align:1px;white-space:nowrap;}
+.tier-tag.gold{color:#221a00;background:#ffd75e;} .tier-tag.diamond{color:#002a33;background:#9ff3ff;}
+.shop-row.gold{border-color:#ffd75e;} .shop-row.diamond{border-color:#9ff3ff;box-shadow:0 0 12px rgba(159,243,255,.4);}
+.relic{position:relative;}
+.relic .copies{position:absolute;left:24px;top:-4px;font-style:normal;font-size:10px;font-weight:bold;color:#0b2a00;background:#7dffb0;border-radius:999px;padding:0 5px;z-index:1;}
+.card u.dup{background:#7dffb0;}
+.btn.fuse{border-color:#7dffb0;color:#0b2a00;background:#7dffb0;animation:blink 1s steps(2) infinite;}
+.npc-face{display:block;width:96px;height:96px;margin:0 auto 4px;border-radius:50%;object-fit:cover;border:3px solid #7dffb0;
+  box-shadow:0 0 0 3px #000,0 0 26px rgba(125,255,176,.5);animation:bob 2.6s ease-in-out infinite;}
+.fly-relic{position:fixed;left:0;top:0;width:96px;height:96px;z-index:140;pointer-events:none;filter:drop-shadow(0 0 14px rgba(255,215,94,.9));}
+#hud-avatar.equip{animation:equip .5s cubic-bezier(.3,1.6,.5,1);}
+@keyframes equip{0%{transform:scale(1.35) rotate(-6deg);box-shadow:0 0 0 4px var(--gold),0 0 30px var(--gold);}100%{transform:none;}}
+/* boss entrance */
+.combat-panel{position:relative;overflow:hidden;}
+#boss-intro{display:none;}
+#boss-intro.show{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;position:absolute;inset:0;z-index:20;padding:16px;
+  background:repeating-linear-gradient(-45deg,rgba(40,0,10,.93) 0 22px,rgba(18,0,5,.93) 22px 44px);animation:biout 2.1s ease-in forwards;pointer-events:none;}
+.bi-warn{font-family:var(--cute);font-weight:bold;letter-spacing:8px;color:#ff2244;font-size:15px;animation:blink .35s steps(2) infinite;}
+.bi-name{font-family:var(--cute);font-weight:bold;font-size:clamp(30px,8vw,54px);letter-spacing:3px;color:#fff;text-align:center;line-height:1;
+  text-shadow:4px 4px 0 #ff2244,0 0 40px rgba(255,34,68,.9);animation:bistamp .55s cubic-bezier(.2,1.6,.4,1) .15s backwards;}
+.bi-mech{max-width:420px;text-align:center;font-size:13px;line-height:1.5;color:#ffb3bf;animation:fadein .4s ease-out .8s backwards;}
+@keyframes bistamp{0%{transform:scale(3.4) rotate(-8deg);opacity:0;}100%{transform:none;opacity:1;}}
+@keyframes biout{0%,86%{opacity:1;}100%{opacity:0;}}
+.portrait.slam{animation:slam .6s cubic-bezier(.2,1.5,.4,1);}
+@keyframes slam{0%{transform:translateX(160%) rotate(14deg) scale(1.3);}70%{transform:translateX(-6%) rotate(-2deg);}100%{transform:none;}}
 /* meme maker */
 .meme-cv{display:block;width:min(100%,340px);height:auto;margin:0 auto 10px;border:3px solid var(--neon);border-radius:14px;box-shadow:var(--sticker);}
 .meme-in{display:block;width:100%;margin:6px 0;font-family:Impact,'Arial Black',sans-serif;font-size:18px;letter-spacing:1px;text-transform:uppercase;
@@ -580,7 +617,8 @@ html,body{overscroll-behavior-y:contain;}
     <div class="panel">
       <h2>YOUR MILADY</h2>
       <canvas id="avatar-canvas" width="600" height="750"></canvas>
-      <div class="avatar-name" id="avatar-name">…</div>
+      <input id="name-in" class="avatar-name name-in" maxlength="18" autocomplete="off" spellcheck="false" placeholder="name" aria-label="your name">
+      <div class="note" style="margin-top:-4px">type a name, or leave it blank to keep the one shown</div>
       <div class="nft-row">
         <span>play as your</span>
         <select id="nft-kind"></select>
@@ -623,7 +661,7 @@ html,body{overscroll-behavior-y:contain;}
         <div class="map-frame"><div id="map-wrap"><div id="map-inner"><div id="map"></div><div id="you-tok"><img id="you-img" alt="you"></div></div></div><canvas id="minimap" title="what you have explored"></canvas></div>
         <div class="dlabels"><span style="color:#a6ff5e">BONKLER</span><span style="color:#ffd75e">CULT</span></div>
         <div id="tile-info"></div>
-        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
+        <div class="legend"><span>🎁 loot</span><span>🪦 grave</span><span>🏪 shop</span><span>🎰 shrine</span><span>🔥 rest</span><span>❓ event</span><span>🙂 Remilia Jackson</span><span>⛩️ boss gate</span><span class="lg-foe">foe</span><span class="lg-elite">elite</span></div>
       </div>
       <div class="box" id="relic-box">
         <div class="box-h">RELICS <span id="relic-count"></span></div>
@@ -657,6 +695,7 @@ html,body{overscroll-behavior-y:contain;}
           <div class="hpbar foe"><i id="chp-foe-g"></i><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
         </div>
       </div>
+      <div id="boss-intro"></div>
       <div id="combat-choice" class="hidden"></div>
       <div id="combat-log"></div>
       <div class="row" id="combat-ctl">
@@ -987,7 +1026,7 @@ const relicById = id => RELICS.find(r=>r.id===id);
 
 /* ---------- meta (localStorage) ---------- */
 const META_KEY = "tcc_meta_v1";
-let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, auto:true, quick:true, calm:false};
+let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, name:"", auto:true, quick:true, calm:false};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
@@ -1374,7 +1413,7 @@ async function buildIcon(rel){
 
 /* ---------- run state ---------- */
 let G = null;
-const DAY_MOVES = 28, NIGHT_MOVES = 14, BOSS_DAYS = [3,6,9];
+const DAY_MOVES = 34, NIGHT_MOVES = 16, BOSS_DAYS = [3,6,9];
 function baseStats(){
   return { hp:50, maxhp:50, atk:6, arm:0, spd:5, lck:10 };
 }
@@ -1394,6 +1433,7 @@ function newRun(ava, opt){
     hunters: [], shops: {}, foes: {}, seen: [], bossLook: [],
     bonus: {maxhp:0, atk:0, spd:0},
     queue: [], over: false, newSeen: 0, sel: "", lit: {},
+    copies: {}, tier: {}, // per relic id: how many copies you hold (1-4) and what Remilia Jackson has fused it to (1-3)
     bossesBeaten: 0, bossUnlocked: -1,
     kills: 0, tilesSeen: 0,
     stats: null,
@@ -1410,11 +1450,11 @@ function newRun(ava, opt){
 }
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
-const RUN_KEY = "tcc_run_v3";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed"];
+const RUN_KEY = "tcc_run_v4";
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","copies","tier"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
-  const d = { v:3, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
+  const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
   for(const k of RUN_FIELDS) d[k] = G[k];
   for(const k in G.foes) d.foes[k] = { id:G.foes[k].def.id, picks:G.foes[k].picks, tok:G.foes[k].tok };
   try{ localStorage.setItem(RUN_KEY, JSON.stringify(d)); }catch(e){}
@@ -1424,13 +1464,14 @@ function loadRun(){
   try{
     const d = JSON.parse(localStorage.getItem(RUN_KEY));
     // a save from an older build may name things that no longer exist: drop it rather than break
-    if(!d || d.v!==3 || !d.relics.every(relicById) || !Object.values(d.foes).every(f=>ENEMIES.some(e=>e.id===f.id))) return null;
+    if(!d || d.v!==4 || !d.relics.every(relicById) || !Object.values(d.foes).every(f=>ENEMIES.some(e=>e.id===f.id))) return null;
     return d;
   }catch(e){ return null; }
 }
 async function resumeRun(d){
   G = { queue:[], over:false, sel:"", foes:{}, bossLook:[], stats:null };
   for(const k of RUN_FIELDS) G[k] = d[k];
+  G.copies = G.copies || {}; G.tier = G.tier || {};
   SEED = d.rng;
   G.avatar = await composeAvatar(G.base, G.relics);
   G.face = faceToken(G.avatar, "Milady"); G.worn = G.relics.join();
@@ -1462,6 +1503,18 @@ function pinnedPicks(def){ // random look, with any layers the data pins down
 
 /* ---------- relic engine ---------- */
 function hasRelic(id){ return G.relics.includes(id); }
+/* Tiers. A second copy of a relic you hold doesn't take a slot: it is banked on that relic, and
+   Remilia Jackson fuses 2 copies into GOLD and 4 into DIAMOND. Gold is 1.5x, diamond 2x. */
+const TIERS = [null, {name:"", need:1, mult:1}, {name:"GOLD", need:2, mult:1.5, icon:"🥇"}, {name:"DIAMOND", need:4, mult:2, icon:"💎"}];
+const copiesOf = id => (G.copies && G.copies[id]) || 1;
+const tierOf = id => (G && G.tier && G.tier[id]) || 1;
+const tm = id => TIERS[tierOf(id)].mult; // how much a relic's numbers are multiplied by
+const tierClass = id => ["","","gold","diamond"][tierOf(id)];
+const tierTag = id => tierOf(id)>1 ? " <small class='tier-tag "+tierClass(id)+"'>"+TIERS[tierOf(id)].icon+" "+TIERS[tierOf(id)].name+"</small>" : "";
+/* relics whose fight numbers are scaled where they are used (in fightEngine and settleWin); the rest get their
+   stat bonuses scaled in computeStats, or a flat bonus per tier if they have no numbers at all */
+const TIER_IN_FIGHT = ["network_spirituality","jesus_tank","cookie","cult_robe","lollipop","snakebites","pikachu","remilio_friend","tails","dino",
+  "evil_eye","trucker","cat_ears","birthday_hat","maid","strawberry","silver_coin","blood_splatter","cigarette","fbi_cap","bonkler"];
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
 function discover(id){ // first time ever holding a relic: it joins the collection on the title screen
@@ -1496,7 +1549,7 @@ function relicPool(){
   return RELICS.filter(r => {
     if(r.tags.includes("blackmarket") && !META.unlocks.blackmarket) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]]) return false;
-    if(G.relics.includes(r.id)) return false;
+    if(G.relics.includes(r.id) && copiesOf(r.id)>=4) return false; // a relic you hold can drop again, to be fused
     return true;
   });
 }
@@ -1507,6 +1560,17 @@ function setCounts(relics){
   return n;
 }
 function computeStats(relics){
+  const base = rawStats(relics), s = {...base};
+  for(const id of relics){ // an upgraded relic's positive stat bonuses grow with its tier
+    const m = tm(id); if(m===1) continue;
+    const without = rawStats(relics.filter(x=>x!==id));
+    let any = false;
+    for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0){ s[k] += Math.round(d*(m-1)); any = true; } }
+    if(!any && !TIER_IN_FIGHT.includes(id)){ s.atk += 2*(tierOf(id)-1); s.maxhp += 6*(tierOf(id)-1); } // nothing numeric to scale: a flat bonus instead
+  }
+  return s;
+}
+function rawStats(relics){
   const s = baseStats();
   const R = id => relics.includes(id);
   const sets = s.sets = setCounts(relics), S = (id,n) => (sets[id]||0) >= n;
@@ -1569,7 +1633,7 @@ function setsHTML(relics, full){
 /* weighted relic roll: rarer is scarcer, luck tilts toward rare, and sets you already hold come up more */
 function rollRelics(n, luck){
   const held = setCounts(G.relics), out = [];
-  const pool = relicPool().map(r=>({ r, w: RARITY[r.rar].w * (r.rar==="common" ? 1 : 1+(luck||0)) * (r.set.some(k=>held[k]) ? 2 : 1) }));
+  const pool = relicPool().map(r=>({ r, w: RARITY[r.rar].w * (r.rar==="common" ? 1 : 1+(luck||0)) * (r.set.some(k=>held[k]) ? 2 : 1) * (G.relics.includes(r.id) ? 1.5 : 1) }));
   while(out.length<n && pool.length){
     let x = rnd()*pool.reduce((a,p)=>a+p.w,0), i = 0;
     while(i<pool.length-1 && (x-=pool[i].w) > 0) i++;
@@ -1582,17 +1646,18 @@ function recalcStats(){
   const ratio = G.stats ? G.stats.hp / G.stats.maxhp : 1;
   G.stats = s;
   G.stats.hp = clamp(Math.round(ratio * s.maxhp), 1, s.maxhp);
+  for(const k of ["copies","tier"]) for(const id in G[k]) if(!G.relics.includes(id)) delete G[k][id]; // a relic that is gone takes its copies with it
   if((G.worn||"") !== G.relics.join()){ G.worn = G.relics.join(); refreshAvatar(); }
   if(setRows(G.relics).some(r=>!r.next)) achieve("synergy");
 }
 
 /* ---------- map generation ---------- */
-const W=21, H=21, SX=10, SY=10; // maze size, spawn
+const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11 };
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1635,11 +1700,18 @@ function genMap(){
     if(d==null || d<=2) continue;
     if(x%2===0 && y%2===0) rooms.push({x,y,d,dead:exits(x,y)===1}); else halls.push({x,y,d});
   }
-  // the boss gate waits somewhere deep in the maze
-  const gate = choice([...rooms].sort((a,b)=>b.d-a.d).slice(0,10));
-  G.map[gate.y][gate.x] = T.GATE; G.gate = [gate.x, gate.y];
+  // a boss gate in every district, a fair walk from spawn, so one is always within reach
+  G.gates = [];
+  for(let q=0;q<4;q++){
+    const here = rooms.filter(r=>districtAt(r.x,r.y)===q);
+    const good = here.filter(r=>r.d>=16 && r.d<=40);
+    const g = good.length ? choice(good) : [...here].sort((a,b)=>Math.abs(a.d-28)-Math.abs(b.d-28))[0];
+    if(!g) continue;
+    G.map[g.y][g.x] = T.GATE; G.gates.push([g.x,g.y]); g.used = true;
+  }
+  G.gate = G.gates[0];
   // loot likes dead ends; everything else takes whatever rooms are left
-  const dead = shuffle(rooms.filter(r=>r.dead && r!==gate)), open = shuffle(rooms.filter(r=>!r.dead && r!==gate));
+  const dead = shuffle(rooms.filter(r=>r.dead && !r.used)), open = shuffle(rooms.filter(r=>!r.dead && !r.used));
   const put = (t, n, deadEnd) => {
     for(let i=0;i<n;i++){
       const r = (deadEnd && dead.length ? dead : open.length ? open : dead).pop();
@@ -1647,13 +1719,13 @@ function genMap(){
       G.map[r.y][r.x] = t;
     }
   };
-  put(T.CHEST,12,true); put(T.SHRINE,5,true); put(T.GRAVE,7,true);
-  put(T.SHOP,4); put(T.FIRE,6); put(T.EVENT,10); put(T.ELITE,7); put(T.MON,13);
-  for(const h of shuffle(halls).slice(0,8)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
+  put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8);
+  put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
+  for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
   G.seed = near.length ? choice(near) : null;
-  // every monster tile gets its foe (and its face) up front, themed to the district it stands in
+  // every monster tile gets its foe up front, themed to the district it stands in (its portrait waits until it is seen)
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     const t = G.map[y][x]; if(t!==T.MON && t!==T.ELITE) continue;
     const d = districtAt(x,y), tier = t===T.ELITE ? "elite" : "mon";
@@ -1662,9 +1734,20 @@ function genMap(){
   }
   updateFog();
 }
-function spawnFoe(key, def, picks, tok){ // a monster tile's foe and its face, composed in the background
-  const run = G, foe = G.foes[key] = { def, picks, tok, face:"", portrait: foePortrait(def, picks, tok) };
-  foe.portrait.then(cv=>{ foe.face = faceToken(cv, def.cfg); if(G===run && !busy()) renderMap(); });
+function spawnFoe(key, def, picks, tok){ G.foes[key] = { def, picks, tok, face:"", portrait:null }; }
+function foeArt(foe){ // a foe's portrait and map face are put together the first time it is seen
+  if(!foe.portrait){
+    const run = G;
+    foe.portrait = foePortrait(foe.def, foe.picks, foe.tok);
+    foe.portrait.then(cv=>{ foe.face = faceToken(cv, foe.def.cfg); if(G===run) queueRender(); });
+  }
+  return foe.portrait;
+}
+let renderQueued = false;
+function queueRender(){ // many portraits can finish at once: redraw the map once for all of them
+  if(renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(()=>{ renderQueued = false; if(G && !G.over && !busy()) renderMap(); });
 }
 function spawnBoss(i, picks){
   const run = G, b = runBoss(i), look = G.bossLook[i] = { picks, face:"", portrait: compositePortrait(b.cfg, picks) };
@@ -1723,7 +1806,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && relicById(G.relics[i]);
-    rb += rel ? "<div class='relic' title='"+rel.name+" — "+rel.desc.replace(/'/g,"&#39;")+"'><img class='relic-ico' src='"+ICONS[rel.id]+"' alt=''><div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+rel.desc+"</span></div></div>"
+    rb += rel ? "<div class='relic' title='"+rel.name+" — "+rel.desc.replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierClass(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(copiesOf(rel.id)>TIERS[tierOf(rel.id)].need ? "<i class='copies'>×"+copiesOf(rel.id)+"</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierTag(rel.id)+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+rel.desc+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1745,55 +1828,58 @@ function renderTimeline(){
   const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
+let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
 function renderMap(){
   const m = $("map");
-  m.style.gridTemplateColumns = "repeat("+W+", 1fr)";
+  m.style.gridTemplateColumns = "repeat("+W+", 1fr)"; m.style.gridTemplateRows = "repeat("+H+", 1fr)";
   $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
-  m.innerHTML = "";
+  m.innerHTML = ""; tileEl = {};
+  const coin = coinSrc();
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
-    const d = document.createElement("div");
+    if(G.fog[y][x]) continue; // unexplored tiles are not drawn at all: the map's own background is the fog
+    const d = document.createElement("div"), key = x+","+y, t = G.map[y][x];
     d.className = "tile";
+    d.style.gridColumn = x+1; d.style.gridRow = y+1;
     d.style.setProperty("--dc", DISTRICTS[districtAt(x,y)].color);
-    const fogged = G.fog[y][x], key = x+","+y;
-    if(fogged) d.classList.add("fog");
-    else if(!G.lit[key]){ G.lit[key]=1; d.classList.add("reveal"); }
+    if(!G.lit[key]){ G.lit[key]=1; d.classList.add("reveal"); }
     if(G.sel===key) d.classList.add("sel");
-    if(G.map[y][x]===T.WALL){ if(!fogged) d.classList.add("wall"); m.appendChild(d); continue; }
+    if(t===T.WALL){ d.classList.add("wall"); m.appendChild(d); continue; }
+    tileEl[key] = d;
     if(x===G.px && y===G.py){
       d.classList.add("you"); // the token itself is #you-tok, which slides between tiles
-    } else if(!fogged){
-      const t = G.map[y][x];
-      if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunted"); d.title="FUD demon"; } // drawn by placeHunters
-      else if(t!==T.EMPTY){
-        const foe = G.foes[x+","+y];
-        if(foe && (t===T.MON || t===T.ELITE)){
-          d.classList.add("foe"); if(t===T.ELITE) d.classList.add("elite");
-          d.innerHTML = foe.face ? "<img class='tok' src='"+foe.face+"' alt=''>" : "<i class='tok ph'></i>"; // its portrait is still being put together
-          d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
-        } else {
-          d.classList.add("poi", "t"+t);
-          d.innerHTML = "<span>"+((t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
-          d.title = T_NAME[t];
-          if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
-        }
+    } else if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunted"); d.title="FUD demon"; } // drawn by placeHunters
+    else if(t!==T.EMPTY){
+      const foe = G.foes[key];
+      if(foe && (t===T.MON || t===T.ELITE)){
+        foeArt(foe);
+        d.classList.add("foe"); if(t===T.ELITE) d.classList.add("elite");
+        d.innerHTML = foe.face ? "<img class='tok' src='"+foe.face+"' alt=''>" : "<i class='tok ph'></i>"; // its portrait is still being put together
+        d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
+      } else {
+        d.classList.add("poi", "t"+t);
+        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+coin+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
+        d.title = T_NAME[t];
+        if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
       }
     }
     if(G.seedKnown && !G.seedDug && G.seed && x===G.seed[0] && y===G.seed[1] && !(x===G.px && y===G.py)){ d.classList.add("dig"); d.textContent="⛏️"; }
-    if(Math.abs(x-G.px)+Math.abs(y-G.py)===1 && !fogged) d.classList.add("moveable");
+    if(Math.abs(x-G.px)+Math.abs(y-G.py)===1) d.classList.add("moveable");
     d.onmouseenter = ()=>{
       let info = tileInfo(x,y);
       clearPath();
-      if(!fogged && !busy() && Math.abs(x-G.px)+Math.abs(y-G.py)>1){ // preview the walk a click would take
+      if(!busy() && Math.abs(x-G.px)+Math.abs(y-G.py)>1){ // preview the walk a click would take
         const path = pathTo(x,y);
-        if(path){ for(const [qx,qy] of path) m.children[qy*W+qx].classList.add("path"); info += " · <b>"+path.length+" steps</b>"+(path.length>G.movesLeft ? " <span class='bad'>(past "+(G.phase==="day"?"nightfall":"dawn")+")</span>" : ""); }
+        if(path){
+          for(const [qx,qy] of path){ const el = tileEl[qx+","+qy]; if(el) el.classList.add("path"); }
+          info += " · <b>"+path.length+" steps</b>"+(path.length>G.movesLeft ? " <span class='bad'>(past "+(G.phase==="day"?"nightfall":"dawn")+")</span>" : "");
+        }
       }
       $("tile-info").innerHTML = info;
     };
     d.onclick = ()=>{
       // no hover on touch screens: the first tap on a foe shows its odds, the second commits
-      const t = G.map[y][x];
-      if(TOUCH && !fogged && (t===T.MON || t===T.ELITE) && G.sel!==key && d.classList.contains("moveable")){
+      if(TOUCH && (t===T.MON || t===T.ELITE) && G.sel!==key && d.classList.contains("moveable")){
         G.sel = key; renderMap(); $("tile-info").innerHTML = tileInfo(x,y)+" <b>— tap again to fight</b>"; return;
       }
       stopTravel();
@@ -1846,9 +1932,9 @@ function centerMap(){
   camSnap = false;
 }
 const MINI = { [T.CHEST]:"#ff9ecb", [T.GRAVE]:"#8d8aa6", [T.MON]:"#ff6b6b", [T.ELITE]:"#ffd75e", [T.SHOP]:"#8fd6ff",
-  [T.SHRINE]:"#ffd75e", [T.FIRE]:"#ff9a4a", [T.EVENT]:"#b9a4ff", [T.GATE]:"#ff2244" };
+  [T.SHRINE]:"#ffd75e", [T.FIRE]:"#ff9a4a", [T.EVENT]:"#b9a4ff", [T.GATE]:"#ff2244", [T.FORGE]:"#7dffb0" };
 function renderMinimap(){
-  const cv = $("minimap"), k = 6, cx = cv.getContext("2d");
+  const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(G.fog[y][x]) continue;
@@ -1858,12 +1944,13 @@ function renderMinimap(){
     if(MINI[t]){ cx.fillStyle = MINI[t]; cx.fillRect(x*k+1, y*k+1, k-2, k-2); }
   }
   cx.fillStyle = "#ff2244"; for(const h of G.hunters) if(!G.fog[h.y][h.x]) cx.fillRect(h.x*k, h.y*k, k, k);
-  cx.fillStyle = "#a6ff5e"; cx.fillRect(G.px*k-1, G.py*k-1, k+2, k+2);
+  cx.fillStyle = "#a6ff5e"; cx.fillRect(G.px*k-2, G.py*k-2, k+4, k+4);
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
-  [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night.", [T.EVENT]:"<b>???</b> — something is happening here." };
+  [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night.", [T.EVENT]:"<b>???</b> — something is happening here.",
+  [T.FORGE]:"<b>Remilia Jackson</b> — bring two of the same relic and she fuses them: normal → gold → diamond." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
@@ -2027,10 +2114,11 @@ function enterTile(t){
       break;
     case T.MON: case T.ELITE: {
       const foe = G.foes[G.px+","+G.py];
-      clearTile(); startCombat(foeInstance(foe.def), {elite:t===T.ELITE, portrait:foe.portrait});
+      clearTile(); startCombat(foeInstance(foe.def), {elite:t===T.ELITE, portrait:foeArt(foe)});
       break;
     }
     case T.EVENT: openEvent(); break;
+    case T.FORGE: openForge(); break;
     case T.SHOP: openShop(); break;
     case T.SHRINE: openShrine(); break;
     case T.FIRE: openFire(); break;
@@ -2052,10 +2140,17 @@ function foeInstance(def){
 }
 
 /* ---------- relic draft ---------- */
+function relicExtras(r, preview){ // what taking r would do: stat changes and set progress, or copy progress if you already hold it
+  if(preview && hasRelic(r.id)){
+    const n = copiesOf(r.id)+1, next = TIERS[Math.min(3, tierOf(r.id)+1)];
+    return "<div class='delta'><i class='up'>copy "+n+" of "+next.need+" for "+next.icon+" "+next.name+"</i></div><div class='sets'><i style='--sc:#7dffb0'>no slot needed</i><i style='--sc:#7dffb0'>fuse at Remilia Jackson</i></div>";
+  }
+  return (preview ? "<div class='delta'>"+statDelta(r)+"</div>" : "")+setChips(r, preview);
+}
 function relicCard(r, attr, delta){
-  const rar = rarity(r);
-  return "<div class='card "+rar+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+"</b><span>"+r.desc+"</span>"
-    + (delta ? "<div class='delta'>"+statDelta(r)+"</div>" : "")+setChips(r, delta)+(META.seen[r.id]?"":"<u>new!</u>")+"</div>";
+  const rar = rarity(r), held = G.relics.includes(r.id);
+  return "<div class='card "+rar+" "+tierClass(r.id)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+(held?tierTag(r.id):"")+"</b><span>"+r.desc+"</span>"
+    + relicExtras(r, delta)+(META.seen[r.id] ? (delta && held ? "<u class='dup'>copy</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
   const n = setCounts(G.relics.filter(id=>id!==r.id));
@@ -2066,9 +2161,29 @@ function setChips(r, preview){ // which sets a relic feeds, and whether taking i
       + (preview && hit ? "<span class='syn-hit'>"+hit[1]+"</span>" : "");
   }).join("")+"</div>";
 }
-function gotRelic(r){ discover(r.id); sfx("relic"); burst(rarity(r)==="common" ? "✨" : "✨💖🌸"); }
+function gotRelic(r){ discover(r.id); sfx("relic"); burst(rarity(r)==="common" ? "✨" : "✨💖🌸"); flyRelic(r.id); }
+function flyRelic(id){ // the relic leaps from the middle of the screen onto your Milady
+  if(META.calm) return;
+  const to = $("hud-avatar").getBoundingClientRect();
+  if(!to.width) return;
+  const im = document.createElement("img"); im.className = "fly-relic "+tierClass(id); im.src = ICONS[id]; im.alt = "";
+  document.body.appendChild(im);
+  const sx = innerWidth/2-48, sy = innerHeight/2-48, ex = to.left+to.width/2-48, ey = to.top+to.height/2-48;
+  const a = im.animate([
+    { transform:"translate("+sx+"px,"+sy+"px) scale(.4) rotate(-20deg)", opacity:0 },
+    { transform:"translate("+sx+"px,"+(sy-36)+"px) scale(2) rotate(8deg)", opacity:1, offset:0.3 },
+    { transform:"translate("+sx+"px,"+(sy-36)+"px) scale(1.8) rotate(-4deg)", opacity:1, offset:0.5 },
+    { transform:"translate("+ex+"px,"+ey+"px) scale(.3) rotate(360deg)", opacity:0.9 },
+  ], { duration:900, easing:"cubic-bezier(.5,0,.3,1)" });
+  a.onfinish = ()=>{ im.remove(); const h = $("hud-avatar"); h.classList.remove("equip"); void h.offsetWidth; h.classList.add("equip"); };
+}
 /* Equip r, asking which relic to drop when slots are full. onDone(dropped) / onBack(). */
 function acquireRelic(r, onDone, onBack){
+  if(hasRelic(r.id)){ // a copy is banked on the relic you already hold
+    G.copies[r.id] = copiesOf(r.id)+1; gotRelic(r);
+    mlog("📦 <b>"+r.name+"</b> ×"+G.copies[r.id]+". Take them to <b>Remilia Jackson</b> to fuse.", "gold");
+    return onDone(null);
+  }
   if(G.relics.length < G.maxSlots){ G.relics.push(r.id); recalcStats(); gotRelic(r); return onDone(null); }
   let h = "<h2>SLOTS FULL — DROP ONE</h2><div class='stat-line'><span>to make room for</span><b>"+r.name+"</b></div><div class='draft-cards'>";
   G.relics.forEach((id,j)=>{ h += relicCard(relicById(id), "data-j='"+j+"'"); });
@@ -2103,13 +2218,12 @@ function openDraft(flavor, pool, luck){
 /* ---------- shop ---------- */
 const coinSrc = () => document.querySelector(".cult-coin").src;
 function relicRow(r, extra, tail){ // a relic as a row: art, name, text, then whatever goes on the right
-  return "<div class='shop-row "+r.rar+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name
+  return "<div class='shop-row "+r.rar+" "+(G.relics.includes(r.id)?tierClass(r.id):"")+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+(G.relics.includes(r.id)?tierTag(r.id):"")
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+r.desc+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
-  shop.stock = shop.stock.filter(it=>!hasRelic(it.id));
   const cheap = districtAt(G.px,G.py)===2, disc = G.stats.shopDisc * (cheap ? 0.8 : 1);
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
@@ -2117,7 +2231,7 @@ function openShop(note){
     + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")+"</div>";
   shop.stock.forEach((it,i)=>{
     const r = relicById(it.id), p = Math.round(it.base*disc);
-    html += relicRow(r, "<div class='delta'>"+statDelta(r)+"</div>"+setChips(r, true),
+    html += relicRow(r, relicExtras(r, true),
       "<button class='btn small price' data-i='"+i+"'"+(G.cult<p?" disabled":"")+">"+coin+p+"</button>");
   });
   if(!shop.stock.length) html += "<div class='note'>sold out. thank u for shopping.</div>";
@@ -2131,7 +2245,7 @@ function openShop(note){
     const it=shop.stock[+b.dataset.i], r=relicById(it.id), p=Math.round(it.base*disc);
     if(G.cult<p) return;
     acquireRelic(r, old=>{
-      G.cult-=p;
+      G.cult-=p; shop.stock.splice(shop.stock.indexOf(it), 1);
       mlog("Bought <b>"+r.name+"</b> for "+p+" $CULT."+(old?" <i>(dropped "+old.name+")</i>":""), "good");
       renderMap(); openShop("Bought "+r.name+".");
     }, ()=>openShop());
@@ -2310,6 +2424,41 @@ function openBuild(){
   $("build-close").onclick=()=>closeModal();
 }
 
+/* ---------- Remilia Jackson: fuses copies of a relic into its next tier ---------- */
+const COPY_PRICE = 90;
+function openForge(note){
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
+  let html = "<h2>REMILIA JACKSON</h2><img class='npc-face' src='"+coinSrc()+"' alt=''>"
+    + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>2 copies fuse into 🥇 GOLD (numbers ×1.5) · 4 into 💎 DIAMOND (×2)</div>"
+    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div>";
+  G.relics.forEach((id,i)=>{
+    const r = relicById(id), t = tierOf(id), n = copiesOf(id), next = TIERS[t+1];
+    const prog = next ? "<div class='delta'><i class='"+(n>=next.need?"up":"")+"'>"+n+" / "+next.need+" copies for "+next.icon+" "+next.name+"</i></div>" : "<div class='delta'><i class='up'>fully fused</i></div>";
+    const btn = !next ? "" : n>=next.need ? "<button class='btn small fuse' data-fuse='"+i+"'>fuse → "+next.icon+"</button>"
+      : "<button class='btn small price' data-copy='"+i+"'"+(G.cult<COPY_PRICE?" disabled":"")+" title='buy another copy'>+1 · "+coin+COPY_PRICE+"</button>";
+    html += relicRow(r, prog, btn);
+  });
+  if(!G.relics.length) html += "<div class='note'>\"You've got nothing for me to work with.\"</div>";
+  if(note) html += "<div class='note good'>"+note+"</div>";
+  html += "<div class='row'><button class='btn small' id='forge-leave'>leave</button></div>";
+  openModal(html);
+  const p = $("modal-panel");
+  p.querySelectorAll("[data-fuse]").forEach(b=>{ b.onclick=()=>{
+    const id = G.relics[+b.dataset.fuse], r = relicById(id);
+    G.tier[id] = tierOf(id)+1; recalcStats();
+    sfx("fanfare"); burst("✨💎🥇"); flyRelic(id);
+    mlog("✨ Remilia Jackson fused <b>"+r.name+"</b> into "+TIERS[G.tier[id]].icon+" <b>"+TIERS[G.tier[id]].name+"</b>.", "gold");
+    renderMap(); openForge(r.name+" is now "+TIERS[G.tier[id]].name+".");
+  };});
+  p.querySelectorAll("[data-copy]").forEach(b=>{ b.onclick=()=>{
+    const id = G.relics[+b.dataset.copy];
+    if(G.cult<COPY_PRICE) return;
+    G.cult -= COPY_PRICE; G.copies[id] = copiesOf(id)+1; sfx("coin");
+    renderMap(); openForge("One more "+relicById(id).name+".");
+  };});
+  $("forge-leave").onclick=()=>closeModal();
+}
+
 /* ---------- settings ---------- */
 function openSettings(){
   if(G && !G.over && $("screen-combat").classList.contains("active")) return;
@@ -2431,15 +2580,16 @@ function fightEngine(foeDef, opts, io){
   }
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
-  you.shield = (act("network_spirituality")?12:0) + (act("jesus_tank")?8:0) + (set("cult",2)?8:0);
+  const tv = (id, n) => Math.round(n*tm(id)); // a relic's number at its tier
+  you.shield = (act("network_spirituality")?tv("network_spirituality",12):0) + (act("jesus_tank")?tv("jesus_tank",8):0) + (set("cult",2)?8:0);
   if(you.shield) io.log("🕯️ You start shielded for "+you.shield+".", "good");
-  if(act("cookie") && you.hp<you.maxhp){ heal(10); io.log("🍪 Cookie. You feel better.", "good"); }
+  if(act("cookie") && you.hp<you.maxhp){ heal(tv("cookie",10)); io.log("🍪 Cookie. You feel better.", "good"); }
   if(act("vibe_shift")){ foe.stun=1; io.log("🌀 Vibe shift. "+foe.name+" is caught off guard.", "good"); }
 
   function dmgCalc(att, def, isYou){
     let atk = att.atk;
     if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
-    if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += 5;
+    if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += tv("blood_splatter",5);
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
     if(isYou) atk += you.hard;
     if(!isYou && act("beetleposting")) atk *= 0.8;
@@ -2449,8 +2599,8 @@ function fightEngine(foeDef, opts, io){
     let crit = false;
     if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
     if(isYou) you.sure = false;
-    if(isYou && crit && act("cigarette")) dmg += 4;
-    if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-2);
+    if(isYou && crit && act("cigarette")) dmg += tv("cigarette",4);
+    if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-tv("fbi_cap",2));
     if(!isYou && def===you && you.hp < you.maxhp/2 && act("hodl")) dmg = Math.max(1, Math.round(dmg*0.7));
     if(isYou && you.blunt && act("blunt")){ dmg*=3; you.blunt=false; crit=true; }
     return {dmg, crit};
@@ -2458,7 +2608,7 @@ function fightEngine(foeDef, opts, io){
   function strike(att, def, isYou){
     const an = isYou?"You":foe.name, dn = isYou?foe.name:"you";
     // bonkler redirect
-    if(!isYou && act("bonkler") && rnd()<0.15){
+    if(!isYou && act("bonkler") && rnd()<0.15*tm("bonkler")){
       const {dmg,crit}=dmgCalc(foe,foe,false);
       foe.hp-=dmg; io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
       io.hit("foe", dmg, crit);
@@ -2468,7 +2618,7 @@ function fightEngine(foeDef, opts, io){
     // dodge
     if(!isYou && rnd()*100 < (you.dodge||0)){
       io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
-      if(act("cat_ears")) heal(3);
+      if(act("cat_ears")) heal(tv("cat_ears",3));
       if(act("matrix")) you.sure = true;
       if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
       return;
@@ -2482,9 +2632,9 @@ function fightEngine(foeDef, opts, io){
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>.", crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
     if(isYou && set("cheese",3)){ st.cult+=3; }
-    if(isYou && crit && act("trucker")) heal(5);
+    if(isYou && crit && act("trucker")) heal(tv("trucker",5));
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
-    if(!isYou && act("evil_eye")){ foe.hp-=2; io.log("🧿 Evil Eye reflects 2.", "good"); }
+    if(!isYou && act("evil_eye")){ const e = tv("evil_eye",2); foe.hp-=e; io.log("🧿 Evil Eye reflects "+e+".", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
     // stun
     if(isYou && act("balenciaga_bat") && rnd()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
@@ -2542,18 +2692,18 @@ function fightEngine(foeDef, opts, io){
       if(set("cheese",2)){ you.hard+=1; io.float("you","+1 ATK","heal"); }
     }
     if(foe.trait==="bomber" && F.tick%4===0){ you.hp-=8; io.log("🎈 Blimp bombing! 8 damage.", "bad"); io.hit("you",8,false); }
-    const regen = (act("cult_robe")?2:0) + (act("lollipop")?1:0) + (set("kawaii",4)?2:0);
+    const regen = (act("cult_robe")?tv("cult_robe",2):0) + (act("lollipop")?tv("lollipop",1):0) + (set("kawaii",4)?2:0);
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
     // poison ticks
-    if(foe.poison>0){ const d = act("milady_pilled") ? 6 : 2; foe.poison--; foe.hp-=d; io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(act("pikachu") && F.tick%4===0){ foe.hp-=8; io.log("⚡ Pikachu Suit shocks "+foe.name+" for 8.", "good"); io.hit("foe",8,false); }
+    if(foe.poison>0){ const d = tv("snakebites",2) * (act("milady_pilled") ? 3 : 1); foe.poison--; foe.hp-=d; io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(act("pikachu") && F.tick%4===0){ const z = tv("pikachu",8); foe.hp-=z; io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     // companions
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
-      if(act("remilio_friend") && you.compTick%3===0) companion(5, "🧸 Remilio Friend strikes");
-      if(act("tails") && rnd()<0.3) companion(4, "🦊 Tails spins in");
-      if(act("dino") && you.compTick%2===0) companion(3, "🦖 Dino bites");
+      if(act("remilio_friend") && you.compTick%3===0) companion(tv("remilio_friend",5), "🧸 Remilio Friend strikes");
+      if(act("tails") && rnd()<0.3) companion(tv("tails",4), "🦊 Tails spins in");
+      if(act("dino") && you.compTick%2===0) companion(tv("dino",3), "🦖 Dino bites");
       if(act("amogus") && !boss && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
@@ -2614,10 +2764,10 @@ function settleWin(F, opts, log){
   if(hasRelic("no_meme") && rnd()<0.2){ c*=3; log("💌 There is no meme. I love you. The floor triples.", "crit"); }
   G.cult += c + foe.stolen;
   log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
-  if(hasRelic("silver_coin")){ G.cult+=15; log("🪙 Silver Coin: +15 $CULT.", "good"); }
+  if(hasRelic("silver_coin")){ const sc = Math.round(15*tm("silver_coin")); G.cult+=sc; log("🪙 Silver Coin: +"+sc+" $CULT.", "good"); }
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
   for(const [id,n,label] of [["birthday_hat",15,"🎂 Birthday Hat"],["maid",6,"🧹 Maid Outfit"],["strawberry",3,"🍓 Strawberry Earring"]])
-    if(hasRelic(id)){ you.hp=Math.min(you.maxhp,you.hp+n*hm); log(label+": +"+n*hm+" HP.", "good"); }
+    if(hasRelic(id)){ const h = Math.round(n*hm*tm(id)); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); }
   const hp = clamp(Math.round(you.hp),1,you.maxhp);
   recalcStats(); // kills and burned relics change the build
   G.stats.hp = Math.min(hp, G.stats.maxhp);
@@ -2675,7 +2825,7 @@ function startCombat(foeDef, opts={}){
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.worn=G.relics.join(); refreshAvatar(); }
       $("combat-relics").innerHTML = f.st.relics.map(id=>{ const r=relicById(id);
-        return "<img class='relic-ico"+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"; }).join("");
+        return "<img class='relic-ico "+tierClass(id)+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
@@ -2694,6 +2844,7 @@ function startCombat(foeDef, opts={}){
     clearTimeout(timer);
     combatBars(you,foe);
     $("combat-ctl").classList.add("hidden"); $("combat-choice").classList.add("hidden");
+    $("boss-intro").className = ""; $("port-foe").classList.remove("slam");
     const win = F.win;
     $("port-"+(win?"foe":"you")).classList.add("dead");
     const btn=$("btn-combat-done"); btn.classList.remove("hidden");
@@ -2751,7 +2902,16 @@ function startCombat(foeDef, opts={}){
     if(boss && !asked && foe.hp<=foe.maxhp/2) return ask();
     timer=setTimeout(loop, 600/META.speed);
   }
-  timer = setTimeout(loop, 500);
+  const intro = $("boss-intro");
+  intro.className = "";
+  if(boss && !META.calm){ // the boss gets an entrance before the first blow
+    intro.innerHTML = "<div class='bi-warn'>⚠ WARNING ⚠</div><div class='bi-name'>"+boss.name+"</div><div class='bi-mech'>"+boss.mechanic+"</div>";
+    intro.className = "show";
+    $("port-foe").classList.add("slam");
+    setTimeout(()=>{ if(tok===combatTok){ quake(); sfx("hurt"); } }, 520);
+    setTimeout(()=>{ if(tok===combatTok){ intro.className = ""; $("port-foe").classList.remove("slam"); } }, 2100);
+  }
+  timer = setTimeout(loop, boss && !META.calm ? 2200 : 500);
 }
 
 /* ---------- boss down / endings ---------- */
@@ -2957,6 +3117,8 @@ function leaveRun(){
 
 /* ---------- avatar screen ---------- */
 let AVA = null, avaTok = 0;
+/* names end up inside HTML in the feed and dialogs, so keep them to plain characters */
+const cleanName = v => v.replace(/[<>&"'`\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
 const PICK = { tribe:"", heat:0, daily:"" }; // what the avatar screen is setting up
 const today = () => new Date().toISOString().slice(0,10);
 function renderPicks(){
@@ -2990,7 +3152,7 @@ async function genAvatar(nft){
   const cv = $("avatar-canvas");
   paint(cv, ava.canvas); paint($("hud-avatar"), ava.canvas);
   cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
-  $("avatar-name").textContent = ava.name;
+  $("name-in").placeholder = ava.name;
   renderPicks();
   $("btn-begin").disabled = false;
 }
@@ -3068,7 +3230,7 @@ function initSwipe(){
 
 /* ---------- keyboard ---------- */
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
-const KEY_BACK = ["set-close","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
+const KEY_BACK = ["set-close","forge-leave","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
 function onKey(ev){
   if(!G || ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
   if(!$("modal").classList.contains("hidden")){ // 1-9 pick an option, Enter confirms, Esc backs out
@@ -3125,6 +3287,8 @@ async function init(){
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
+  $("name-in").value = META.name || "";
+  $("name-in").onkeydown = ev=>ev.stopPropagation();
   $("nft-kind").innerHTML = Object.keys(NFT).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
   if(META.nft && NFT[META.nft.kind]){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
   const useNft = ()=>{
@@ -3137,6 +3301,9 @@ async function init(){
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
     clearRun();
+    const typed = cleanName($("name-in").value);
+    META.name = typed; saveMeta();
+    if(typed) AVA.name = typed;
     newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily ? 0 : PICK.heat, daily:PICK.daily });
     show("screen-map");
     $("map-log").innerHTML="";

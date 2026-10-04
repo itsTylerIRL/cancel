@@ -9,7 +9,8 @@ BUILD: `python3 build.py` regenerates dist.html from the sources.
 Run it after any change to index.html, css/, js/ or assets/.
 
 HOW TO PLAY:
-- You are a Milady in a maze. Move one tile per step (click a neighbouring
+- Name yourself on the avatar screen (or leave it blank for the default).
+- You are a Milady in a big maze (41x41, four boss gates, one per district). Move one tile per step (click a neighbouring
   tile, or arrows / WASD), or click any explored tile to walk there.
   The map is bigger than the window: it follows
   you, you can scroll or drag it to look around, and the minimap in the
@@ -29,6 +30,9 @@ HOW TO PLAY:
 - Combat is automatic — your relic build fights for you.
   Hover a foe (or tap it once on a phone) to see your odds before you commit;
   the coloured dot on each foe is the same estimate at a glance.
+- A relic you already hold can drop again. The copy takes no slot; bring
+  2 copies to Remilia Jackson (the smiley on the map) to fuse it to GOLD
+  (numbers x1.5) and 4 for DIAMOND (x2). She also sells copies for $CULT.
 - Relics come in common / rare / legendary (and cursed, from the Black
   Market unlock). Each belongs to one or two sets — ARMED, HYPEBEAST, DEGEN,
   KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD. Hold enough of a set and its
