@@ -2134,7 +2134,7 @@ function submitRun(run, win, drip){
 }
 function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
   if(!res || !res.boards) return "";
-  return Object.keys(res.boards).sort().reverse().map(k=>{
+  return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
     const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
     return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score>res.sent ? " <span class='dim'>(your best: "+b.score+")</span>" : "")+"</div>";
   }).join("");
