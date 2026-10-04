@@ -139,7 +139,8 @@ function basePicks(){
    Images go through an image proxy that resizes them and adds the CORS header most hosts lack (without it
    the canvas could not be exported for map tokens or share cards). Ownership is not checked. */
 const IPFS = "https://ipfs.filebase.io/ipfs/";
-const viaGateway = u => u.replace(/^ipfs:\/\//, IPFS).replace(/^https:\/\/([a-z0-9]+)\.ipfs\.[^/]+\//, IPFS+"$1/");
+const viaGateway = u => u.replace(/^ipfs:\/\//, IPFS).replace(/^https:\/\/([a-z0-9]+)\.ipfs\.[^/]+\//, IPFS+"$1/")
+  .replace(/^https:\/\/(?!ipfs\.filebase\.io)[^/]+\/ipfs\//, IPFS); // any other gateway's /ipfs/ path too
 async function metaImage(url){ // a token's metadata JSON -> its image URL
   const j = await (await fetch(viaGateway(url))).json();
   return viaGateway(j.image || j.image_url || j.file_url);
