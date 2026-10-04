@@ -813,3 +813,7 @@ body.bg3d #modal{background:rgba(0,0,0,.78);}
 .hunter-tok{overflow:hidden;border:1px solid var(--red);box-shadow:0 0 10px rgba(255,85,85,.55);}
 .hunter-tok img{width:100%;height:100%;object-fit:cover;object-position:50% 32%;animation:wobble .7s ease-in-out infinite;}
 img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}
+.rn-row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:14px auto 0;max-width:560px;font-size:11px;color:var(--dim);}
+.rn-row a,.rn-tag{color:var(--acid);text-decoration:none;} .rn-row a:hover,.rn-tag:hover{text-decoration:underline;}
+.rn-on{color:var(--neon2);}
+.rn-tag{font-size:10px;font-weight:400;}

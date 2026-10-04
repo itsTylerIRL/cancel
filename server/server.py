@@ -7,14 +7,19 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   GET  /api/board   ?daily=YYYY-MM-DD | ?seed=CODE | ?all=1   [&limit=50] [&player=ID]
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
   GET  /api/stats   how runs end, in aggregate (for balancing)
+  GET  /api/pulse   games and wins today, this week and ever
+  GET  /api/hall    the best run of every daily map
+  GET  /api/auth/login?return=URL   start "Sign in with RemiliaNET" (OIDC Authorization Code + PKCE)
+  GET  /api/auth/callback           RemiliaNET sends the player back here; they return to the game signed in
   GET  /api/health
 
 The game runs entirely in the browser, so a score cannot be proven. Submissions are
 checked for shape and plausibility and rate-limited; that keeps the board tidy, not tamper-proof.
 
-Environment: CANCEL_DB, CANCEL_PORT, CANCEL_SALT, CANCEL_ORIGINS (comma separated), CANCEL_DEV=1
+Environment: CANCEL_DB, CANCEL_PORT, CANCEL_SALT, CANCEL_ORIGINS (comma separated), CANCEL_DEV=1,
+CANCEL_RN_ON=1 (offer RemiliaNET sign-in), CANCEL_RN_CLIENT, CANCEL_RN_REDIRECT, and CANCEL_RN_SECRET (only if the RemiliaNET client is a confidential one)
 """
-import hashlib, json, os, re, sqlite3, threading, time, urllib.request
+import base64, hashlib, hmac, json, os, re, secrets, sqlite3, threading, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -24,6 +29,15 @@ PORT = int(os.environ.get("CANCEL_PORT", "8787"))
 SALT = os.environ.get("CANCEL_SALT", "dev-salt")
 ORIGINS = {o.strip() for o in os.environ.get("CANCEL_ORIGINS", "https://cancel.tylerirl.com,https://tylerirl.com").split(",") if o.strip()}
 DEV = os.environ.get("CANCEL_DEV") == "1"  # also accept any localhost origin
+# Sign in with RemiliaNET (docs.remilia.net). The redirect address must be registered for the client, verbatim.
+RN_ISSUER = os.environ.get("CANCEL_RN_ISSUER", "https://www.remilia.net/oidc/realms/remilia")
+RN_API = os.environ.get("CANCEL_RN_API", "https://www.remilia.net/api/v1")
+RN_CLIENT = os.environ.get("CANCEL_RN_CLIENT", "tpa-cancel-game")
+RN_SECRET = os.environ.get("CANCEL_RN_SECRET", "")  # empty for a public login client, which has none
+RN_REDIRECT = os.environ.get("CANCEL_RN_REDIRECT", "https://cancel-api.tylerirl.com/api/auth/callback")
+RN_ON = os.environ.get("CANCEL_RN_ON") == "1"  # the game only offers sign-in once RemiliaNET has approved the client
+SESSION_DAYS = 30
+RE_HANDLE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
 
 MAX_BODY = 4096
 MAX_SCORE = 6000          # day, boss, kill and $CULT points with the top heat bonus stay well under this
@@ -115,6 +129,8 @@ def init_db():
         con.executescript(SCHEMA)
         if "look" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN look TEXT")  # how the character looked: a recipe of trait layers
+        if "handle" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
+            con.execute("ALTER TABLE scores ADD COLUMN handle TEXT")  # the RemiliaNET account, when the player signed in
 
 
 RE_LAYER = re.compile(r"^[A-Za-z -]{1,20}$")
@@ -174,6 +190,81 @@ class Bad(Exception):
     pass
 
 
+def b64u(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def sign(body):
+    return b64u(hmac.new(SALT.encode(), body.encode(), hashlib.sha256).digest())
+
+
+def verified_player(handle):
+    """One leaderboard identity per RemiliaNET account, whatever device it plays from. Anonymous ids are hex,
+    so they can never start with "rn"."""
+    return "rn" + hashlib.sha256((SALT + "|rn|" + handle.lower()).encode()).hexdigest()[:22]
+
+
+def make_session(handle, name):
+    body = b64u(json.dumps({"h": handle, "n": name, "p": verified_player(handle),
+                            "exp": int(time.time()) + SESSION_DAYS * 86400}, separators=(",", ":")).encode())
+    return body + "." + sign(body)
+
+
+def read_session(token):
+    """The signed-in RemiliaNET handle, or None. The token is ours: signed here, checked here."""
+    if not isinstance(token, str) or len(token) > 600 or token.count(".") != 1:
+        return None
+    body, sig = token.split(".")
+    if not hmac.compare_digest(sig, sign(body)):
+        return None
+    try:
+        d = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    except ValueError:
+        return None
+    if d.get("exp", 0) < time.time() or not RE_HANDLE.match(str(d.get("h", ""))):
+        return None
+    return d["h"]
+
+
+_pending = {}  # state -> (pkce verifier, where to send the player back, started)
+_pending_lock = threading.Lock()
+
+
+def auth_begin(back):
+    state, verifier = secrets.token_urlsafe(16), secrets.token_urlsafe(48)
+    now = time.time()
+    with _pending_lock:
+        for k in [k for k, v in _pending.items() if now - v[2] > 900]:
+            _pending.pop(k, None)
+        if len(_pending) > 5000:
+            return None
+        _pending[state] = (verifier, back, now)
+    q = urllib.parse.urlencode({
+        "client_id": RN_CLIENT, "response_type": "code", "redirect_uri": RN_REDIRECT, "scope": "openid", "state": state,
+        "code_challenge": b64u(hashlib.sha256(verifier.encode()).digest()), "code_challenge_method": "S256"})
+    return RN_ISSUER + "/protocol/openid-connect/auth?" + q
+
+
+def auth_finish(code, verifier):
+    """Trade the code for a token, ask RemiliaNET who it belongs to, and return our own session. The RemiliaNET
+    token is used once and thrown away: the game needs to know who the player is, nothing more."""
+    form = {"grant_type": "authorization_code", "client_id": RN_CLIENT, "code": code, "redirect_uri": RN_REDIRECT,
+            "code_verifier": verifier}
+    if RN_SECRET:
+        form["client_secret"] = RN_SECRET
+    req = urllib.request.Request(RN_ISSUER + "/protocol/openid-connect/token", data=urllib.parse.urlencode(form).encode(),
+                                 headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "cancel-api"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        access = json.loads(r.read())["access_token"]
+    req = urllib.request.Request(RN_API + "/me", headers={"Authorization": "Bearer " + access, "User-Agent": "cancel-api"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        user = json.loads(r.read())["user"]
+    handle = str(user.get("username", ""))
+    if not RE_HANDLE.match(handle):
+        raise ValueError("bad handle")
+    return make_session(handle, clean_text(user.get("displayName") or handle, 18) or handle)
+
+
 def as_int(v, lo, hi, what):
     if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
         raise Bad("bad " + what)
@@ -187,6 +278,11 @@ def parse_run(d):
     player = d.get("player")
     if not isinstance(player, str) or not RE_PLAYER.match(player):
         raise Bad("bad player")
+    handle = read_session(d.get("session"))
+    if handle:
+        player = verified_player(handle)  # the account's one row per board, from any device
+    elif player.startswith("rn"):
+        raise Bad("sign in again")  # an expired or forged session must not write to a verified player's row
     name = clean_text(d.get("name"), 18)
     if not name:
         raise Bad("bad name")
@@ -240,7 +336,7 @@ def parse_run(d):
 
     row = dict(player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
-               killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")))
+               killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
     return boards, row
 
 
@@ -258,7 +354,7 @@ def public(row, rank):
     return {"rank": rank, "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]),
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
-            "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None}
+            "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"]}
 
 
 def read_board(board, limit, player):
@@ -314,8 +410,20 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "cancel-api"
     protocol_version = "HTTP/1.1"
 
-    def log_message(self, fmt, *args):  # one short line per request, no addresses
-        print("%s %s" % (self.command, fmt % args), flush=True)
+    def log_message(self, fmt, *args):  # one short line per request, no addresses, no sign-in codes
+        print("%s %s" % (self.command, re.sub(r"(/api/auth/\w+)\?\S*", r"\1?…", fmt % args)), flush=True)
+
+    def redirect(self, url):
+        self.send_response(302)
+        self.send_header("Location", url)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def allowed_return(self, url):  # only ever send a signed-in player back to the game itself
+        u = urlparse(url)
+        origin = "%s://%s" % (u.scheme, u.netloc)
+        return origin in ORIGINS or bool(DEV and re.match(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", origin))
 
     def client_key(self):
         ip = self.headers.get("X-Real-IP") or self.client_address[0]
@@ -359,9 +467,29 @@ class Handler(BaseHTTPRequestHandler):
         q = parse_qs(u.query)
         one = lambda k: (q.get(k) or [""])[0]
         if u.path == "/api/health":
-            return self.send(200, {"ok": True, "today": utc_today().isoformat()})
+            return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON})
         if u.path == "/api/stats":
             return self.send(200, run_stats())
+        if u.path == "/api/auth/login":
+            back = one("return").split("#")[0]
+            if not RN_ON:
+                return self.send(404, {"error": "sign-in is not switched on"})
+            if not self.allowed_return(back) or not rate_ok("auth:" + self.client_key(), 40):
+                return self.send(400, {"error": "bad return"})
+            url = auth_begin(back)
+            return self.redirect(url) if url else self.send(503, {"error": "busy"})
+        if u.path == "/api/auth/callback":
+            with _pending_lock:
+                verifier, back, _started = _pending.pop(one("state"), (None, None, 0))
+            if not back:
+                return self.send(400, {"error": "this sign-in link has expired, start again from the game"})
+            if not one("code"):
+                return self.redirect(back + "#rn_error=" + urllib.parse.quote(clean_text(one("error") or "cancelled", 40)))
+            try:
+                return self.redirect(back + "#rn=" + auth_finish(one("code"), verifier))
+            except (urllib.error.URLError, ValueError, KeyError, TimeoutError) as e:
+                print("auth failed: %s" % type(e).__name__, getattr(e, "code", ""), flush=True)
+                return self.redirect(back + "#rn_error=failed")
         if u.path == "/api/pulse":
             return self.send(200, pulse())
         if u.path == "/api/hall":
@@ -420,13 +548,13 @@ class Handler(BaseHTTPRequestHandler):
                 # one row per player per board: a new run replaces it only if it scored higher
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created, look)
+                                           relics, killed_by, ip_hash, created, look, handle)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created, :look)
+                               :relics, :killed_by, :ip_hash, :created, :look, :handle)
                        ON CONFLICT(board, player) DO UPDATE SET
                          name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
-                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look,
+                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle,
                          ip_hash=excluded.ip_hash, created=excluded.created
                        WHERE excluded.score > scores.score""",
                     dict(row, board=board, ip_hash=key, created=now))

@@ -142,3 +142,13 @@ Relic icons point at trait files by name: ["Remilio","Hat","Tinfoil"].
 
 Assets: official Remilia trait layers from maker.remilia.org (copyleft),
 $CULT coin logo from Dexscreener. Not affiliated with Remilia Corporation.
+
+SIGN IN WITH REMILIANET (optional)
+  Players can connect a RemiliaNET account (docs.remilia.net). The service runs the OIDC Authorization Code + PKCE
+  flow, asks RemiliaNET who the player is (GET /api/v1/me, scope "openid" only), and returns its own signed 30-day
+  session to the game; no RemiliaNET token is kept. Signed-in scores carry the handle (shown as a verified mark
+  linking to remilia.net/~handle) and use one leaderboard row per account on any device.
+  In the RemiliaNET developer portal the client needs this redirect URI registered, verbatim:
+    https://cancel-api.tylerirl.com/api/auth/callback
+  On the droplet, in /etc/cancel-api.env:  CANCEL_RN_ON=1   (the button stays hidden until this is set)
+    CANCEL_RN_CLIENT=tpa-cancel-game   CANCEL_RN_SECRET=...  (only if the client is a confidential one)

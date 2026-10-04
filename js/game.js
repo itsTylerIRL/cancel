@@ -2359,8 +2359,36 @@ async function api(path, body){ // null on any failure: the game never depends o
     return r.ok ? await r.json() : null;
   }catch(e){ return null; }finally{ clearTimeout(t); }
 }
+/* Sign in with RemiliaNET. The service does the exchange and hands back its own signed session in the page's
+   #fragment; scores posted with it are tied to the account instead of this browser. Entirely optional. */
+function rnUser(){ return META.rn && META.rn.exp*1000 > Date.now() ? META.rn : null; }
+function rnReturn(){ // back from RemiliaNET: keep the session, tidy the address bar
+  const m = /[#&]rn(_error)?=([^&]*)/.exec(location.hash); if(!m) return "";
+  try{ history.replaceState(null, "", location.pathname+location.search); }catch(e){}
+  if(m[1]) return "RemiliaNET sign-in didn't go through ("+esc(decodeURIComponent(m[2]))+")";
+  try{
+    const b = m[2].split(".")[0].replace(/-/g,"+").replace(/_/g,"/");
+    const d = JSON.parse(decodeURIComponent(escape(atob(b))));
+    META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
+    if(!META.name) META.name = cleanName(META.rn.name);
+    saveMeta();
+  }catch(e){ return "RemiliaNET sign-in didn't go through"; }
+  return "";
+}
+let rnOn = null; // whether the service offers sign-in yet
+async function renderRn(msg){
+  const el = $("rn-row"); if(!el) return;
+  if(!online()){ el.remove(); return; }
+  const u = rnUser();
+  if(!u && rnOn===null){ const h = await api("/api/health"); rnOn = !!(h && h.rn); }
+  if(!u && !rnOn){ el.innerHTML = ""; return; }
+  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as <a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>@"+esc(u.handle)+"</a> · scores are saved to your RemiliaNET account</span><button class='btn small' id='rn-out'>sign out</button>"
+    : "<button class='btn small' id='rn-in'>connect RemiliaNET</button><span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
+  if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
+  else $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+encodeURIComponent(location.origin+location.pathname+location.search)); };
+}
 function playerId(){ // an anonymous id made once per browser, so a player has one row per board
-  if(!META.pid){ META.pid = Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""); saveMeta(); }
+  if(rnUser()) return rnUser().player; // signed in: the account's id, the same on every device  if(!META.pid){ META.pid = Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""); saveMeta(); }
   return META.pid;
 }
 const esc = v => String(v).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2390,7 +2418,7 @@ function submitRun(run, win, drip){
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), look: lookOf(run.base),
+    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), look: lookOf(run.base), session: rnUser() ? rnUser().token : undefined,
   });
 }
 async function loadPulse(){ // everyone's games and wins, on the title screen
@@ -2424,7 +2452,7 @@ async function openBoard(tab, back, seed){
     const days = h ? h.days : [];
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !days.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
-      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+(e.handle ? " ✓" : "")+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
           + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
         + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight UTC.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
@@ -2442,7 +2470,7 @@ async function openBoard(tab, back, seed){
   else body = "<div class='board'>"+res.top.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+"</b><span>"+(tr?tr.icon+" ":"")
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " <a class='rn-tag' href='https://remilia.net/~"+encodeURIComponent(e.handle)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'>✓ @"+esc(e.handle)+"</a>" : "")+"</b><span>"+(tr?tr.icon+" ":"")
         + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "👑 timeline saved" : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
         + "<div class='brel'>"+relics+"</div><em>"+e.score+"</em></div>";
     }).join("")+"</div>"
@@ -2758,6 +2786,7 @@ async function init(){
     b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; $("btn-start").click(); };
     $("link-note").textContent = "someone sent you this map — same maze, same bosses, same loot spots";
   }
+  renderRn(rnReturn());
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
     if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
