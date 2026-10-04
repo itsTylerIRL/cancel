@@ -47,15 +47,15 @@ HOW TO PLAY:
 - Heat: each win unlocks a harder optional modifier worth more DRIP.
 - The end screen gives a copyable emoji result, a share-to-X button and a
   share card (PNG) of your Milady and build.
-- Play as your own NFT: pick a collection and enter a token number on the
-  avatar screen. Supported: Milady, Remilio, Pixelady, Radbro, SchizoPosters,
-  MiladyStation and oh.. I've seen (Shiro). Ownership is not checked.
-  Where each collection's images come from is the NFT table in js/game.js.
-  It relies on outside services: the wsrv.nl image proxy (resizes and adds
-  the CORS header), the filebase IPFS gateway, radbro.xyz / schizoposters.xyz
-  metadata, arweave.net, and a public Ethereum node for oh.. I've seen.
-- You never fight your own collection: a Milady meets no Miladys, a Radbro
-  no Radbros. Pixelady, Radbro, SchizoPoster, MiladyStation and oh.. I've
+- Play as your own Milady or Remilio: enter a token number on the avatar
+  screen. Ownership is not checked. Every other collection (Pixelady,
+  Radbro, SchizoPosters, MiladyStation, oh.. I've seen) appears only as
+  enemies and NPCs. Token images come from outside services, listed in the
+  NFT table in js/game.js: the collections' own sites, the wsrv.nl image
+  proxy (resizes and adds the CORS header), the filebase IPFS gateway,
+  arweave.net and a public Ethereum node.
+- You never fight your own collection: a Milady meets no Miladys, a Remilio
+  no Remilios. Pixelady, Radbro, SchizoPoster, MiladyStation and oh.. I've
   seen enemies show real tokens when online and fall back to trait layers.
 - Phones: swipe on the map to step, tap an explored tile to walk there,
   bigger tiles (7 across), drafts as a list, and images go to the share sheet.

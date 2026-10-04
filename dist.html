@@ -622,7 +622,7 @@ html,body{overscroll-behavior-y:contain;}
       <div class="nft-row">
         <span>play as your</span>
         <select id="nft-kind"></select>
-        <input id="nft-id" type="number" min="0" max="10000" placeholder="#" inputmode="numeric">
+        <input id="nft-id" type="number" min="0" max="9999" placeholder="#" inputmode="numeric">
         <button id="nft-load" class="btn small">load</button>
       </div>
       <div id="nft-msg" class="note"></div>
@@ -1146,7 +1146,7 @@ function basePicks(){
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
   return picks;
 }
-/* Play as a token you hold. Each collection says where its token images live and how the art is framed.
+/* Token art. You can play as a Milady or Remilio you hold; the other collections supply enemy portraits. Each collection says where its token images live and how the art is framed.
    Images go through an image proxy that resizes them and adds the CORS header most hosts lack (without it
    the canvas could not be exported for map tokens or share cards). Ownership is not checked. */
 const IPFS = "https://ipfs.filebase.io/ipfs/";
@@ -1162,11 +1162,13 @@ async function tokenURI(contract, id){ // ask a public Ethereum node where a tok
   const hex = (await r.json()).result, len = parseInt(hex.slice(66,130), 16), data = hex.slice(130, 130+len*2);
   return new TextDecoder().decode(new Uint8Array(data.match(/../g).map(h=>parseInt(h,16))));
 }
-/* frame: milady = the 4:5 Milady template (relics line up exactly) · remilio = square with a smaller head ·
+/* playable: the player can be one (Miladys and Remilios only). Every other collection appears in the game
+   as enemies and NPCs, never as the player.
+   frame: milady = the 4:5 Milady template (relics line up exactly) · remilio = square with a smaller head ·
    square = square close-up · poster = 2:3 */
 const NFT = {
-  milady:   { name:"Milady",          max:9999,  frame:"milady",  src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
-  remilio:  { name:"Remilio",         max:9999,  frame:"remilio", src:id=>"https://remilio.org/remilio/"+id+".png" },
+  milady:   { name:"Milady",          max:9999,  frame:"milady",  playable:true, src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
+  remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
   pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
   radbro:   { name:"Radbro",          max:5000,  frame:"remilio", src:id=>metaImage("https://radbro.xyz/api/tokens/metadata/"+id) },
   schizo:   { name:"SchizoPoster",    max:5554,  frame:"poster",  src:id=>metaImage("https://schizoposters.xyz/api/tokens/metadata/"+id) },
@@ -3137,6 +3139,7 @@ function renderPicks(){
 async function genAvatar(nft){
   const tok = ++avaTok;
   const ava = { picks: basePicks(), name: choice(NAMES) };
+  if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
     $("nft-msg").textContent = "loading "+NFT[nft.kind].name+" #"+nft.id+"…";
     $("avatar-canvas").classList.add("loading"); $("nft-load").disabled = true;
@@ -3289,8 +3292,8 @@ async function init(){
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("name-in").value = META.name || "";
   $("name-in").onkeydown = ev=>ev.stopPropagation();
-  $("nft-kind").innerHTML = Object.keys(NFT).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
-  if(META.nft && NFT[META.nft.kind]){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
+  $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
+  if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
   const useNft = ()=>{
     const kind = $("nft-kind").value, id = parseInt($("nft-id").value, 10);
     if(!(id>=0 && id<=NFT[kind].max)){ $("nft-msg").textContent = "enter a token number from 0 to "+NFT[kind].max; return; }
