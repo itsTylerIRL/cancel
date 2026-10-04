@@ -287,6 +287,29 @@ def run_stats():
             "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25]}
 
 
+def pulse():
+    """Headline numbers for the title screen: games and wins today (UTC), over the last 7 days, and ever."""
+    now = datetime.now(timezone.utc)
+    midnight = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    out = {}
+    with db() as con:
+        for key, since in (("today", midnight), ("week", midnight - 6 * 86400), ("lifetime", 0)):
+            n, wins, kills = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(kills),0) FROM runs WHERE created>=?", (since,)).fetchone()
+            out[key] = {"games": n, "wins": wins, "kills": kills}
+        out["players"] = con.execute("SELECT COUNT(*) FROM scores WHERE board='all'").fetchone()[0]
+    return out
+
+
+def hall(limit):
+    """The best run of every daily map, newest first."""
+    with db() as con:
+        rows = con.execute(
+            """SELECT s.*, (SELECT COUNT(*) FROM scores c WHERE c.board=s.board) AS players FROM scores s
+               WHERE s.board LIKE 'daily:%' AND s.id=(SELECT t.id FROM scores t WHERE t.board=s.board ORDER BY t.score DESC, t.created ASC LIMIT 1)
+               ORDER BY s.board DESC LIMIT ?""", (limit,)).fetchall()
+    return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "cancel-api"
     protocol_version = "HTTP/1.1"
@@ -339,6 +362,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True, "today": utc_today().isoformat()})
         if u.path == "/api/stats":
             return self.send(200, run_stats())
+        if u.path == "/api/pulse":
+            return self.send(200, pulse())
+        if u.path == "/api/hall":
+            return self.send(200, hall(120))
         if u.path == "/api/token":
             kind = one("kind")
             if kind not in TOKEN_SOURCES or not re.match(r"^\d{1,4}$", one("id")):

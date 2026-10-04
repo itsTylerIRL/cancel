@@ -2370,6 +2370,14 @@ function submitRun(run, win, drip){
     daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), look: lookOf(run.base),
   });
 }
+async function loadPulse(){ // everyone's games and wins, on the title screen
+  const p = await api("/api/pulse"), el = $("pulse");
+  if(!p || !el || !p.lifetime.games){ if(el) el.classList.add("hidden"); return; }
+  const cell = (label, d)=>"<div class='pcell'><u>"+label+"</u><b>"+d.games.toLocaleString()+"</b><span>game"+(d.games===1?"":"s")+" · "+d.wins.toLocaleString()+" win"+(d.wins===1?"":"s")+"</span></div>";
+  el.innerHTML = "<div class='phead'>the timeline, worldwide</div><div class='pgrid'>"+cell("today", p.today)+cell("this week", p.week)+cell("all time", p.lifetime)
+    + "<div class='pcell'><u>all time</u><b>"+p.players.toLocaleString()+"</b><span>player"+(p.players===1?"":"s")+" · "+p.lifetime.kills.toLocaleString()+" kills</span></div></div>";
+  el.classList.remove("hidden");
+}
 function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
   if(!res || !res.boards) return "";
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
@@ -2379,7 +2387,7 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 }
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
 async function openBoard(tab, back, seed){
-  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : []);
+  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
   const wire = ()=>{
@@ -2387,6 +2395,21 @@ async function openBoard(tab, back, seed){
     $("board-close").onclick=()=>{ sfx("click"); back ? back() : closeModal(); };
   };
   openModal(shell("<div class='note'>loading…</div>")); wire();
+  if(tab==="hall"){ // every daily map's champion, as a wall of faces
+    const h = await api("/api/hall");
+    if($("modal").classList.contains("hidden") || !$("board-close")) return;
+    const days = h ? h.days : [];
+    openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
+      : !days.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
+      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+          + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
+        + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight UTC.</div>")); wire();
+    for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
+      if(!cv.isConnected) return;
+      try{ await drawLook(cv, days[+cv.dataset.n].look, days[+cv.dataset.n].relics); }catch(err){}
+    }
+    return;
+  }
   const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
   const res = await api("/api/board?"+q+"&limit=50&player="+playerId());
   if($("modal").classList.contains("hidden") || !$("board-close")) return; // closed while loading
@@ -2516,7 +2539,7 @@ async function genAvatar(nft){
 
 /* ---------- title / unlocks ---------- */
 function renderTitle(){
-  $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins;
+  $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse();
   $("meta-best").textContent=META.best?("day "+META.best):"—";
   const shop=$("unlock-shop"); shop.innerHTML="<div class='kicker'>drip unlocks</div>";
   for(const u of UNLOCKS){
