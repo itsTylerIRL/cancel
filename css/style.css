@@ -810,3 +810,6 @@ body.bg3d #modal{background:rgba(0,0,0,.78);}
 #modal-panel:has(.hall){max-width:620px;}
 .relic .rtxt b.boost,.card b.boost,.sinfo b.boost,b.boost{display:inline;color:var(--acid);font-weight:700;font-size:inherit;font-family:inherit;margin:0;}
 .sinfo .after{display:block;margin-top:3px;color:var(--gold);font-size:11px;}
+.hunter-tok{overflow:hidden;border:1px solid var(--red);box-shadow:0 0 10px rgba(255,85,85,.55);}
+.hunter-tok img{width:100%;height:100%;object-fit:cover;object-position:50% 32%;animation:wobble .7s ease-in-out infinite;}
+img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}

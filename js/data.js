@@ -37,7 +37,7 @@ const TRIBES = [
 const HEAT = [
  "enemies have +15% HP",
  "shops cost 25% more",
- "nights are 3 moves longer and one more FUD demon hunts",
+ "nights are 3 moves longer and one more Schizoposter hunts",
  "bosses have +20% HP and ATK",
  "one fewer relic slot",
 ];
@@ -150,6 +150,7 @@ const RARITY = { common:{w:10, price:60}, rare:{w:4, price:100}, legendary:{w:1.
 /* Bonklers are bosses only: no ordinary enemy uses Bonkler art.
    nft: the token collection this enemy is drawn from (a key of NFT in game.js). It shows a real token when one
    can be fetched and falls back to cfg trait layers with fx otherwise. nftFx is applied to the token art.
+   SchizoPosters are the night hunters only; daytime enemies come from the other collections.
    The player never meets an enemy of their own collection (nft, or cfg when there is no nft).
    tier: mon | elite | hunter. home: district indexes it spawns in (the CULT district spawns anything).
    trait "mirror" copies part of your ATK, "thief" steals $CULT on hit (kill it to get it back),
@@ -171,7 +172,7 @@ const ENEMIES = [
  {id:"radbro", name:"Radbro", cfg:"Remilio", nft:"radbro", tier:"mon", home:[1], trait:"mirror", picks:{Glasses:"Clout Goggles"}, hp:24, atk:4, arm:0, spd:5, lck:8, cult:[25,40]},
  {id:"angel", name:"Spring Angel", cfg:"Milady", nft:"seen", tier:"elite", home:[0,3], hp:34, atk:8, arm:1, spd:6, lck:15, cult:[55,85]},
  {id:"station", name:"Player Character", cfg:"Milady", nft:"station", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
- {id:"schizo", name:"Schizoposter", cfg:"Milady", nft:"schizo", tier:"elite", home:[0], fx:"schizo", hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
+ {id:"schizo", name:"Doomposter", cfg:"Milady", nft:"station", tier:"elite", home:[0], fx:"ps1", hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
  {id:"bonk", name:"Whale", cfg:"Remilio", tier:"elite", home:[2], hp:58, atk:10, arm:2, spd:3, lck:10, cult:[70,110]},
  {id:"rugdev", name:"Rug Dev", cfg:"Remilio", tier:"elite", home:[2], trait:"thief", hp:46, atk:8, arm:2, spd:5, lck:8, cult:[60,90]},
  {id:"goon", name:"Cheddar Goon", cfg:"Remilio", tier:"mon", home:[1,2], trait:"hard", fx:"fried", caption:"THEY GO HARD",
@@ -180,7 +181,7 @@ const ENEMIES = [
   picks:{Costume:"Shark", Shirt:"Scarface Suit", Mouth:"Cigar"}, hp:44, atk:7, arm:1, spd:5, lck:10, cult:[80,120]},
  {id:"griefer", name:"Griefer", cfg:"Remilio", picks:{Costume:"Creeper"}, tier:"mon", home:[0,2], trait:"creeper", fx:"blocky", hp:18, atk:6, arm:0, spd:7, lck:5, cult:[20,35]},
  {id:"bomber", name:"Blimp Bomber", cfg:"Remilio", tier:"elite", home:[0], trait:"bomber", fx:"blocky", hp:36, atk:6, arm:1, spd:4, lck:8, cult:[55,85]},
- {id:"fud", name:"FUD Demon", cfg:"Milady", nft:"schizo", fx:"schizo", tier:"hunter", home:[], hp:22, atk:5, arm:0, spd:6, lck:10, cult:[40,60]},
+ {id:"fud", name:"Schizoposter", cfg:"Milady", nft:"schizo", fx:"schizo", tier:"hunter", home:[], hp:22, atk:5, arm:0, spd:6, lck:10, cult:[40,60]},
 ];
 
 /* slot: 0 = day 3, 1 = day 6, 2 = day 9. Each run draws one boss per slot. */
@@ -298,7 +299,7 @@ const ACHIEVEMENTS = [
  {id:"exhibit",     name:"Lucid Conduit",          desc:"Visit I Long For Network Spirituality.",        relic:"network_spirituality"},
  {id:"allegations", name:"Posted Through It",      desc:"Defeat the first boss.",                        relic:"tinfoil"},
  {id:"shark",       name:"Turf War",               desc:"Take down a Shark Kumicho.",                    relic:"shark_suit"},
- {id:"fud",         name:"FUD Slayer",             desc:"Kill 3 FUD demons in one run.",                 relic:"vibe_shift"},
+ {id:"fud",         name:"Thread Ender",           desc:"Kill 3 Schizoposters in one run.",                 relic:"vibe_shift"},
  {id:"dodge",       name:"Can't Touch This",       desc:"Dodge 5 attacks in a single fight.",            relic:"milady_pilled"},
  {id:"allin",       name:"Degen",                  desc:"Win an ALL IN shrine flip of 100 $CULT or more.", relic:"game_watch"},
  {id:"rich",        name:"Remilionaire",           desc:"Hold 800 $CULT at once.",                       relic:"remilionaire"},

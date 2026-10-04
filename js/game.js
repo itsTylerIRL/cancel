@@ -933,7 +933,7 @@ function renderHUD(){
   const dist = DISTRICTS[districtAt(G.px,G.py)];
   const tr = TRIBES.find(t=>t.id===G.tribe);
   $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : "");
-  $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "🌙 NIGHT ")+G.day;
+  $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day;
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
   const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
   let pips = "";
@@ -986,7 +986,7 @@ function renderMap(){
     tileEl[key] = d;
     if(x===G.px && y===G.py){
       d.classList.add("you"); // the token itself is #you-tok, which slides between tiles
-    } else if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunted"); d.title="FUD demon"; } // drawn by placeHunters
+    } else if(G.hunters.some(h=>h.x===x&&h.y===y)){ d.classList.add("hunted"); d.title="Schizoposter"; } // drawn by placeHunters
     else if(t!==T.EMPTY){
       const foe = G.foes[key];
       if(foe && (t===T.MON || t===T.ELITE)){
@@ -1052,7 +1052,7 @@ function placeHunters(){ // one sliding token per demon you can see
     if(G.fog[h.y][h.x]) continue;
     h.id = h.id || Math.random().toString(36).slice(2,9); live[h.id] = 1;
     let el = inner.querySelector(".hunter-tok[data-id='"+h.id+"']");
-    if(!el){ el = document.createElement("div"); el.className="hunter-tok"; el.dataset.id=h.id; el.innerHTML="<span>🌚</span>"; inner.appendChild(el); }
+    if(!el){ el = document.createElement("div"); el.className="hunter-tok"; el.dataset.id=h.id; el.innerHTML="<img alt='' src='"+NFT.schizo.src(1+parseInt(h.id,36)%SCHIZO_LOCAL.length)+"'>"; inner.appendChild(el); }
     el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
   }
@@ -1166,7 +1166,7 @@ function tryMove(x,y){
   updateFog();
   // hunter collision
   const h = G.hunters.findIndex(h=>h.x===x&&h.y===y);
-  if(h>=0){ G.hunters.splice(h,1); G.queue.push(()=>ambush("You walk straight into a FUD demon!")); }
+  if(h>=0){ G.hunters.splice(h,1); G.queue.push(()=>ambush("You walk straight into a Schizoposter!")); }
   G.queue.push(()=>enterTile(G.map[y][x]));
   advanceTime();
   renderMap();
@@ -1222,7 +1222,7 @@ function advanceTime(){
       if(step){ h.x=step[0]; h.y=step[1]; }
       if(h.x===G.px && h.y===G.py){
         G.hunters = G.hunters.filter(k=>k!==h);
-        G.queue.push(()=>ambush("A FUD demon runs you down!"));
+        G.queue.push(()=>ambush("A Schizoposter runs you down!"));
       }
     }
   }
@@ -1258,8 +1258,8 @@ function showBanner(){
 }
 function startNight(){
   G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
-  mlog("🌙 <b>NIGHT falls.</b> FUD demons are hunting. Find a campfire.", "bad");
-  splash("🌙 NIGHT FALLS<small>the FUD demons are hunting</small>", "night");
+  mlog("<b>NIGHT falls.</b> Schizoposters are hunting. Find a campfire.", "bad");
+  splash("NIGHT FALLS<small>the schizoposters are hunting</small>", "night");
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
@@ -2610,7 +2610,7 @@ function openTutorial(){
   openModal("<h2>HOW TO SURVIVE</h2>"
     + "<div class='shop-row'><div class='heal-ico'>👣</div><div class='sinfo'><b>Find your way through the maze</b><span>Every step burns daylight. Loot hides in dead ends; scroll or drag the map to look around. Hover a tile (or tap a foe once) to scout it first.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>🌙</div><div class='sinfo'><b>Night brings FUD demons</b><span>Campfires heal you and skip to the next dawn or dusk.</span></div></div>"
+    + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Campfires heal you and skip to the next dawn or dusk.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
     + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
   $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
