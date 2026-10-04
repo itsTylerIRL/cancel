@@ -1,4 +1,4 @@
-THE CANCEL IS COMING — a Remilia roguelite autobattler
+THE CANCEL IS COMING — a neochibi roguelite autobattler
 
 DEPLOY: this repo is the site. GitHub Pages serves index.html (plus css/,
 js/ and assets/) at https://cancel.tylerirl.com — the CNAME file names the
