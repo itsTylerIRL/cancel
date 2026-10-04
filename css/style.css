@@ -748,3 +748,21 @@ h1.game-title .is::after{content:"_";animation:tirlblink 1s steps(2) infinite;}
     color-mix(in srgb,var(--dc,#555) 5%,#020405)!important;border-color:#000;}
 .tile.path{background:color-mix(in srgb,var(--acid) 14%,#070d10);}
 .tile.foe .tok.ph{background:linear-gradient(110deg,#0c1a20 30%,#1d4450 50%,#0c1a20 70%) 0 0/250% 100%;}
+/* leaderboard */
+.end-rank{margin:10px 0 0;text-align:center;font-size:13px;line-height:1.7;color:var(--txt);}
+.end-rank:empty{display:none;}
+.end-rank b{color:var(--gold);}
+.dim{color:var(--dim);}
+.board{display:flex;flex-direction:column;gap:4px;margin:10px 0;}
+.brow{display:grid;grid-template-columns:34px minmax(0,1fr) auto 56px;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.03);font-size:12px;}
+.brow i{font-style:normal;font-family:var(--label);color:#666;text-align:right;}
+.brow.top i{color:var(--gold);}
+.brow.me{border-color:var(--acid);background:rgba(80,250,123,.08);box-shadow:0 0 14px rgba(80,250,123,.18);}
+.bname{min-width:0;}
+.bname b{display:block;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bname span{display:block;color:var(--dim);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.brel{display:flex;gap:2px;}
+.brel .relic-ico{width:22px;height:22px;border-radius:4px;}
+.brow em{font-style:normal;font-weight:700;color:var(--gold);text-align:right;font-size:14px;}
+#modal-panel:has(.board){max-width:620px;}
+@media (max-width:520px){ .brel{display:none;} .brow{grid-template-columns:28px minmax(0,1fr) 50px;} }

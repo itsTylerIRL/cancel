@@ -1986,7 +1986,8 @@ function endRun(win){
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
   html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
-    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button></div></div>";
+    + "<div id='end-rank' class='end-rank'></div>"
+    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
   openModal(html);
   const run = G, txt = resultText(run, win, d);
   countUp($("end-drip"), 0, d, 900);
@@ -1995,6 +1996,8 @@ function endRun(win){
     paint($("end-avatar"), win ? run.avatar : fry(run.avatar, "CANCELLED"));
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
+    $("end-rank").innerHTML = rankHtml;
+    $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
     $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
     $("end-copy").onclick=async()=>{
@@ -2011,7 +2014,13 @@ function endRun(win){
     $("end-card").onclick=async()=>{ sfx("click"); saveImage(await shareCard(run, win, d), run.name+"-card", txt); };
     $("end-meme").onclick=()=>{ sfx("click"); openMeme(run, win, ()=>{ openModal(html); wireEnd(false); }); };
   };
+  let rankHtml = online() ? "<div class='dim'>posting your score…</div>" : "";
   wireEnd(true);
+  submitRun(run, win, d).then(res=>{ // fills in when the service answers; the end screen doesn't wait for it
+    if(res) res.sent = d;
+    rankHtml = res ? rankLines(res) : online() ? "<div class='dim'>leaderboard unavailable — your score wasn't posted</div>" : "";
+    if($("end-rank")) $("end-rank").innerHTML = rankHtml;
+  });
 }
 /* hand an image to the phone's share sheet when there is one, otherwise download it */
 function saveImage(cv, name, text){
@@ -2094,6 +2103,67 @@ function resultText(run, win, drip){
     bosses+" "+(win ? "👑 TIMELINE SAVED" : "💀 cancelled by "+(run.killedBy||"the timeline")+", day "+run.day),
     days+" "+(sets ? sets+" · " : "")+run.relics.length+" relics · "+drip+" DRIP",
   ].concat(url ? ["same map: "+url] : []).join("\n");
+}
+/* ---------- leaderboard: a small service on its own host keeps the best run per player per board ---------- */
+const API_DEFAULT = "https://cancel-api.tylerirl.com";
+const apiBase = () => { try{ return localStorage.getItem("tcc_api") || API_DEFAULT; }catch(e){ return API_DEFAULT; } };
+const online = () => /^https?:/.test(location.protocol); // a page opened as a file has no origin the service will accept
+async function api(path, body){ // null on any failure: the game never depends on the service
+  if(!online()) return null;
+  const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), 6000);
+  try{
+    const r = await fetch(apiBase()+path, body
+      ? { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), signal:ctl.signal }
+      : { signal:ctl.signal });
+    return r.ok ? await r.json() : null;
+  }catch(e){ return null; }finally{ clearTimeout(t); }
+}
+function playerId(){ // an anonymous id made once per browser, so a player has one row per board
+  if(!META.pid){ META.pid = Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""); saveMeta(); }
+  return META.pid;
+}
+const esc = v => String(v).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function submitRun(run, win, drip){
+  const nft = run.base.nft;
+  return api("/api/score", {
+    player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
+    tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
+    relics: run.relics.slice(0,8).map(id=>[id, (run.tier||{})[id]||1]), killedBy: win ? "" : (run.killedBy||""),
+    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null),
+  });
+}
+function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
+  if(!res || !res.boards) return "";
+  return Object.keys(res.boards).sort().reverse().map(k=>{
+    const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
+    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score>res.sent ? " <span class='dim'>(your best: "+b.score+")</span>" : "")+"</div>";
+  }).join("");
+}
+/* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
+async function openBoard(tab, back, seed){
+  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : []);
+  const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
+    + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
+  const wire = ()=>{
+    $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openBoard(b.dataset.tab, back, seed); }; });
+    $("board-close").onclick=()=>{ sfx("click"); back ? back() : closeModal(); };
+  };
+  openModal(shell("<div class='note'>loading…</div>")); wire();
+  const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
+  const res = await api("/api/board?"+q+"&limit=50&player="+playerId());
+  if($("modal").classList.contains("hidden") || !$("board-close")) return; // closed while loading
+  let body;
+  if(!res) body = "<div class='note bad'>the leaderboard can't be reached right now</div>";
+  else if(!res.top.length) body = "<div class='note'>nobody is on this board yet. be the first.</div>";
+  else body = "<div class='board'>"+res.top.map(e=>{
+      const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
+      const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><div class='bname'><b>"+esc(e.name)+"</b><span>"+(tr?tr.icon+" ":"")
+        + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "👑 timeline saved" : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
+        + "<div class='brel'>"+relics+"</div><em>"+e.score+"</em></div>";
+    }).join("")+"</div>"
+    + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
+  openModal(shell(body)); wire();
 }
 /* a 1200x630 image of the run, for posting */
 async function shareCard(run, win, drip){
@@ -2264,7 +2334,7 @@ function initSwipe(){
 const KEY_DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
 /* Arrow keys drive everything. On the map they move you; anywhere else they move a highlight between the
    things you can choose, and Enter picks the highlighted one. The highlight only shows once a key has been used. */
-const KEY_BACK = ["set-close","forge-leave","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
+const KEY_BACK = ["set-close","board-close","forge-leave","draft-skip","shop-leave","shrine-leave","fire-no","boss-wait","build-close","drop-back","meme-back","ev-ok","tut-ok"];
 const ARROWS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] };
 let navSel = null, navAt = { scope:"", index:0 }, navBegin = false;
 function navScope(){ // whichever dialog or screen the keys currently belong to; null on the map
@@ -2376,6 +2446,8 @@ async function init(){
     catch(e){ clearRun(); renderTitle(); }
     $("btn-continue").disabled=false;
   };
+  $("btn-board").onclick=()=>{ sfx("click"); openBoard("daily"); };
+  if(!online()) $("btn-board").remove();
   $("btn-daily").onclick=()=>{ PICK.daily = today(); PICK.seed = ""; $("btn-start").click(); };
   const link = linkedRun();
   if(link){ // arrived by a shared link: offer that exact map first

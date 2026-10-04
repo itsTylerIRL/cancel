@@ -97,6 +97,19 @@ The palette is the :root block at the top of css/style.css and the theme
 rules are the block at the end. It does not load the site's own scripts
 (3D background, custom cursor, radgotchi); the page works on its own.
 
+LEADERBOARD: server/server.py is a small Python service (standard library
+only, SQLite) that keeps each player's best run per board: today's daily,
+all-time, and one board per shared map. The game posts a finished run to
+it and shows your rank; if the service can't be reached the game carries
+on without it. Scores can't be proven (the game runs in the browser), so
+the service checks shape and plausibility and rate-limits, nothing more.
+It runs on the droplet as the systemd unit cancel-api (server/
+cancel-api.service) on 127.0.0.1:8787, behind nginx (server/
+nginx-cancel-api.conf) at https://cancel-api.tylerirl.com. Settings are in
+/etc/cancel-api.env, data in /var/lib/cancel-api/scores.db. To update it:
+copy server.py to /opt/cancel-api/ and `systemctl restart cancel-api`.
+The address the game uses is API_DEFAULT in js/game.js.
+
 CONTENT lives in js/data.js: relics, sets, rarity odds, enemies, bosses,
 events, names, unlocks. A relic's numbers live in computeStats() and
 fightEngine() in js/game.js, keyed by its id.
