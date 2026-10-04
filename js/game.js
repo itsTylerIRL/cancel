@@ -635,16 +635,17 @@ const FIGHT_RX = { network_spirituality:/(an? )(\d+)( HP shield)/, jesus_tank:/(
   silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/ };
 const hasStatText = r => r.id!=="blood_splatter" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
 const flatTier = r => !hasStatText(r) && !TIER_IN_FIGHT.includes(r.id); // nothing numeric to scale: +2 ATK, +6 max HP per extra copy's worth
-function relicText(r, m, plain){
-  if(!m || m<=1) return r.desc;
+function relicText(r, m, plain, copy){ // copy: a second item of a relic you already hold, whose effect can't happen twice
+  m = m||1; const flat = flatTier(r) ? m-1+(copy?1:0) : 0;
+  if(m<=1 && !flat) return r.desc;
   const hi = v => plain ? v : "<b class='boost'>"+v+"</b>";
   let d = r.desc;
   if(FIGHT_RX[r.id]) d = d.replace(FIGHT_RX[r.id], (_, a, n, z)=>(/^an? $/.test(a) ? "a " : a)+"\u0001"+Math.round(n*m)+"\u0002"+(typeof z==="string" ? z : ""));
   if(hasStatText(r)) d = d.replace(STAT_RX, (_, n, u, k)=>"\u0001+"+Math.round(n*m)+u+k+"\u0002").replace(DODGE_RX, (_, n, z)=>"\u0001"+Math.round(n*m)+"\u0002"+z);
-  if(flatTier(r)) d += " \u0001+"+2*(m-1)+" ATK, +"+6*(m-1)+" max HP.\u0002";
+  if(flat) d += " \u0001+"+2*flat+" ATK, +"+6*flat+" max HP.\u0002";
   return d.replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
 }
-const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain); // the item in slot i
+const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain, G.relics.indexOf(r.id)!==i); // the item in slot i
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
 function discover(id){ // first time ever holding a relic: it joins the collection on the title screen
@@ -1388,9 +1389,9 @@ function openDraft(flavor, pool, luck){
 
 /* ---------- shop ---------- */
 const coinSrc = () => document.querySelector(".cult-coin").src;
-function relicRow(r, extra, tail, tier){ // a relic as a row: art, name, text, then whatever goes on the right
+function relicRow(r, extra, tail, tier, copy){ // a relic as a row: art, name, text, then whatever goes on the right
   return "<div class='shop-row "+r.rar+" "+tierCls(tier)+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
-    + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
+    + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult, false, copy)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 function openShop(note){
   const key = G.px+","+G.py;
@@ -1590,7 +1591,7 @@ function openBuild(){
     + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
     + (G.bonus.atk||G.bonus.maxhp||G.bonus.spd ? "<span class='chip sale'>events: "+[G.bonus.atk&&"+"+G.bonus.atk+" ATK", G.bonus.maxhp&&"+"+G.bonus.maxhp+" HP", G.bonus.spd&&"+"+G.bonus.spd+" SPD"].filter(Boolean).join(", ")+"</span>" : "")+"</div>";
-  G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='up'>a copy: stacks with the other, fuse the pair to free a slot</i></div>" : setChips(r, false), "", tierAt(i)); });
+  G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='up'>a copy: stacks with the other, fuse the pair to free a slot</i></div>" : setChips(r, false), "", tierAt(i), G.relics.indexOf(id)!==i); });
   if(!G.relics.length) html += "<div class='note'>no relics yet. go loot something.</div>";
   html += "<div class='box-h' style='margin-top:12px'>SYNERGIES</div><div class='syn-list'>"+setsHTML(G.relics, true)+"</div>";
   html += "<div class='row'><button class='btn small' id='build-close'>close</button></div>";
@@ -1615,7 +1616,7 @@ function openForge(note){
     else if(!next) prog = "<div class='delta'><i class='up'>fully fused</i></div>";
     else if(j>=0){ used.add(i); used.add(j); pairs++; prog = "<div class='delta'><i class='up'>you hold two: ready</i></div><span class='after'>"+next.icon+" fused: "+relicText(r, next.mult)+"</span>"; btn = "<button class='btn small fuse' data-a='"+i+"' data-b='"+j+"'>fuse → "+next.icon+"</button>"; }
     else prog = "<div class='delta'><i>needs a second "+(t>1 ? TIERS[t].name+" " : "")+r.name+"</i></div>";
-    html += relicRow(r, prog, btn, t);
+    html += relicRow(r, prog, btn, t, G.relics.indexOf(id)!==i);
   });
   if(!G.relics.length) html += "<div class='note'>\"You've got nothing for me to work with.\"</div>";
   else if(!pairs) html += "<div class='note'>\"No pairs. Come back when you've found a second one.\"</div>";
@@ -2065,7 +2066,7 @@ function startCombat(foeDef, opts={}){
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
       $("combat-relics").innerHTML = f.st.relics.map((id,n)=>{ const r=relicById(id);
-        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true).replace(/'/g,"&#39;")+"'>"; }).join("");
+        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true, f.st.relics.indexOf(id)!==n).replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
