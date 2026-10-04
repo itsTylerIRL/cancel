@@ -817,3 +817,10 @@ img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}
 .rn-row a,.rn-tag{color:var(--acid);text-decoration:none;} .rn-row a:hover,.rn-tag:hover{text-decoration:underline;}
 .rn-on{color:var(--neon2);}
 .rn-tag{font-size:10px;font-weight:400;}
+.swap{display:flex;gap:10px;align-items:center;justify-content:center;margin:12px 0 6px;}
+.swap>div{flex:1 1 0;min-width:0;max-width:230px;} .swap .card{cursor:default;pointer-events:none;width:auto;}
+.swap>div>u{display:block;text-decoration:none;text-align:center;font-family:var(--label);text-transform:uppercase;letter-spacing:.16em;font-size:10px;color:var(--dim);margin-bottom:4px;}
+.swap>div:first-child>u{color:var(--red);} .swap>div:last-child>u{color:var(--acid);}
+.swap-arrow{font-size:22px;color:var(--dim);flex:none;}
+.swap-delta{justify-content:center;display:flex;flex-wrap:wrap;gap:4px;}
+.btn.danger{border-color:var(--red);color:var(--red);} .btn.danger:hover,.btn.danger.ksel{background:rgba(255,85,85,.15);box-shadow:0 0 14px rgba(255,85,85,.35);}

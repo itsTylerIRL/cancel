@@ -698,16 +698,16 @@ function computeStats(relics){
   const base = rawStats(relics), s = {...base};
   for(const id of new Set(relics)){ // an upgraded relic's positive stat bonuses grow with its tier
     const m = tm(id); if(m===1) continue;
-    const without = rawStats(relics.filter(x=>x!==id));
+    const without = rawStats(relics.filter(x=>x!==id), base.sets); // same synergies either way: a tier scales the relic's own numbers, not a set bonus it helps switch on
     for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0) s[k] += Math.round(d*(m-1)); }
     if(flatTier(relicById(id))){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
   }
   return s;
 }
-function rawStats(relics){
+function rawStats(relics, setsAs){
   const s = baseStats();
   const R = id => relics.includes(id);
-  const sets = s.sets = setCounts(relics), S = (id,n) => (sets[id]||0) >= n;
+  const sets = s.sets = setsAs || setCounts(relics), S = (id,n) => (sets[id]||0) >= n;
   const tb = (G && (TRIBES.find(t=>t.id===G.tribe)||{}).stat) || {};
   if(G){ s.maxhp+=G.bonus.maxhp+(tb.maxhp||0); s.atk+=G.bonus.atk+(tb.atk||0); s.spd+=G.bonus.spd+(tb.spd||0); s.arm+=tb.arm||0; }
   if(R("ak47")){ s.atk+=9; s.spd-=2; }
@@ -1364,11 +1364,29 @@ function acquireRelic(r, onDone, onBack){
   G.relics.forEach((id,j)=>{ h += relicCard(relicById(id), "data-j='"+j+"'", false, tierAt(j)); });
   h += "</div><div class='row'><button class='btn small' id='drop-back'>← back</button></div>";
   openModal(h);
-  document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick=()=>{
-    const old = relicById(G.relics[+c.dataset.j]);
-    G.relics[+c.dataset.j]=r.id; G.tiers[+c.dataset.j]=1; recalcStats(); gotRelic(r); onDone(old);
-  };});
+  document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick=()=>{ sfx("click"); confirmSwap(r, +c.dataset.j, onDone, ()=>acquireRelic(r, onDone, onBack)); };});
   $("drop-back").onclick = onBack;
+}
+/* "are you sure": a dropped relic is gone for good, so show exactly what leaves, what arrives and what it does to the build */
+function confirmSwap(r, j, onDone, onBack){
+  const old = relicById(G.relics[j]), t = tierAt(j);
+  const was = G.stats, relics = G.relics.slice(), tiers = G.tiers.slice();
+  G.relics[j] = r.id; G.tiers[j] = 1;
+  const now = computeStats(G.relics), setsNow = setRows(G.relics).filter(x=>x.on.length).map(x=>x.t.id);
+  G.relics = relics; G.tiers = tiers;
+  const delta = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
+    const d = Math.round(now[k]-was[k]);
+    return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
+  }).join("");
+  const lost = setRows(G.relics).filter(x=>x.on.length && !setsNow.includes(x.t.id)).map(x=>x.t.icon+" "+x.t.name);
+  const warn = (t>1 ? "<div class='note bad'>"+TIERS[t].icon+" this is a "+TIERS[t].name+" relic: the fused copies go with it</div>" : "")
+    + (lost.length ? "<div class='note bad'>switches off "+lost.join(", ")+"</div>" : "");
+  openModal("<h2>ARE YOU SURE?</h2><div class='note'>a dropped relic is gone for good</div>"
+    + "<div class='swap'><div><u>drop</u>"+relicCard(old, "", false, t)+"</div><b class='swap-arrow'>→</b><div><u>take</u>"+relicCard(r, "", false, 1)+"</div></div>"
+    + "<div class='delta swap-delta'>"+(delta || "<i>no change to your stats</i>")+"</div>"+warn
+    + "<div class='row'><button class='btn small' id='swap-no'>← pick another</button><button class='btn danger' id='swap-yes'>drop "+old.name+"</button></div>");
+  $("swap-no").onclick = ()=>{ sfx("click"); onBack(); };
+  $("swap-yes").onclick = ()=>{ G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
 }
 function openDraft(flavor, pool, luck){
   pool = pool || rollRelics(3, luck);
@@ -2678,7 +2696,7 @@ function navScope(){ // whichever dialog or screen the keys currently belong to;
   return null;
 }
 function navItems(scope){
-  return [...scope.querySelectorAll(".card, .choice, button, input, select")].filter(el=>!el.disabled && el.offsetParent!==null);
+  return [...scope.querySelectorAll(".card, .choice, button, input, select")].filter(el=>!el.disabled && el.offsetParent!==null && !el.closest(".swap")); // the two cards on the "are you sure" screen are only for looking at
 }
 function navKey(scope){ const h = scope.querySelector("h2"); return scope.id+"|"+(h ? h.textContent : ""); }
 function navSet(el, scroll){
@@ -2700,7 +2718,7 @@ function navRefresh(){ // make sure something sensible is highlighted in the cur
   // the dialog was redrawn (a toggle, a purchase): stay on the same position; otherwise start on the main choice
   const same = navAt.scope===navKey(scope) && navAt.index>=0;
   navSet(same ? items[Math.min(navAt.index, items.length-1)]
-    : scope.querySelector(".card, .choice:not(:disabled)") || items.find(el=>el.classList.contains("big")) || items[0], true);
+    : items.find(el=>el.matches(".card, .choice")) || items.find(el=>el.classList.contains("big")) || items[0], true);
 }
 function navMove(dx, dy){ // step to the nearest choice in that direction
   const scope = navScope(), items = navItems(scope);
