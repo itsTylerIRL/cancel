@@ -3,3 +3,5 @@ dist.html
 # macOS metadata files
 ._*
 .DS_Store
+# python bytecode
+__pycache__/
