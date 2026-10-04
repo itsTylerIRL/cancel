@@ -592,7 +592,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -908,7 +908,24 @@ function genMap(){
     const def = choice(foePool(tier, d));
     spawnFoe(x+","+y, def, cosmetic(()=>pinnedPicks(def)), def.nft ? cosmetic(()=>randi(1, NFT[def.nft].max)) : 0);
   }
+  // Elites mostly stay away until the first boss falls: none within a long walk of spawn, and only every other one
+  // beyond that. The rest are already chosen (so a seed's map doesn't change) and take their rooms once it's down.
+  G.late = [];
+  let far = 0;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    if(G.map[y][x]!==T.ELITE) continue;
+    if((dist[x+","+y]||0) <= 18 || far++ % 2){ G.map[y][x] = T.EMPTY; G.late.push(x+","+y); }
+  }
   updateFog();
+}
+function wakeElites(){ // the first boss is down: the held-back elites move into whatever rooms are still empty
+  let n = 0;
+  for(const k of G.late||[]){
+    const [x,y] = k.split(",").map(Number);
+    if(G.map[y][x]===T.EMPTY && !(x===G.px && y===G.py) && G.foes[k]){ G.map[y][x] = T.ELITE; n++; }
+  }
+  G.late = [];
+  if(n) mlog("💀 Word of the fall spreads. <b>"+n+" elites</b> move into the maze.", "bad");
 }
 function spawnFoe(key, def, picks, tok){ G.foes[key] = { def, picks, tok, face:"", portrait:null }; }
 function foeArt(foe){ // a foe's portrait and map face are put together the first time it is seen
@@ -961,7 +978,7 @@ function renderHUD(){
     const f = document.createElement("span"); f.className="gain "+(d>0?"up":"down"); f.textContent=(d>0?"+":"−")+Math.abs(d);
     c.parentNode.appendChild(f); setTimeout(()=>f.remove(), 1000);
     if(d>0) sfx("coin");
-  } else $("hud-cult").textContent = G.cult;
+  } else if(!$("hud-cult")._counting) $("hud-cult").textContent = G.cult;
   document.body.classList.toggle("danger", !G.over && s.hp <= s.maxhp*0.3);
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
@@ -2366,6 +2383,7 @@ function onBossDown(boss, forced){
   G.stats.hp=G.stats.maxhp;
   $("boss-banner").classList.add("hidden");
   mlog("👑 <b>"+boss.name+" defeated!</b> +1 relic slot, HP restored.", "gold");
+  if(G.bossesBeaten===1) wakeElites();
   if(boss.id==="cancel"){ endRun(true); return; }
   if(!forced) G.flags.gateBoss = true;
   G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll())); // boss tribute always offers at least one relic above common
@@ -2375,9 +2393,11 @@ function buildRow(){
   return G.relics.length ? "<div class='build-row'>"+G.relics.map(id=>"<img class='relic-ico' src='"+ICONS[id]+"' alt='' title='"+relicById(id).name+"'>").join("")+"</div>" : "";
 }
 function countUp(el, from, to, ms){
-  const t0 = performance.now();
-  const f = now => { const k = Math.min(1,(now-t0)/ms); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(f); };
+  const t0 = performance.now(), tok = el._count = (el._count||0)+1; // a newer count on the same element takes over
+  const f = now => { if(el._count!==tok) return; const k = Math.min(1,(now-t0)/ms); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(f); };
   requestAnimationFrame(f);
+  el._counting = true;
+  setTimeout(()=>{ if(el._count===tok){ el.textContent = to; el._counting = false; } }, ms+60); // lands on the real number even if the tab was in the background
 }
 /* the end-of-run screen: what the run was worth, and how close the next unlock is */
 function endRun(win){

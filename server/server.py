@@ -398,8 +398,8 @@ def parse_run(d):
             raise Bad("bad seed")
         boards.append("seed:" + seed)
 
-    cult = d.get("cult", 0)
-    cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else 0
+    cult = d.get("cult")  # an older copy of the game doesn't send it: leave it off the card rather than print 0
+    cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
     st = d.get("stats")
     stats = None
     if isinstance(st, dict):
