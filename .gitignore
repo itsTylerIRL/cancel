@@ -1,2 +1,5 @@
 # the single-file bundle is generated: python3 build.py
 dist.html
+# macOS metadata files
+._*
+.DS_Store
