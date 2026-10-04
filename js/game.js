@@ -135,21 +135,42 @@ function basePicks(){
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
   return picks;
 }
-/* Play as a token you hold: the collection's public image, fetched through an image proxy that adds the
-   CORS header the collection sites lack (without it the canvas could not be exported for tokens or share cards). */
+/* Play as a token you hold. Each collection says where its token images live and how the art is framed.
+   Images go through an image proxy that resizes them and adds the CORS header most hosts lack (without it
+   the canvas could not be exported for map tokens or share cards). Ownership is not checked. */
+const IPFS = "https://ipfs.filebase.io/ipfs/";
+const viaGateway = u => u.replace(/^ipfs:\/\//, IPFS).replace(/^https:\/\/([a-z0-9]+)\.ipfs\.[^/]+\//, IPFS+"$1/");
+async function metaImage(url){ // a token's metadata JSON -> its image URL
+  const j = await (await fetch(viaGateway(url))).json();
+  return viaGateway(j.image || j.image_url || j.file_url);
+}
+async function tokenURI(contract, id){ // ask a public Ethereum node where a token's metadata is
+  const r = await fetch("https://ethereum-rpc.publicnode.com", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ jsonrpc:"2.0", id:1, method:"eth_call", params:[{ to:contract, data:"0xc87b56dd"+id.toString(16).padStart(64,"0") }, "latest"] }) });
+  const hex = (await r.json()).result, len = parseInt(hex.slice(66,130), 16), data = hex.slice(130, 130+len*2);
+  return new TextDecoder().decode(new Uint8Array(data.match(/../g).map(h=>parseInt(h,16))));
+}
+/* frame: milady = the 4:5 Milady template (relics line up exactly) · remilio = square with a smaller head ·
+   square = square close-up · poster = 2:3 */
 const NFT = {
-  milady:  { name:"Milady",  max:9999, url:id=>"www.miladymaker.net/milady/"+id+".png" },
-  remilio: { name:"Remilio", max:9999, url:id=>"remilio.org/remilio/"+id+".png" },
+  milady:   { name:"Milady",          max:9999,  frame:"milady",  src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
+  remilio:  { name:"Remilio",         max:9999,  frame:"remilio", src:id=>"https://remilio.org/remilio/"+id+".png" },
+  pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
+  radbro:   { name:"Radbro",          max:5000,  frame:"remilio", src:id=>metaImage("https://radbro.xyz/api/tokens/metadata/"+id) },
+  schizo:   { name:"SchizoPoster",    max:5554,  frame:"poster",  src:id=>metaImage("https://schizoposters.xyz/api/tokens/metadata/"+id) },
+  station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
+  seen:     { name:"oh.. I've seen",  max:202,   frame:"square",  src:async id=>metaImage(await tokenURI("0x39dac0b2943757c6e53c3a1f02eb75330128c159", id)) },
 };
 const nftCache = {};
 function loadNft(n){
-  const key = n.kind+n.id, src = NFT[n.kind].url(n.id);
+  const key = n.kind+n.id;
   const get = url => new Promise((res,rej)=>{ const im = new Image(); im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=()=>rej(url); im.src=url; });
-  return nftCache[key] || (nftCache[key] = get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src))
-    .catch(()=>get("https://"+src)).catch(e=>{ delete nftCache[key]; throw e; }));
+  return nftCache[key] || (nftCache[key] = Promise.resolve(NFT[n.kind].src(n.id))
+    .then(src => get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src)).catch(()=>get(src)))
+    .catch(e=>{ delete nftCache[key]; throw e; }));
 }
 async function composeAvatar(base, relicIds){
-  const nftIm = base.nft ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
+  const nftIm = base.nft && NFT[base.nft.kind] ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
   const slots = {};
   const add = (slot, item)=>{ if(SINGLE.includes(slot)) slots[slot]=[item]; else (slots[slot]=slots[slot]||[]).push(item); };
   if(!nftIm) for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
@@ -163,10 +184,13 @@ async function composeAvatar(base, relicIds){
   const cv = document.createElement("canvas"); cv.width=600; cv.height=750;
   const cx = cv.getContext("2d");
   if(nftIm){
-    if(base.nft.kind==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
+    const frame = NFT[base.nft.kind].frame;
+    if(frame==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
       cx.drawImage(nftIm, 0, 0, 600, 750); cx.drawImage(nftIm, -70, -32, 762, 762);
       cx.drawImage(nftIm, 0, nftIm.height*0.97, nftIm.width, nftIm.height*0.03, -70, 729, 762, 21);
-    } else cx.drawImage(nftIm, 0, 0, 600, 750);
+    } else if(frame==="square") cx.drawImage(nftIm, -75, 0, 750, 750);
+    else if(frame==="poster") cx.drawImage(nftIm, 0, -75, 600, 900);
+    else cx.drawImage(nftIm, 0, 0, 600, 750);
   }
   let friends = 0, props = 0;
   items.forEach((it,i)=>{
@@ -239,7 +263,7 @@ function blocky(src){
   return cv;
 }
 /* SCHIZOPOSTERS treatment: the picture buried under scattered text */
-const SCHIZO_TEXT = ["THEY ARE WATCHING","post through it","i love you","NETWORK SPIRITUALITY","it's all connected","NGMI","do not reply","the wired","remember what they took","wagmi?","LOG OFF","he is coming","read the manifesto","1000x","trust the plan","who is posting","it's over","we're so back"];
+const SCHIZO_TEXT = ["I HATE THE ANTICHRIST","I HATE THE ANTICHRIST","FOR FOUR YEARS I SLEPT","THEY ARE WATCHING","post through it","i love you","NETWORK SPIRITUALITY","it's all connected","NGMI","do not reply","the wired","remember what they took","wagmi?","LOG OFF","he is coming","read the manifesto","1000x","trust the plan","who is posting","it's over","we're so back"];
 function schizo(src){
   const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
   const cx = cv.getContext("2d");
@@ -278,7 +302,21 @@ function ps1(src){
   cx.drawImage(t,0,0,cv.width,cv.height);
   return cv;
 }
-const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1 };
+function pixel(src){ // PIXELADY treatment: chunky pixels, finer than Miladycraft's blocks
+  const t = document.createElement("canvas"); t.width=64; t.height=Math.round(64*src.height/src.width);
+  t.getContext("2d").drawImage(src,0,0,t.width,t.height);
+  const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
+  const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false;
+  cx.drawImage(t,0,0,cv.width,cv.height);
+  return cv;
+}
+function undead(src){ // Pixelady WOTLK: a burned token, revived as a Death Knight
+  const cv = pixel(src), cx = cv.getContext("2d");
+  cx.globalCompositeOperation = "source-atop"; cx.fillStyle = "rgba(60,150,255,.38)"; cx.fillRect(0,0,cv.width,cv.height);
+  cx.globalCompositeOperation = "source-over";
+  return cv;
+}
+const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1, pixel, undead };
 function foePortrait(def, picks){
   return compositePortrait(def.cfg, picks).then(cv => PORTRAIT_FX[def.fx] ? PORTRAIT_FX[def.fx](cv, def) : cv);
 }
@@ -487,6 +525,7 @@ function computeStats(relics){
   if(R("blockhead")){ s.arm+=2; s.maxhp+=8; }
   if(R("mape_hoodie")) s.maxhp+=12;
   if(R("strawberry")) s.maxhp+=8;
+  if(R("custom")){ s.atk+=3; s.arm+=2; s.spd+=1; s.maxhp+=10; }
   if(S("kawaii",2)) s.maxhp+=12;
   if(R("hat_911")) s.spd+=3;
   if(R("bulletproof")) s.arm+=6;
@@ -1254,6 +1293,11 @@ function fightEngine(foeDef, opts, io){
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
   const done = win => {
+    if(win && foe.trait==="revive" && !foe.revived){ // Death Knights get up once
+      foe.revived = true; foe.hp = Math.round(foe.maxhp*0.5); foe.poison = 0;
+      io.log("💀 "+foe.name+" was burned once already. It gets back up.", "bad"); io.float("foe","revived","psn");
+      return;
+    }
     if(win && foe.trait==="creeper" && !F.over){ // goes off when it dies, but can't finish you
       const d = Math.min(8, Math.round(you.hp)-1);
       if(d>0){ you.hp-=d; io.log("💥 "+foe.name+" blows up in your face for "+d+".", "bad"); io.hit("you",d,false); }
@@ -1273,6 +1317,7 @@ function fightEngine(foeDef, opts, io){
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
   if(foe.trait==="hard") io.log("🧀 "+foe.name+" goes harder the longer this lasts.", "bad");
   if(foe.trait==="creeper") io.log("💥 "+foe.name+" will blow up when it dies.", "bad");
+  if(foe.trait==="revive") io.log("💀 "+foe.name+" will get back up once.", "bad");
   if(foe.trait==="bomber") io.log("🎈 "+foe.name+" bombs you from a blimp every 4th tick.", "bad");
   io.strip(F);
   if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first two relics are frozen all fight
@@ -1853,7 +1898,8 @@ async function init(){
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
-  if(META.nft){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
+  $("nft-kind").innerHTML = Object.keys(NFT).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
+  if(META.nft && NFT[META.nft.kind]){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
   const useNft = ()=>{
     const kind = $("nft-kind").value, id = parseInt($("nft-id").value, 10);
     if(!(id>=0 && id<=NFT[kind].max)){ $("nft-msg").textContent = "enter a token number from 0 to "+NFT[kind].max; return; }

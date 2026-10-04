@@ -471,8 +471,8 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
       <div class="avatar-name" id="avatar-name">…</div>
       <div class="nft-row">
         <span>play as your</span>
-        <select id="nft-kind"><option value="milady">Milady</option><option value="remilio">Remilio</option></select>
-        <input id="nft-id" type="number" min="0" max="9999" placeholder="#" inputmode="numeric">
+        <select id="nft-kind"></select>
+        <input id="nft-id" type="number" min="0" max="10000" placeholder="#" inputmode="numeric">
         <button id="nft-load" class="btn small">load</button>
       </div>
       <div id="nft-msg" class="note"></div>
@@ -657,8 +657,9 @@ const RELICS = [
  {id:"cigarette", name:"Kumicho's Cigarette", rar:"common", set:["cheese"], desc:"Your crits deal +4 damage.", icon:["Remilio", "Mouth", "Cigarette"], tags:[]},
  {id:"dino", name:"Dino Enforcer", rar:"common", set:["cheese", "squad"], desc:"Companion: bites for 3 every other tick.", icon:["Remilio", "Friend", "Dino"], tags:[]},
  {id:"blockhead", name:"Blockhead", rar:"common", set:["bonkler"], desc:"Minimum viable metaverse: +2 ARM, +8 max HP.", icon:["Bonkler", "Head", "Lego Head"], tags:[]},
- {id:"webring", name:"Radbro Webring", rar:"legendary", set:[], desc:"Counts as one more relic toward every set you already hold.", icon:["Milady", "Glasses", "Sunglasses"], tags:[]},
+ {id:"webring", name:"Radbro Webring", rar:"legendary", set:[], desc:"A reflection of a reflection: counts as one more relic toward every set you already hold.", icon:["Milady", "Glasses", "Sunglasses"], tags:[]},
  {id:"memcard", name:"Memory Card", rar:"rare", set:["bonkler"], desc:"MiladyStation save state: once per run, lethal damage reloads you at half HP.", icon:["Bonkler", "Head", "PlayStation Vita"], tags:[]},
+ {id:"custom", name:"Oh... I See", rar:"legendary", set:["kawaii"], desc:"A hand-drawn 1/1 by Shiro: +3 ATK, +2 ARM, +1 SPD, +10 max HP.", icon:["Remilio", "Hat", "Halo"], tags:[]},
  {id:"lain", name:"Lain", rar:"cursed", set:["schizo"], desc:"25% dodge chance.", icon:["Remilio", "Background", "Lain Room"], tags:["blackmarket"]},
  {id:"amogus", name:"Amogus", rar:"cursed", set:["squad"], desc:"Companion: 20% chance to one-shot non-bosses.", icon:["Remilio", "Friend", "Amogus"], tags:["blackmarket"]},
  {id:"gold_ak", name:"Gold AK47", rar:"cursed", set:["armed"], desc:"+13 ATK.", icon:["Remilio", "Weapon", "AK47 Gold"], tags:["blackmarket"]},
@@ -684,9 +685,9 @@ const RARITY = { common:{w:10, price:60}, rare:{w:4, price:100}, legendary:{w:1.
 
 /* tier: mon | elite | hunter. home: district indexes it spawns in (the CULT district spawns anything).
    trait "mirror" copies part of your ATK, "thief" steals $CULT on hit (kill it to get it back),
-   "hard" gains ATK every 3rd tick, "creeper" blows up when it dies, "bomber" bombs you every 4th tick.
+   "hard" gains ATK every 3rd tick, "creeper" blows up when it dies, "bomber" bombs you every 4th tick, "revive" gets back up once at half HP.
    fx "fried" = CHEESEWORLD deep-fry with a caption, "blocky" = MILADYCRAFT blocks, "schizo" = SCHIZOPOSTERS
-   text overlay, "ps1" = MILADYSTATION low-poly dither. picks pin trait layers. */
+   text overlay, "ps1" = MILADYSTATION low-poly dither, "pixel" = PIXELADY, "undead" = Pixelady WOTLK Death Knight. picks pin trait layers. */
 const ENEMIES = [
  {id:"grunt", name:"Remilio Grunt", cfg:"Remilio", tier:"mon", home:[1], hp:22, atk:5, arm:0, spd:4, lck:5, cult:[20,35]},
  {id:"reply", name:"Reply Guy", cfg:"Remilio", tier:"mon", home:[1], hp:18, atk:5, arm:0, spd:8, lck:5, cult:[20,35]},
@@ -697,7 +698,10 @@ const ENEMIES = [
  {id:"bagholder", name:"Carpetbagger", cfg:"Remilio", tier:"elite", home:[1], hp:30, atk:12, arm:0, spd:7, lck:15, cult:[50,80]},
  {id:"elite", name:"Remilio Elite", cfg:"Remilio", tier:"elite", home:[1], hp:42, atk:8, arm:1, spd:5, lck:8, cult:[45,70]},
  {id:"journo", name:"Journo", cfg:"Milady", tier:"elite", home:[0], hp:40, atk:9, arm:1, spd:6, lck:10, cult:[50,75]},
- {id:"station", name:"MiladyStation", cfg:"Milady", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
+ {id:"pixelady", name:"Pixelady", cfg:"Milady", tier:"mon", home:[0], fx:"pixel", hp:21, atk:6, arm:0, spd:6, lck:10, cult:[20,35]},
+ {id:"dk", name:"Death Knight", cfg:"Milady", tier:"elite", home:[0,2], trait:"revive", fx:"undead", hp:28, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
+ {id:"radbro", name:"Radbro", cfg:"Remilio", tier:"mon", home:[1], trait:"mirror", picks:{Glasses:"Clout Goggles"}, hp:24, atk:4, arm:0, spd:5, lck:8, cult:[25,40]},
+ {id:"station", name:"Player Character", cfg:"Milady", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
  {id:"schizo", name:"Schizoposter", cfg:"Milady", tier:"elite", home:[0], fx:"schizo", hp:32, atk:9, arm:0, spd:8, lck:30, cult:[50,75]},
  {id:"bonk", name:"Wild Bonkler", cfg:"Bonkler", tier:"elite", home:[2], hp:58, atk:10, arm:2, spd:3, lck:10, cult:[70,110]},
  {id:"rugdev", name:"Rug Dev", cfg:"Bonkler", tier:"elite", home:[2], trait:"thief", hp:46, atk:8, arm:2, spd:5, lck:8, cult:[60,90]},
@@ -798,16 +802,20 @@ const EVENTS = [
    choices:[ {label:"mine all night", hint:"+70 $CULT, lose 4 moves", fx:[["cult",70],["moves",-4]]},
              {label:"build a base", hint:"+10 max HP forever", fx:[["maxhp",10]]},
              {label:"ask about the seed phrase", hint:"marks where it is buried on your map", fx:[["seed"]]} ] },
- { id:"webring", name:"RADBRO WEBRING", icon:"🕶️", text:"The brother community, one link over on the webring. A radbro waves you in.",
+ { id:"webring", name:"RADBRO WEBRING", icon:"🕶️", text:"The brother community, one link over. Radbro is the true nowhere man: a reflection of a reflection, made of everything he isn't.",
    choices:[ {label:"join the webring · 80 $CULT", cost:80, hint:"take the Radbro Webring relic: +1 toward every set you hold", fx:[["give","webring"]]},
              {label:"hang with the radbros", hint:"heal 20 HP, +40 $CULT", fx:[["hp",20],["cult",40]]} ] },
- { id:"station", name:"MILADYSTATION", icon:"🎮", text:"A grey console hums on the floor. The disc is already in.",
+ { id:"station", name:"MILADYSTATION", icon:"🎮", text:"A retro game console with an obscure discography. 1,212 player characters wait on the disc.",
    choices:[ {label:"boot it up", hint:"+8 max HP forever. you are low-poly now", fx:[["maxhp",8],["ps1"]]},
              {label:"save your game · 70 $CULT", cost:70, hint:"take the Memory Card relic: one free reload from death", fx:[["give","memcard"]]},
              {label:"blow on the disc", hint:"50%: +80 $CULT · 50%: nothing", odds:0.5, fx:[["cult",80]], bad:[]} ] },
- { id:"schizopost", name:"SCHIZOPOSTERS", icon:"📡", text:"A wall of text over an anime girl. It's all connected. You almost see it.",
+ { id:"schizopost", name:"SCHIZOPOSTERS", icon:"📡", text:"A face sculpted out of mountains, buried in rabbit-hole lore. The description just says I HATE THE ANTICHRIST, over and over.",
    choices:[ {label:"read all of it", hint:"reveal the whole map, take 5 damage", fx:[["reveal"],["hp",-5]]},
              {label:"post back", hint:"60%: +1 ATK and +1 SPD forever · 40%: lose 3 moves", odds:0.6, fx:[["atk",1],["spd",1]], bad:[["moves",-3]]} ] },
+ { id:"ohisee", name:"OH... I SEE", icon:"🪽", text:"˚✧₊⁎ new spring ⁎⁺˳✧༚ Shiro, a princess of Remilia, is drawing. Every one is done by hand. Oh... I've seen.",
+   choices:[ {label:"commission a custom · 90 $CULT", cost:90, hint:"take the Oh... I See relic, a hand-drawn 1/1", fx:[["give","custom"]]},
+             {label:"watch her draw Eth Chan", hint:"day X of 10k: +1 ATK and +5 max HP forever", fx:[["atk",1],["maxhp",5]]},
+             {label:"oh... I see", hint:"reveal the whole map", fx:[["reveal"]]} ] },
  { id:"treasury", name:"THE TREASURY", icon:"🏦", text:"A dev with the keys is acting strange. September is coming.",
    choices:[ {label:"confront the dev", hint:"fight a Rug Dev (elite)", fx:[["fight","rugdev"]]},
              {label:"look away", hint:"lose 30% of your $CULT", fx:[["cultpct",-30]]} ] },
@@ -978,21 +986,42 @@ function basePicks(){
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
   return picks;
 }
-/* Play as a token you hold: the collection's public image, fetched through an image proxy that adds the
-   CORS header the collection sites lack (without it the canvas could not be exported for tokens or share cards). */
+/* Play as a token you hold. Each collection says where its token images live and how the art is framed.
+   Images go through an image proxy that resizes them and adds the CORS header most hosts lack (without it
+   the canvas could not be exported for map tokens or share cards). Ownership is not checked. */
+const IPFS = "https://ipfs.filebase.io/ipfs/";
+const viaGateway = u => u.replace(/^ipfs:\/\//, IPFS).replace(/^https:\/\/([a-z0-9]+)\.ipfs\.[^/]+\//, IPFS+"$1/");
+async function metaImage(url){ // a token's metadata JSON -> its image URL
+  const j = await (await fetch(viaGateway(url))).json();
+  return viaGateway(j.image || j.image_url || j.file_url);
+}
+async function tokenURI(contract, id){ // ask a public Ethereum node where a token's metadata is
+  const r = await fetch("https://ethereum-rpc.publicnode.com", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ jsonrpc:"2.0", id:1, method:"eth_call", params:[{ to:contract, data:"0xc87b56dd"+id.toString(16).padStart(64,"0") }, "latest"] }) });
+  const hex = (await r.json()).result, len = parseInt(hex.slice(66,130), 16), data = hex.slice(130, 130+len*2);
+  return new TextDecoder().decode(new Uint8Array(data.match(/../g).map(h=>parseInt(h,16))));
+}
+/* frame: milady = the 4:5 Milady template (relics line up exactly) · remilio = square with a smaller head ·
+   square = square close-up · poster = 2:3 */
 const NFT = {
-  milady:  { name:"Milady",  max:9999, url:id=>"www.miladymaker.net/milady/"+id+".png" },
-  remilio: { name:"Remilio", max:9999, url:id=>"remilio.org/remilio/"+id+".png" },
+  milady:   { name:"Milady",          max:9999,  frame:"milady",  src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
+  remilio:  { name:"Remilio",         max:9999,  frame:"remilio", src:id=>"https://remilio.org/remilio/"+id+".png" },
+  pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
+  radbro:   { name:"Radbro",          max:5000,  frame:"remilio", src:id=>metaImage("https://radbro.xyz/api/tokens/metadata/"+id) },
+  schizo:   { name:"SchizoPoster",    max:5554,  frame:"poster",  src:id=>metaImage("https://schizoposters.xyz/api/tokens/metadata/"+id) },
+  station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
+  seen:     { name:"oh.. I've seen",  max:202,   frame:"square",  src:async id=>metaImage(await tokenURI("0x39dac0b2943757c6e53c3a1f02eb75330128c159", id)) },
 };
 const nftCache = {};
 function loadNft(n){
-  const key = n.kind+n.id, src = NFT[n.kind].url(n.id);
+  const key = n.kind+n.id;
   const get = url => new Promise((res,rej)=>{ const im = new Image(); im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=()=>rej(url); im.src=url; });
-  return nftCache[key] || (nftCache[key] = get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src))
-    .catch(()=>get("https://"+src)).catch(e=>{ delete nftCache[key]; throw e; }));
+  return nftCache[key] || (nftCache[key] = Promise.resolve(NFT[n.kind].src(n.id))
+    .then(src => get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src)).catch(()=>get(src)))
+    .catch(e=>{ delete nftCache[key]; throw e; }));
 }
 async function composeAvatar(base, relicIds){
-  const nftIm = base.nft ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
+  const nftIm = base.nft && NFT[base.nft.kind] ? await loadNft(base.nft).catch(()=>null) : null; // falls back to the generated look
   const slots = {};
   const add = (slot, item)=>{ if(SINGLE.includes(slot)) slots[slot]=[item]; else (slots[slot]=slots[slot]||[]).push(item); };
   if(!nftIm) for(const layer of BASE_LAYERS) add(layer.toLowerCase(), {cfg:"Milady", url:assetURL("Milady", layer, base[layer])});
@@ -1006,10 +1035,13 @@ async function composeAvatar(base, relicIds){
   const cv = document.createElement("canvas"); cv.width=600; cv.height=750;
   const cx = cv.getContext("2d");
   if(nftIm){
-    if(base.nft.kind==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
+    const frame = NFT[base.nft.kind].frame;
+    if(frame==="remilio"){ // square art with a smaller head: fill the frame, then line the face up like a Remilio relic
       cx.drawImage(nftIm, 0, 0, 600, 750); cx.drawImage(nftIm, -70, -32, 762, 762);
       cx.drawImage(nftIm, 0, nftIm.height*0.97, nftIm.width, nftIm.height*0.03, -70, 729, 762, 21);
-    } else cx.drawImage(nftIm, 0, 0, 600, 750);
+    } else if(frame==="square") cx.drawImage(nftIm, -75, 0, 750, 750);
+    else if(frame==="poster") cx.drawImage(nftIm, 0, -75, 600, 900);
+    else cx.drawImage(nftIm, 0, 0, 600, 750);
   }
   let friends = 0, props = 0;
   items.forEach((it,i)=>{
@@ -1082,7 +1114,7 @@ function blocky(src){
   return cv;
 }
 /* SCHIZOPOSTERS treatment: the picture buried under scattered text */
-const SCHIZO_TEXT = ["THEY ARE WATCHING","post through it","i love you","NETWORK SPIRITUALITY","it's all connected","NGMI","do not reply","the wired","remember what they took","wagmi?","LOG OFF","he is coming","read the manifesto","1000x","trust the plan","who is posting","it's over","we're so back"];
+const SCHIZO_TEXT = ["I HATE THE ANTICHRIST","I HATE THE ANTICHRIST","FOR FOUR YEARS I SLEPT","THEY ARE WATCHING","post through it","i love you","NETWORK SPIRITUALITY","it's all connected","NGMI","do not reply","the wired","remember what they took","wagmi?","LOG OFF","he is coming","read the manifesto","1000x","trust the plan","who is posting","it's over","we're so back"];
 function schizo(src){
   const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
   const cx = cv.getContext("2d");
@@ -1121,7 +1153,21 @@ function ps1(src){
   cx.drawImage(t,0,0,cv.width,cv.height);
   return cv;
 }
-const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1 };
+function pixel(src){ // PIXELADY treatment: chunky pixels, finer than Miladycraft's blocks
+  const t = document.createElement("canvas"); t.width=64; t.height=Math.round(64*src.height/src.width);
+  t.getContext("2d").drawImage(src,0,0,t.width,t.height);
+  const cv = document.createElement("canvas"); cv.width=src.width; cv.height=src.height;
+  const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false;
+  cx.drawImage(t,0,0,cv.width,cv.height);
+  return cv;
+}
+function undead(src){ // Pixelady WOTLK: a burned token, revived as a Death Knight
+  const cv = pixel(src), cx = cv.getContext("2d");
+  cx.globalCompositeOperation = "source-atop"; cx.fillStyle = "rgba(60,150,255,.38)"; cx.fillRect(0,0,cv.width,cv.height);
+  cx.globalCompositeOperation = "source-over";
+  return cv;
+}
+const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1, pixel, undead };
 function foePortrait(def, picks){
   return compositePortrait(def.cfg, picks).then(cv => PORTRAIT_FX[def.fx] ? PORTRAIT_FX[def.fx](cv, def) : cv);
 }
@@ -1330,6 +1376,7 @@ function computeStats(relics){
   if(R("blockhead")){ s.arm+=2; s.maxhp+=8; }
   if(R("mape_hoodie")) s.maxhp+=12;
   if(R("strawberry")) s.maxhp+=8;
+  if(R("custom")){ s.atk+=3; s.arm+=2; s.spd+=1; s.maxhp+=10; }
   if(S("kawaii",2)) s.maxhp+=12;
   if(R("hat_911")) s.spd+=3;
   if(R("bulletproof")) s.arm+=6;
@@ -2097,6 +2144,11 @@ function fightEngine(foeDef, opts, io){
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
   const done = win => {
+    if(win && foe.trait==="revive" && !foe.revived){ // Death Knights get up once
+      foe.revived = true; foe.hp = Math.round(foe.maxhp*0.5); foe.poison = 0;
+      io.log("💀 "+foe.name+" was burned once already. It gets back up.", "bad"); io.float("foe","revived","psn");
+      return;
+    }
     if(win && foe.trait==="creeper" && !F.over){ // goes off when it dies, but can't finish you
       const d = Math.min(8, Math.round(you.hp)-1);
       if(d>0){ you.hp-=d; io.log("💥 "+foe.name+" blows up in your face for "+d+".", "bad"); io.hit("you",d,false); }
@@ -2116,6 +2168,7 @@ function fightEngine(foeDef, opts, io){
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
   if(foe.trait==="hard") io.log("🧀 "+foe.name+" goes harder the longer this lasts.", "bad");
   if(foe.trait==="creeper") io.log("💥 "+foe.name+" will blow up when it dies.", "bad");
+  if(foe.trait==="revive") io.log("💀 "+foe.name+" will get back up once.", "bad");
   if(foe.trait==="bomber") io.log("🎈 "+foe.name+" bombs you from a blimp every 4th tick.", "bad");
   io.strip(F);
   if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first two relics are frozen all fight
@@ -2696,7 +2749,8 @@ async function init(){
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
-  if(META.nft){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
+  $("nft-kind").innerHTML = Object.keys(NFT).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
+  if(META.nft && NFT[META.nft.kind]){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
   const useNft = ()=>{
     const kind = $("nft-kind").value, id = parseInt($("nft-id").value, 10);
     if(!(id>=0 && id<=NFT[kind].max)){ $("nft-msg").textContent = "enter a token number from 0 to "+NFT[kind].max; return; }

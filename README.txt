@@ -43,17 +43,18 @@ HOW TO PLAY:
 - Heat: each win unlocks a harder optional modifier worth more DRIP.
 - The end screen gives a copyable emoji result, a share-to-X button and a
   share card (PNG) of your Milady and build.
-- Play as your own NFT: enter a Milady or Remilio token number on the
-  avatar screen. The token image is fetched from the collection's public
-  URL through the wsrv.nl image proxy (it adds the CORS header those sites
-  lack). Ownership is not checked. To drop the third-party proxy, serve the
-  images from your own domain and change loadNft() in js/game.js.
-- Derivatives: Schizoposters (text-buried elites and an event), the Radbro
-  Webring (event and a legendary that adds +1 to every set you hold), and
-  MiladyStation (low-poly enemies, an event, and the Memory Card relic).
-- Death converts your run into DRIP, spent on permanent unlocks.
-- Achievements are permanent too. Each one adds a relic to the loot pool
-  of every later run (the list is on the title screen and in js/data.js).
+- Play as your own NFT: pick a collection and enter a token number on the
+  avatar screen. Supported: Milady, Remilio, Pixelady, Radbro, SchizoPosters,
+  MiladyStation and oh.. I've seen (Shiro). Ownership is not checked.
+  Where each collection's images come from is the NFT table in js/game.js.
+  It relies on outside services: the wsrv.nl image proxy (resizes and adds
+  the CORS header), the filebase IPFS gateway, radbro.xyz / schizoposters.xyz
+  metadata, arweave.net, and a public Ethereum node for oh.. I've seen.
+- Derivatives in the maze: SchizoPosters (text-buried elites, an event),
+  Radbro (mirror enemy, the Webring event and legendary), MiladyStation
+  (Player Character enemies, an event, the Memory Card), Pixelady (pixel
+  enemies and revived Death Knights), and Shiro's Oh... I See (an event
+  and a hand-drawn 1/1 legendary).
 
 - Your Milady is built from trait layers with no background, and she wears
   what she loots: hats, glasses, shirts, costumes, weapons, friends.
