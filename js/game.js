@@ -244,12 +244,15 @@ async function tokenURI(contract, id){ // ask a public Ethereum node where a tok
    as enemies and NPCs, never as the player.
    frame: milady = the 4:5 Milady template (relics line up exactly) · remilio = square with a smaller head ·
    square = square close-up · poster = 2:3 */
+// SchizoPosters ship with the game (the sixteen from tylerirl.com's gallery): the collection's own host is too flaky to rely on
+const SCHIZO_LOCAL = ["atlantean","brobot","celestial","crystalline","demon","grey","ice","microlady","monument","nebulady","psychedelic","robro","rockbro","sealady","tulpa","wired"];
+const localFile = path => (window.INLINE_FILES && window.INLINE_FILES[path]) || path;
 const NFT = {
   milady:   { name:"Milady",          max:9999,  frame:"milady",  playable:true, src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
   remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
   pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
   radbro:   { name:"Radbro",          max:5000,  frame:"remilio", src:id=>metaImage("https://radbro.xyz/api/tokens/metadata/"+id) },
-  schizo:   { name:"SchizoPoster",    max:5554,  frame:"poster",  src:id=>metaImage("https://schizoposters.xyz/api/tokens/metadata/"+id) },
+  schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
   seen:     { name:"oh.. I've seen",  max:202,   frame:"square",  src:async id=>metaImage(await tokenURI("0x39dac0b2943757c6e53c3a1f02eb75330128c159", id)) },
 };
@@ -258,7 +261,7 @@ function loadNft(n){
   const key = n.kind+n.id;
   const get = url => new Promise((res,rej)=>{ const im = new Image(); im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=()=>rej(url); im.src=url; });
   return nftCache[key] || (nftCache[key] = Promise.resolve(NFT[n.kind].src(n.id))
-    .then(src => get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src)).catch(()=>get(src)))
+    .then(src => /^https?:/.test(src) ? get("https://wsrv.nl/?w=600&output=webp&url="+encodeURIComponent(src)).catch(()=>get(src)) : get(src)) // bundled art needs no proxy
     .catch(e=>{ delete nftCache[key]; throw e; }));
 }
 async function composeAvatar(base, relicIds){
