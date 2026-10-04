@@ -933,20 +933,20 @@ function centerMap(){
   w.scrollTo({ left: m.offsetLeft+(G.px+0.5)*ts-w.clientWidth/2, top: m.offsetTop+(G.py+0.5)*ts-w.clientHeight/2, behavior: camSnap ? "auto" : "smooth" });
   camSnap = false;
 }
-const MINI = { [T.CHEST]:"#ff9ecb", [T.GRAVE]:"#8d8aa6", [T.MON]:"#ff6b6b", [T.ELITE]:"#ffd75e", [T.SHOP]:"#8fd6ff",
-  [T.SHRINE]:"#ffd75e", [T.FIRE]:"#ff9a4a", [T.EVENT]:"#b9a4ff", [T.GATE]:"#ff2244", [T.FORGE]:"#7dffb0" };
+const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
+  [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(G.fog[y][x]) continue;
     const t = G.map[y][x];
-    cx.fillStyle = t===T.WALL ? "#1b1832" : "#4a4478";
+    cx.fillStyle = t===T.WALL ? "#061014" : "#1d3a44";
     cx.fillRect(x*k, y*k, k, k);
     if(MINI[t]){ cx.fillStyle = MINI[t]; cx.fillRect(x*k+1, y*k+1, k-2, k-2); }
   }
-  cx.fillStyle = "#ff2244"; for(const h of G.hunters) if(!G.fog[h.y][h.x]) cx.fillRect(h.x*k, h.y*k, k, k);
-  cx.fillStyle = "#a6ff5e"; cx.fillRect(G.px*k-2, G.py*k-2, k+4, k+4);
+  cx.fillStyle = "#ff5555"; for(const h of G.hunters) if(!G.fog[h.y][h.x]) cx.fillRect(h.x*k, h.y*k, k, k);
+  cx.fillStyle = "#50fa7b"; cx.fillRect(G.px*k-2, G.py*k-2, k+4, k+4);
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
@@ -971,6 +971,7 @@ function tileInfo(x,y){
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
+  document.body.classList.toggle("on-title", id==="screen-title"); // the Return Home card only belongs on the title screen
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
   window.scrollTo(0,0);
   if(id==="screen-avatar") navBegin = true;
@@ -2029,7 +2030,7 @@ function memeCanvas(run, top, bottom, fried){
   let cv = document.createElement("canvas"); cv.width=1080; cv.height=1080;
   let cx = cv.getContext("2d");
   const bg = cx.createRadialGradient(540,400,40,540,540,760);
-  bg.addColorStop(0,"#ffe9f4"); bg.addColorStop(0.45,"#f3bfdc"); bg.addColorStop(0.8,"#b89be6"); bg.addColorStop(1,"#8468c9");
+  bg.addColorStop(0,"#1f5663"); bg.addColorStop(0.45,"#0c2a33"); bg.addColorStop(0.8,"#031014"); bg.addColorStop(1,"#000000");
   cx.fillStyle = bg; cx.fillRect(0,0,1080,1080);
   cx.drawImage(run.avatar, 108, 0, 864, 1080);
   if(fried){ cv = fry(cv); cx = cv.getContext("2d"); }
@@ -2097,36 +2098,44 @@ function resultText(run, win, drip){
 /* a 1200x630 image of the run, for posting */
 async function shareCard(run, win, drip){
   const cv = document.createElement("canvas"); cv.width=1200; cv.height=630;
-  const cx = cv.getContext("2d");
-  const bg = cx.createLinearGradient(0,0,1200,630); bg.addColorStop(0,"#2a0f24"); bg.addColorStop(0.55,"#0b0a14"); bg.addColorStop(1,"#10203a");
-  cx.fillStyle = bg; cx.fillRect(0,0,1200,630);
-  for(let i=0;i<140;i++){ cx.fillStyle="rgba(255,255,255,"+(0.15+Math.random()*0.5)+")"; cx.fillRect(Math.random()*1200, Math.random()*630, 2, 2); }
-  // the Milady, on her stage
-  const st = cx.createRadialGradient(250,250,20,250,300,330); st.addColorStop(0,"#ffe9f4"); st.addColorStop(0.5,"#f3bfdc"); st.addColorStop(1,"#8468c9");
-  cx.fillStyle = st; cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.fill();
-  cx.save(); cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.clip();
-  cx.drawImage(win ? run.avatar : fry(run.avatar, "CANCELLED"), 50, 60, 400, 500); cx.restore();
-  cx.lineWidth = 6; cx.strokeStyle = "#c54e71"; cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.stroke();
-  const font = (px, w) => { cx.font = (w||"bold")+" "+px+"px ui-rounded, 'Comic Sans MS', 'Arial Rounded MT Bold', system-ui, sans-serif"; };
-  const text = (t, x, y, px, color, w) => { font(px, w); cx.fillStyle = color; cx.fillText(t, x, y); };
+  const cx = cv.getContext("2d"), MONO = "'JetBrains Mono','Fira Mono','Menlo','Consolas',monospace";
+  cx.fillStyle = "#000"; cx.fillRect(0,0,1200,630);
+  const glow = cx.createRadialGradient(250,300,20,250,300,520); glow.addColorStop(0,"rgba(139,233,253,.20)"); glow.addColorStop(1,"rgba(139,233,253,0)");
+  cx.fillStyle = glow; cx.fillRect(0,0,1200,630);
+  for(let i=0;i<120;i++){ cx.fillStyle="rgba(139,233,253,"+(0.15+Math.random()*0.5)+")"; cx.fillRect(Math.random()*1200, Math.random()*630, 2, 2); }
+  // the site's corner brackets
+  cx.strokeStyle = "rgba(139,233,253,.5)"; cx.lineWidth = 2;
+  for(const [x,y,dx,dy] of [[18,18,1,1],[1182,18,-1,1],[18,612,1,-1],[1182,612,-1,-1]]){ cx.beginPath(); cx.moveTo(x+dx*40,y); cx.lineTo(x,y); cx.lineTo(x,y+dy*40); cx.stroke(); }
+  // the Milady, as a hologram
+  const st = cx.createRadialGradient(250,270,20,250,310,330); st.addColorStop(0,"rgba(139,233,253,.34)"); st.addColorStop(0.55,"rgba(139,233,253,.10)"); st.addColorStop(1,"rgba(139,233,253,.02)");
+  cx.fillStyle = "#010506"; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.fill();
+  cx.fillStyle = st; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.fill();
+  cx.save(); cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.clip();
+  cx.drawImage(win ? run.avatar : fry(run.avatar, "CANCELLED"), 50, 60, 400, 500);
+  cx.fillStyle = "rgba(0,0,0,.16)"; for(let y=60;y<560;y+=4) cx.fillRect(50,y,400,2); // scanlines
+  cx.restore();
+  cx.lineWidth = 1.5; cx.strokeStyle = "rgba(139,233,253,.6)"; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.stroke();
+  const text = (t, x, y, px, color, w) => { cx.font = (w||"bold")+" "+px+"px "+MONO; cx.fillStyle = color; cx.fillText(t, x, y); };
   cx.textBaseline = "alphabetic";
-  font(54); cx.fillStyle="#c54e71"; cx.fillText("THE CANCEL IS COMING", 503, 113); cx.fillStyle="#f3e3b5"; cx.fillText("THE CANCEL IS COMING", 500, 110);
+  cx.shadowColor = "rgba(139,233,253,.7)"; cx.shadowBlur = 18;
+  text("the cancel", 500, 108, 50, "#fff"); text("is coming_", 500 + cx.measureText("the cancel ").width, 108, 50, "#8be9fd");
+  cx.shadowBlur = 0;
   const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
-  text(run.name+" · "+tribe.name+(run.heat?" · heat "+run.heat:"")+(run.daily?" · daily "+run.daily:""), 500, 160, 28, "#ff9ecb");
-  text(win ? "TIMELINE SAVED" : "CANCELLED ON DAY "+run.day, 500, 240, 50, win ? "#a6ff5e" : "#ff6b6b");
-  text(run.bossesBeaten+" / 3 bosses   ·   "+run.kills+" kills   ·   "+run.cult+" $CULT", 500, 290, 28, "#ece7dd", "normal");
-  text("DRIP", 500, 370, 26, "#9794b0"); text(String(drip), 500, 440, 80, "#ffd75e");
-  const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.name+" "+r.c).join("   ");
-  if(sets) text(sets, 720, 420, 24, "#b9a4ff");
+  text((run.name+" · "+tribe.name+(run.heat?" · heat "+run.heat:"")+(run.daily?" · daily "+run.daily:run.seedCode?" · map "+run.seedCode:"")).toLowerCase(), 500, 156, 24, "#bdbdbd", "normal");
+  text(win ? "timeline saved" : "cancelled on day "+run.day, 500, 240, 44, win ? "#50fa7b" : "#ff5555");
+  text(run.bossesBeaten+" / 3 bosses  ·  "+run.kills+" kills  ·  "+run.cult+" $CULT", 500, 288, 24, "#eaeaea", "normal");
+  text("DRIP", 500, 366, 18, "#666"); text(String(drip), 500, 438, 76, "#f1fa8c");
+  const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.name+" "+r.c).join("  ").toLowerCase();
+  if(sets) text(sets, 720, 420, 20, "#bd93f9", "normal");
   // relics
   const ims = await Promise.all(run.relics.map(id=>loadImg(ICONS[id]).catch(()=>null)));
   ims.forEach((im,i)=>{
     const x = 500+i*92, y = 470;
-    cx.fillStyle = "#1a1730"; cx.beginPath(); cx.roundRect(x,y,82,82,14); cx.fill();
-    cx.lineWidth = 3; cx.strokeStyle = {rare:"#ffd75e", legendary:"#ff9ecb", cursed:"#b9a4ff"}[relicById(run.relics[i]).rar] || "#37325e"; cx.stroke();
+    cx.fillStyle = "#06090b"; cx.beginPath(); cx.roundRect(x,y,82,82,8); cx.fill();
+    cx.lineWidth = 1.5; cx.strokeStyle = {rare:"#f1fa8c", legendary:"#ff79c6", cursed:"#bd93f9"}[relicById(run.relics[i]).rar] || "rgba(139,233,253,.3)"; cx.stroke();
     if(im) cx.drawImage(im, x+5, y+5, 72, 72);
   });
-  text(location.host || "thecancel.is/coming", 500, 600, 20, "#6b6885", "normal");
+  text((location.host || "tylerirl.com").toUpperCase(), 500, 598, 16, "#666", "normal");
   return cv;
 }
 function leaveRun(){
@@ -2355,6 +2364,8 @@ function onKey(ev){
 /* ---------- init ---------- */
 async function init(){
   loadMeta(); renderTitle(); setMute(META.mute); applyCalm();
+  document.body.classList.add("on-title");
+  if(!/^https?:/.test(location.protocol)) $("floating-home").remove(); // opened as a file: there is no site to go home to
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
   let ready = loadAssets().then(renderCodex); // start loading right away so ENTER is instant
   ready.catch(()=>{});

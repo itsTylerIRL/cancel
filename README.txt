@@ -85,6 +85,14 @@ HOW TO PLAY:
 - Your Milady is built from trait layers with no background, and she wears
   what she loots: hats, glasses, shirts, costumes, weapons, friends.
 
+LOOK: themed to match tylerirl.com — black, the cyan #8be9fd accent,
+Dracula colours for meaning, JetBrains Mono, lowercase headings with a
+blinking cursor, thin cyan borders, corner brackets, and a "Return Home"
+card on the title screen (it links to "/"; hidden when opened as a file).
+The palette is the :root block at the top of css/style.css and the theme
+rules are the block at the end. It does not load the site's own scripts
+(3D background, custom cursor, radgotchi); the page works on its own.
+
 CONTENT lives in js/data.js: relics, sets, rarity odds, enemies, bosses,
 events, names, unlocks. A relic's numbers live in computeStats() and
 fightEngine() in js/game.js, keyed by its id.

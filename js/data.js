@@ -3,10 +3,10 @@
    they are cropped to the trait's own bounds at load time, and worn by the player.
    rar: common | rare | legendary | cursed (black market).  set: synergy ids from SETS. */
 const DISTRICTS = [
-  { name:"MILADY MAKER", color:"#c54e71", rule:"chests offer 4 relics" },
-  { name:"REMILIO",      color:"#7db8ff", rule:"fights pay +50% $CULT" },
-  { name:"BONKLER",      color:"#a6ff5e", rule:"shops are 20% cheaper" },
-  { name:"CULT",         color:"#ffd75e", rule:"shrines win 65% of flips" },
+  { name:"MILADY MAKER", color:"#ff79c6", rule:"chests offer 4 relics" },
+  { name:"REMILIO",      color:"#bd93f9", rule:"fights pay +50% $CULT" },
+  { name:"BONKLER",      color:"#50fa7b", rule:"shops are 20% cheaper" },
+  { name:"CULT",         color:"#f1fa8c", rule:"shrines win 65% of flips" },
 ];
 
 /* Starting classes, after the Milady style tribes. relic = what you start holding; stat = flat bonuses. */
