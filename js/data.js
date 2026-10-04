@@ -3,10 +3,27 @@
    they are cropped to the trait's own bounds at load time, and worn by the player.
    rar: common | rare | legendary | cursed (black market).  set: synergy ids from SETS. */
 const DISTRICTS = [
-  { name:"MILADY MAKER", color:"#c54e71" },
-  { name:"REMILIO",      color:"#7db8ff" },
-  { name:"BONKLER",      color:"#a6ff5e" },
-  { name:"CULT",         color:"#ffd75e" },
+  { name:"MILADY MAKER", color:"#c54e71", rule:"chests offer 4 relics" },
+  { name:"REMILIO",      color:"#7db8ff", rule:"fights pay +50% $CULT" },
+  { name:"BONKLER",      color:"#a6ff5e", rule:"shops are 20% cheaper" },
+  { name:"CULT",         color:"#ffd75e", rule:"shrines win 65% of flips" },
+];
+
+/* Starting classes, after the Milady style tribes. relic = what you start holding; stat = flat bonuses. */
+const TRIBES = [
+ {id:"hypebeast", name:"HYPEBEAST", icon:"👟", relic:"chrome_hearts",  desc:"+6% crit chance",        stat:{crit:6}},
+ {id:"gyaru",     name:"GYARU",     icon:"💅", relic:"silver_coin",    desc:"+60 starting $CULT",     cult:60},
+ {id:"lolita",    name:"LOLITA",    icon:"🎀", relic:"strawberry",     desc:"+10 max HP",             stat:{maxhp:10}},
+ {id:"harajuku",  name:"HARAJUKU",  icon:"🌈", relic:"cobain_glasses", desc:"+1 SPD",                 stat:{spd:1}},
+ {id:"prep",      name:"PREP",      icon:"🎓", relic:"knife",          desc:"+1 ATK, +1 ARM",         stat:{atk:1, arm:1}},
+];
+/* Heat: optional difficulty, one level unlocked per win. Level n applies the first n lines. */
+const HEAT = [
+ "enemies have +15% HP",
+ "shops cost 25% more",
+ "nights are 3 moves longer and one more FUD demon hunts",
+ "bosses have +20% HP and ATK",
+ "one fewer relic slot",
 ];
 
 const RELICS = [
@@ -28,7 +45,7 @@ const RELICS = [
  {id:"blunt", name:"Blunt", rar:"rare", set:["schizo"], desc:"First hit each fight deals 3x.", icon:["Remilio", "Mouth", "Cigar"], tags:[]},
  {id:"bfg", name:"BFG9000", rar:"rare", set:["armed"], desc:"+15 ATK, -15 max HP.", icon:["Remilio", "Weapon", "BFG9000"], tags:[]},
  {id:"birthday_hat", name:"Birthday Hat", rar:"common", set:["kawaii"], desc:"Heal 15 HP on kill.", icon:["Milady", "Hat", "Cake Hat"], tags:[]},
- {id:"bulletproof", name:"Bulletproof", rar:"common", set:["bonkler"], desc:"+6 ARM.", icon:["Bonkler", "Armor", "Mithril"], tags:[]},
+ {id:"bulletproof", name:"Bulletproof", rar:"common", set:["bonkler"], desc:"+6 ARM.", icon:["Remilio", "Hat", "Viking"], tags:[]},
  {id:"blood_splatter", name:"Blood Splatter", rar:"common", set:["schizo"], desc:"+5 ATK while below half HP.", icon:["Remilio", "Face", "Scar"], tags:[]},
  {id:"frog_costume", name:"Frog Costume", rar:"common", set:["kawaii"], desc:"+30 max HP, -1 SPD.", icon:["Remilio", "Costume", "Frog"], tags:[]},
  {id:"network_spirituality", name:"Network Spirituality", rar:"rare", set:["cult"], desc:"Start each fight with a 12 HP shield.", icon:["Milady", "Hat", "Halo"], tags:[]},
@@ -125,22 +142,41 @@ const ENEMIES = [
  {id:"fud", name:"FUD Demon", cfg:"Bonkler", tier:"hunter", home:[], hp:26, atk:6, arm:0, spd:6, lck:10, cult:[40,60]},
 ];
 
+/* slot: 0 = day 3, 1 = day 6, 2 = day 9. Each run draws one boss per slot. */
 const BOSSES = [
- { id:"allegations", name:"THE ALLEGATIONS", cfg:"Bonkler",
+ { id:"lawsuit", slot:0, name:"THE LAWSUIT", cfg:"Bonkler",
+   picks:{BG:"Bonkler St", Body:"Suit", Head:"GameCube", Face:"Deal With It", Offhand:"FBI Badge"},
+   hp:54, atk:6, arm:1, spd:4, lck:8, cult:[120,160],
+   intro:"You have been served.",
+   mechanic:"INJUNCTION: your first two relics are frozen for the whole fight.",
+   flavor:"early" },
+ { id:"drain", slot:1, name:"THE TREASURY DRAIN", cfg:"Bonkler",
+   picks:{BG:"Aquarium", Body:"Vending Machine", Head:"PlayStation Vita", Face:"Grin", Hand:"Knife"},
+   hp:96, atk:8, arm:2, spd:5, lck:10, cult:[200,260],
+   intro:"A dev has the keys. The keys are gone.",
+   mechanic:"DRAIN: steals 15 $CULT every tick and hits harder for it. Kill it to get it back.",
+   flavor:"mid" },
+ { id:"shift", slot:1, name:"THE VIBE SHIFT", cfg:"Bonkler",
+   picks:{BG:"Milady World", Body:"Rilakkuma", Head:"Strawberry Hat", Face:"Star Struck"},
+   hp:100, atk:8, arm:2, spd:6, lck:10, cult:[200,260],
+   intro:"Everything you built your brand on is over.",
+   mechanic:"SHIFT: every 4th tick, your ATK and its ATK trade places.",
+   flavor:"mid" },
+ { id:"allegations", slot:0, name:"THE ALLEGATIONS", cfg:"Bonkler",
    picks:{BG:"Dungeon", Body:"Suit", Head:"iDog", Face:"Evil", Offhand:"FBI Badge"},
-   hp:62, atk:7, arm:1, spd:5, lck:8, cult:[120,160],
+   hp:52, atk:6, arm:1, spd:5, lck:8, cult:[120,160],
    intro:"They're saying things about you on the timeline.",
    mechanic:"FUD: each tick, 25% chance one of your relics is suppressed.",
    flavor:"day 3" },
- { id:"bonkler911", name:"BONKLER 9/11", cfg:"Bonkler",
+ { id:"bonkler911", slot:1, name:"BONKLER 9/11", cfg:"Bonkler",
    picks:{BG:"Sunset", Body:"Burger Bonkler Laser", Head:"Flame Emoji", Face:">_<", Hand:"Golden Axe"},
-   hp:120, atk:10, arm:2, spd:4, lck:10, cult:[200,260],
+   hp:102, atk:9, arm:2, spd:4, lck:10, cult:[200,260],
    intro:"Something terrible happened to the timeline.",
    mechanic:"CHAOS: both sides' ATK is randomized ±50% every tick.",
    flavor:"day 6" },
- { id:"cancel", name:"THE CANCEL", cfg:"Bonkler",
+ { id:"cancel", slot:2, name:"THE CANCEL", cfg:"Bonkler",
    picks:{BG:"The Moon Zone", Body:"Sony PVM", Armor:"Terminator", Head:"Lego Head", Face:"T_T", Hand:"Energy Sword"},
-   hp:180, atk:13, arm:3, spd:6, lck:12, cult:[400,500],
+   hp:160, atk:12, arm:3, spd:6, lck:12, cult:[400,500],
    intro:"IT IS HERE.",
    mechanic:"Cancels one of your relics at fight start. Every 5 ticks: RATIO'D for 5 pure damage.",
    flavor:"day 9 — the big bad" },
@@ -205,7 +241,7 @@ const ACHIEVEMENTS = [
  {id:"first",       name:"First Blood",            desc:"Win a fight.",                                  relic:"cookie"},
  {id:"seed",        name:"10 ETH",                 desc:"Dig up the seed phrase buried near spawn.",     relic:"blockhead"},
  {id:"exhibit",     name:"Lucid Conduit",          desc:"Visit I Long For Network Spirituality.",        relic:"network_spirituality"},
- {id:"allegations", name:"Posted Through It",      desc:"Defeat THE ALLEGATIONS.",                       relic:"tinfoil"},
+ {id:"allegations", name:"Posted Through It",      desc:"Defeat the first boss.",                        relic:"tinfoil"},
  {id:"shark",       name:"Turf War",               desc:"Take down a Shark Kumicho.",                    relic:"shark_suit"},
  {id:"fud",         name:"FUD Slayer",             desc:"Kill 3 FUD demons in one run.",                 relic:"vibe_shift"},
  {id:"dodge",       name:"Can't Touch This",       desc:"Dodge 5 attacks in a single fight.",            relic:"milady_pilled"},
@@ -214,7 +250,7 @@ const ACHIEVEMENTS = [
  {id:"ball",        name:"Had a Date",             desc:"Attend the Grand Remilia Ball with a companion.", relic:"gold_sonic"},
  {id:"synergy",     name:"Full Set",               desc:"Switch on the top tier of any synergy.",        relic:"heart_tattoo"},
  {id:"collector",   name:"Collector",              desc:"Discover 30 different relics.",                 relic:"trucker"},
- {id:"bonkler911",  name:"Never Forget",           desc:"Defeat BONKLER 9/11.",                          relic:"reserve"},
+ {id:"bonkler911",  name:"Never Forget",           desc:"Defeat the second boss.",                       relic:"reserve"},
  {id:"day9",        name:"Cancelversary",          desc:"Survive to day 9.",                             relic:"cancelversary"},
  {id:"win",         name:"Uncancellable",          desc:"Defeat THE CANCEL.",                            relic:"wwe_belt"},
 ];

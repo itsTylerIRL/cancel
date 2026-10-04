@@ -362,6 +362,23 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .syn.none{display:block;opacity:.6;font-size:10px;}
 #btn-continue{display:block;margin:0 auto 14px;}
 .tile.dig{box-shadow:inset 0 0 0 2px var(--gold);animation:blink 1s steps(2) infinite;}
+/* run setup */
+.pick-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0;}
+.pick{font-family:var(--cute);font-weight:bold;font-size:12px;letter-spacing:1px;color:var(--dim);cursor:pointer;
+  background:#0e0d1b;border:2px solid var(--line);border-radius:999px;padding:6px 12px;transition:transform .1s,border-color .1s;}
+.pick:hover{border-color:var(--pink);transform:translateY(-2px);}
+.pick.on{color:#fff;border-color:var(--neon);background:var(--neon);box-shadow:0 3px 0 #5c1c30;}
+#tribe-desc{display:flex;gap:10px;align-items:center;justify-content:center;text-align:left;font-size:12px;color:var(--dim);margin:8px 0 4px;}
+#tribe-desc b{display:block;color:var(--neon2);font-size:13px;}
+#tribe-desc span{display:block;}
+#combat-choice{margin:10px 0 0;text-align:left;border:2px solid #ff2244;border-radius:14px;padding:10px 12px;background:#1a0a12;
+  box-shadow:0 0 22px rgba(255,34,68,.4);animation:pop .22s cubic-bezier(.3,1.5,.5,1);}
+#combat-choice .kicker{color:#ff8899;margin:0 0 4px;}
+.draft-cards.four{grid-template-columns:repeat(2,1fr);}
+@media (min-width:600px){ .draft-cards.four{grid-template-columns:repeat(4,1fr);} #modal-panel:has(.draft-cards.four){max-width:620px;} }
+.tile:not(.fog):not(.wall){cursor:pointer;}
+#minimap{pointer-events:auto;cursor:zoom-in;transition:width .2s;}
+#minimap.big{width:min(70%,360px);cursor:zoom-out;opacity:1;}
 /* achievements */
 #toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:130;display:flex;flex-direction:column;gap:8px;
   width:min(360px,calc(100vw - 24px));pointer-events:none;}

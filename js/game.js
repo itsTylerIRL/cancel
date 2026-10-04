@@ -1,14 +1,26 @@
 /* THE CANCEL IS COMING — engine part 1: utils, meta, assets, avatars, run state, map */
 const $ = id => document.getElementById(id);
-const randi = (a,b) => a + Math.floor(Math.random()*(b-a+1));
-const choice = arr => arr[Math.floor(Math.random()*arr.length)];
-const shuffle = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
+/* Everything the game decides by chance goes through rnd(). During a run it is a seeded generator whose
+   state is saved with the run, so reloading the page replays the same outcomes, and a daily run starts
+   everyone from the same seed. Purely visual randomness (confetti, grain) keeps using Math.random. */
+let SEED = null; // null = not in a run: plain Math.random
+function rnd(){
+  if(SEED===null) return Math.random();
+  SEED = (SEED + 0x6D2B79F5) | 0;
+  let t = Math.imul(SEED ^ (SEED>>>15), 1|SEED);
+  t = (t + Math.imul(t ^ (t>>>7), 61|t)) ^ t;
+  return ((t ^ (t>>>14))>>>0) / 4294967296;
+}
+function seedFrom(str){ let h = 2166136261; for(const c of str){ h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h|0; }
+const randi = (a,b) => a + Math.floor(rnd()*(b-a+1));
+const choice = arr => arr[Math.floor(rnd()*arr.length)];
+const shuffle = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const relicById = id => RELICS.find(r=>r.id===id);
 
 /* ---------- meta (localStorage) ---------- */
 const META_KEY = "tcc_meta_v1";
-let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}};
+let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
@@ -39,7 +51,7 @@ function sfx(name){
 function burst(emojis){ // a pop of emoji confetti from the middle of the screen
   const chars = [...emojis];
   for(let i=0;i<18;i++){
-    const d = document.createElement("div"); d.className="confetti"; d.textContent=choice(chars);
+    const d = document.createElement("div"); d.className="confetti"; d.textContent=chars[Math.floor(Math.random()*chars.length)];
     const a = Math.random()*Math.PI*2, r = 120+Math.random()*220;
     d.style.setProperty("--dx", Math.cos(a)*r+"px"); d.style.setProperty("--dy", (Math.sin(a)*r-80)+"px");
     d.style.setProperty("--rot", (Math.random()*720-360)+"deg");
@@ -88,7 +100,7 @@ function randomPicks(cfg, pinned){
   const picks = {}, odds = LAYER_ODDS[cfg] || {};
   for(const layer of ASSETS.order[cfg]){
     const files = (ASSETS[cfg]||{})[layer] || [];
-    if(files.length && (odds[layer]==null || Math.random()<odds[layer])) picks[layer] = choice(files);
+    if(files.length && (odds[layer]==null || rnd()<odds[layer])) picks[layer] = choice(files);
   }
   for(const k in (pinned||{})) picks[k] = pinned[k]+".webp";
   // a costume is a full hood and body: nothing else goes on the head or torso unless the data asks for it
@@ -182,7 +194,7 @@ function fry(src, caption){
   cx.fillStyle = "rgba(255,110,0,.16)"; cx.fillRect(0,0,cv.width,cv.height);
   const g = Math.max(2, Math.round(cv.width/160));
   for(let i=0;i<1400;i++){
-    cx.fillStyle = "rgba("+randi(0,255)+","+randi(0,255)+","+randi(0,255)+",.13)";
+    cx.fillStyle = "hsla("+Math.floor(Math.random()*360)+",90%,60%,.13)";
     cx.fillRect(Math.random()*cv.width, Math.random()*cv.height, g, g);
   }
   cx.globalCompositeOperation = "source-over";
@@ -257,13 +269,16 @@ const DAY_MOVES = 28, NIGHT_MOVES = 14, BOSS_DAYS = [3,6,9];
 function baseStats(){
   return { hp:50, maxhp:50, atk:6, arm:0, spd:5, lck:10 };
 }
-function newRun(ava){
-  const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0);
+function newRun(ava, opt){
+  const tribe = TRIBES.find(t=>t.id===opt.tribe) || TRIBES[0], heat = opt.heat||0;
+  SEED = opt.daily ? seedFrom("tcc-daily-"+opt.daily) : (Math.random()*4294967296)|0;
+  const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0) + (tribe.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
+    tribe: tribe.id, heat, daily: opt.daily||"",
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (META.unlocks.slot1?1:0),
+    maxSlots: 4 + (META.unlocks.slot1?1:0) - (heat>=5?1:0),
     day: 1, phase: "day", movesLeft: DAY_MOVES,
     px: SX, py: SY,
     map: [], fog: [],
@@ -272,22 +287,25 @@ function newRun(ava){
     queue: [], over: false, newSeen: 0, sel: "", lit: {},
     bossesBeaten: 0, bossUnlocked: -1,
     kills: 0, tilesSeen: 0,
-    stats: baseStats(),
+    stats: null,
   };
+  // three bosses a run: one early, one mid, and THE CANCEL always closes
+  G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
+  G.relics.push(tribe.relic); discover(tribe.relic);
   if(META.unlocks.secondchance){ G.relics.push("wartime_pfp"); discover("wartime_pfp"); }
   oddsCache = {}; shownCult = G.cult;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
   genMap();
-  BOSSES.forEach((b,i)=>spawnBoss(i, pinnedPicks(b)));
+  G.bossIds.forEach((id,i)=>spawnBoss(i, pinnedPicks(runBoss(i))));
 }
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
-const RUN_KEY = "tcc_run_v2";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch"];
+const RUN_KEY = "tcc_run_v3";
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
-  const d = { v:2, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
+  const d = { v:3, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
   for(const k of RUN_FIELDS) d[k] = G[k];
   for(const k in G.foes) d.foes[k] = { id:G.foes[k].def.id, picks:G.foes[k].picks };
   try{ localStorage.setItem(RUN_KEY, JSON.stringify(d)); }catch(e){}
@@ -297,19 +315,20 @@ function loadRun(){
   try{
     const d = JSON.parse(localStorage.getItem(RUN_KEY));
     // a save from an older build may name things that no longer exist: drop it rather than break
-    if(!d || d.v!==2 || !d.relics.every(relicById) || !Object.values(d.foes).every(f=>ENEMIES.some(e=>e.id===f.id))) return null;
+    if(!d || d.v!==3 || !d.relics.every(relicById) || !Object.values(d.foes).every(f=>ENEMIES.some(e=>e.id===f.id))) return null;
     return d;
   }catch(e){ return null; }
 }
 async function resumeRun(d){
   G = { queue:[], over:false, sel:"", foes:{}, bossLook:[], stats:null };
   for(const k of RUN_FIELDS) G[k] = d[k];
+  SEED = d.rng;
   G.avatar = await composeAvatar(G.base, G.relics);
   G.face = faceToken(G.avatar, "Milady"); G.worn = G.relics.join();
   oddsCache = {}; shownCult = G.cult;
   recalcStats(); G.stats.hp = clamp(d.hp, 1, G.stats.maxhp);
   for(const k in d.foes) spawnFoe(k, ENEMIES.find(e=>e.id===d.foes[k].id), d.foes[k].picks);
-  BOSSES.forEach((b,i)=>spawnBoss(i, d.boss[i] || pinnedPicks(b)));
+  G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || pinnedPicks(runBoss(i))));
   paint($("hud-avatar"), G.avatar);
   $("map-log").innerHTML = d.log || "";
   showBanner();
@@ -333,6 +352,7 @@ function pinnedPicks(def){ // random look, with any layers the data pins down
 
 /* ---------- relic engine ---------- */
 function hasRelic(id){ return G.relics.includes(id); }
+function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
 function discover(id){ // first time ever holding a relic: it joins the collection on the title screen
   if(META.seen[id]) return;
@@ -379,7 +399,8 @@ function computeStats(relics){
   const s = baseStats();
   const R = id => relics.includes(id);
   const sets = s.sets = setCounts(relics), S = (id,n) => (sets[id]||0) >= n;
-  if(G){ s.maxhp+=G.bonus.maxhp; s.atk+=G.bonus.atk; s.spd+=G.bonus.spd; }
+  const tb = (G && (TRIBES.find(t=>t.id===G.tribe)||{}).stat) || {};
+  if(G){ s.maxhp+=G.bonus.maxhp+(tb.maxhp||0); s.atk+=G.bonus.atk+(tb.atk||0); s.spd+=G.bonus.spd+(tb.spd||0); s.arm+=tb.arm||0; }
   if(R("ak47")){ s.atk+=9; s.spd-=2; }
   if(R("bfg")){ s.atk+=15; s.maxhp-=15; }
   if(R("gold_ak")) s.atk+=13;
@@ -411,10 +432,10 @@ function computeStats(relics){
   if(S("bonkler",2)) s.arm+=3;
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
-    + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0);
+    + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
   s.dodge = (R("cobain_glasses")?12:0) + (R("lain")?25:0) + (R("moteiga")?10:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0);
-  s.shopDisc = (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1);
+  s.shopDisc = (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
   return s;
 }
 /* synergy rows for the sidebar, the build sheet and draft cards */
@@ -438,7 +459,7 @@ function rollRelics(n, luck){
   const held = setCounts(G.relics), out = [];
   const pool = relicPool().map(r=>({ r, w: RARITY[r.rar].w * (r.rar==="common" ? 1 : 1+(luck||0)) * (r.set.some(k=>held[k]) ? 2 : 1) }));
   while(out.length<n && pool.length){
-    let x = Math.random()*pool.reduce((a,p)=>a+p.w,0), i = 0;
+    let x = rnd()*pool.reduce((a,p)=>a+p.w,0), i = 0;
     while(i<pool.length-1 && (x-=pool[i].w) > 0) i++;
     out.push(pool.splice(i,1)[0].r);
   }
@@ -491,7 +512,7 @@ function genMap(){
   }
   // knock through extra walls: loops mean there is usually a way round a fight you can't win
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
-    if((x+y)%2===1 && G.map[y][x]===T.WALL && Math.random()<0.16) G.map[y][x] = T.EMPTY;
+    if((x+y)%2===1 && G.map[y][x]===T.WALL && rnd()<0.16) G.map[y][x] = T.EMPTY;
   }
   const dist = walkDist(SX,SY);
   const exits = (x,y) => DIRS4.filter(([dx,dy])=>isFloor(x+dx,y+dy)).length;
@@ -533,7 +554,7 @@ function spawnFoe(key, def, picks){ // a monster tile's foe and its face, compos
   foe.portrait.then(cv=>{ foe.face = faceToken(cv, def.cfg); if(G===run && !busy()) renderMap(); });
 }
 function spawnBoss(i, picks){
-  const run = G, b = BOSSES[i], look = G.bossLook[i] = { picks, face:"", portrait: compositePortrait(b.cfg, picks) };
+  const run = G, b = runBoss(i), look = G.bossLook[i] = { picks, face:"", portrait: compositePortrait(b.cfg, picks) };
   look.portrait.then(cv=>{ look.face = faceToken(cv, b.cfg); if(G===run) renderTimeline(); });
 }
 function updateFog(){ // you see three steps down every corridor, and the walls beside what you see
@@ -573,10 +594,11 @@ function renderHUD(){
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
   $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"");
   const dist = DISTRICTS[districtAt(G.px,G.py)];
-  $("hud-name").textContent = G.name;
+  const tr = TRIBES.find(t=>t.id===G.tribe);
+  $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : "");
   $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "🌙 NIGHT ")+G.day;
-  $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+G.movesLeft+" moves left";
-  const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES;
+  $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
+  const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
   let pips = "";
   for(let i=0;i<total;i++) pips += "<i"+(i<G.movesLeft?"":" class='spent'")+"></i>";
   const mv = $("hud-moves"); mv.innerHTML = pips; mv.title = G.movesLeft+" moves left"; mv.className = G.phase;
@@ -598,12 +620,12 @@ function renderTimeline(){
   for(let d=1; d<=9; d++){
     const bi = BOSS_DAYS.indexOf(d), look = bi>=0 && G.bossLook[bi];
     const cls = "day"+(d<G.day?" past":"")+(d===G.day?" now "+G.phase:"")+(bi>=0?" boss":"")+(bi>=0 && bi<G.bossesBeaten?" beaten":"");
-    h += "<div class='"+cls+"'"+(bi>=0?" title='"+BOSSES[bi].name+"'":"")+">"
+    h += "<div class='"+cls+"'"+(bi>=0?" title='"+runBoss(bi).name+"'":"")+">"
       + (bi>=0 ? (look && look.face ? "<img src='"+look.face+"' alt=''>" : "<span>☠</span>") : "<span>"+d+"</span>")
-      + (bi>=0 ? "<em>"+BOSSES[bi].name+"</em>" : "")+"</div>";
+      + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+"</div>";
   }
   $("timeline").innerHTML = h;
-  const nb = BOSSES[G.bossesBeaten], left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
+  const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
 function renderMap(){
@@ -650,7 +672,8 @@ function renderMap(){
       if(TOUCH && !fogged && (t===T.MON || t===T.ELITE) && G.sel!==key && d.classList.contains("moveable")){
         G.sel = key; renderMap(); $("tile-info").innerHTML = tileInfo(x,y)+" <b>— tap again to fight</b>"; return;
       }
-      tryMove(x,y);
+      stopTravel();
+      if(Math.abs(x-G.px)+Math.abs(y-G.py)===1) tryMove(x,y); else travelTo(x,y);
     };
     m.appendChild(d);
   }
@@ -695,10 +718,10 @@ function tileInfo(x,y){
   if(G.fog[y][x]) return "Unexplored.";
   if(G.map[y][x]===T.WALL) return "A wall.";
   if(G.hunters.some(h=>h.x===x&&h.y===y)) return foeLine(ENEMIES.find(e=>e.tier==="hunter"), false, {})+" · hunting you";
-  if(x===G.px && y===G.py) return "📍 "+DISTRICTS[districtAt(x,y)].name+" district · hover a tile to scout it";
+  if(x===G.px && y===G.py) return "📍 "+DISTRICTS[districtAt(x,y)].name+" — "+DISTRICTS[districtAt(x,y)].rule+" · "+(TOUCH ? "tap a foe once to scout it" : "hover a tile to scout it, click any explored tile to walk there");
   const t = G.map[y][x], foe = G.foes[x+","+y];
   if(foe && (t===T.MON || t===T.ELITE)) return foeLine(foe.def, t===T.ELITE, {elite:t===T.ELITE});
-  if(t===T.GATE) return G.bossUnlocked<0 ? "<b>Boss gate</b> — sealed until a boss day." : foeLine(BOSSES[G.bossUnlocked], false, {boss:BOSSES[G.bossUnlocked]});
+  if(t===T.GATE) return G.bossUnlocked<0 ? "<b>Boss gate</b> — sealed until a boss day." : foeLine(runBoss(G.bossUnlocked), false, {boss:runBoss(G.bossUnlocked)});
   if(t===T.EMPTY && G.seed && !G.seedDug && x===G.seed[0] && y===G.seed[1]) return G.seedKnown ? "<b>⛏️ The seed phrase is buried here.</b>" : "The ground looks disturbed here…";
   return T_DESC[t] || DISTRICTS[districtAt(x,y)].name+" district.";
 }
@@ -736,6 +759,44 @@ function tryMove(x,y){
   renderMap();
   pump();
 }
+/* click any explored tile to walk there: follows the shortest explored route and stops at anything that needs you */
+let travelTimer = null;
+function stopTravel(){ clearTimeout(travelTimer); travelTimer = null; }
+function pathTo(tx, ty){
+  if(G.fog[ty][tx] || !isFloor(tx,ty)) return null;
+  const prev = {[G.px+","+G.py]:null}, q = [[G.px,G.py]];
+  for(let i=0;i<q.length;i++){
+    const [x,y] = q[i];
+    if(x===tx && y===ty){
+      const path = []; let c = [x,y];
+      while(prev[c[0]+","+c[1]]){ path.unshift(c); c = prev[c[0]+","+c[1]]; }
+      return path;
+    }
+    // only walk through plain explored floor; the destination itself can be anything
+    if((x!==G.px || y!==G.py) && (G.map[y][x]!==T.EMPTY || G.hunters.some(h=>h.x===x&&h.y===y))) continue;
+    for(const [dx,dy] of DIRS4){
+      const nx=x+dx, ny=y+dy, k=nx+","+ny;
+      if(isFloor(nx,ny) && !G.fog[ny][nx] && !(k in prev)){ prev[k]=[x,y]; q.push([nx,ny]); }
+    }
+  }
+  return null;
+}
+function travelTo(tx, ty){
+  if(!G || G.over || busy() || G.queue.length) return;
+  const path = pathTo(tx,ty);
+  if(!path || !path.length) return;
+  const step = ()=>{
+    travelTimer = null;
+    if(!path.length || G.over || busy() || G.queue.length) return;
+    const [nx,ny] = path.shift(), phase = G.phase;
+    if(G.hunters.some(h=>h.x===nx&&h.y===ny)) return; // never auto-walk into a demon
+    tryMove(nx,ny);
+    if(G.px!==nx || G.py!==ny || busy() || G.queue.length || G.phase!==phase) return;
+    if(G.hunters.some(h=>Math.abs(h.x-G.px)+Math.abs(h.y-G.py)<=3 && !G.fog[h.y][h.x])) return; // something is close: your call
+    if(path.length) travelTimer = setTimeout(step, 110);
+  };
+  step();
+}
 function advanceTime(){
   G.movesLeft--;
   // hunters stalk at night
@@ -769,7 +830,7 @@ function startDay(){
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
   if(bi>=0){
-    const b = BOSSES[bi];
+    const b = runBoss(bi);
     G.bossUnlocked = bi;
     mlog("⚠️ <b>"+b.name+" IS COMING.</b> "+b.intro+"<br><i>"+b.mechanic+"</i>", "bad");
     sfx("boss"); quake();
@@ -778,18 +839,18 @@ function startDay(){
   renderMap();
 }
 function showBanner(){
-  const bb = $("boss-banner"), b = BOSSES[G.bossUnlocked];
+  const bb = $("boss-banner"), b = runBoss(G.bossUnlocked);
   bb.classList.toggle("hidden", !b);
   if(b) bb.innerHTML = "⚠️ "+b.name+" IS COMING<small>"+b.mechanic+"<br>face it at the ⛩️ gate — or it finds you at dawn</small>";
 }
 function startNight(){
-  G.phase="night"; G.movesLeft=NIGHT_MOVES;
+  G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
   mlog("🌙 <b>NIGHT falls.</b> FUD demons are hunting. Find a campfire.", "bad");
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
   const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
-  for(const k of spots.slice(0, G.day<4 ? 2 : 3)){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
+  for(const k of spots.slice(0, (G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
 function clearTile(){ G.map[G.py][G.px]=T.EMPTY; }
@@ -803,10 +864,10 @@ function enterTile(t){
     return;
   }
   switch(t){
-    case T.CHEST: clearTile(); openDraft("You crack open a chest."); break;
+    case T.CHEST: clearTile(); openDraft("You crack open a chest.", districtAt(G.px,G.py)===0 ? rollRelics(4) : null); break;
     case T.GRAVE:
       clearTile();
-      if(Math.random()<0.55) openDraft("You scavenge the grave of a past milady.");
+      if(rnd()<0.55) openDraft("You scavenge the grave of a past milady.");
       else { const c=randi(40,90); G.cult+=c; mlog("Found <b>"+c+" $CULT</b> in a grave.", "gold"); }
       break;
     case T.MON: case T.ELITE: {
@@ -824,13 +885,14 @@ function enterTile(t){
       break;
   }
 }
-/* Foes grow every day: +10% HP and ATK per day (bosses +7.5%), a point of ARM every three days,
+/* Foes grow every day: +10% HP and ATK per day (bosses +6%), a point of ARM every three days,
    and they pay out more $CULT to match. */
 function foeInstance(def){
-  const boss = BOSSES.includes(def), d = G.day-1;
-  const lvl = 1 + d*(boss ? 0.075 : 0.1);
-  return { ...def, hp:Math.round(def.hp*lvl), maxhp:Math.round(def.hp*lvl),
-    atk:Math.round(def.atk*lvl), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
+  const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
+  const lvl = 1 + d*(boss ? 0.06 : 0.1);
+  const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1)), atx = lvl * (boss && G.heat>=4 ? 1.2 : 1);
+  return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
+    atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
     cult:def.cult.map(c=>Math.round(c*lvl)) };
 }
 
@@ -866,7 +928,7 @@ function acquireRelic(r, onDone, onBack){
 function openDraft(flavor, pool, luck){
   pool = pool || rollRelics(3, luck);
   if(!pool.length){ mlog("Nothing new here. You already hold everything.", "bad"); return false; }
-  let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards'>";
+  let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
   html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button></div>";
   openModal(html);
@@ -888,7 +950,7 @@ function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
   shop.stock = shop.stock.filter(it=>!hasRelic(it.id));
-  const disc = G.stats.shopDisc;
+  const disc = G.stats.shopDisc * (districtAt(G.px,G.py)===2 ? 0.8 : 1);
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp;
   let html = "<h2>🏪 REMILIO MART</h2><div class='stat-line'><span>your $CULT</span><b>"+G.cult+"</b></div>";
   shop.stock.forEach((it,i)=>{
@@ -940,7 +1002,7 @@ function openShrine(){
     const cf=$("coinflip"); cf.textContent="🪙"; cf.classList.add("spin");
     refresh(); renderHUD();
     setTimeout(()=>{
-      const win = hasRelic("game_watch") || Math.random()<0.5;
+      const win = hasRelic("game_watch") || rnd() < (districtAt(G.px,G.py)===3 ? 0.65 : 0.5);
       cf.classList.remove("spin");
       cf.textContent = win?"🌸":"💀";
       sfx(win?"win":"bad");
@@ -974,7 +1036,7 @@ function openEvent(){
   document.querySelectorAll("#modal-panel .choice").forEach(b=>{ b.onclick=()=>{
     const c = ev.choices[+b.dataset.i];
     if(c.cost) G.cult -= c.cost;
-    const good = c.odds==null || Math.random()<c.odds;
+    const good = c.odds==null || rnd()<c.odds;
     const out = applyFx(good ? c.fx : c.bad);
     if(ev.id==="exhibit") achieve("exhibit");
     if(ev.id==="ball" && c.need==="squad") achieve("ball");
@@ -1026,7 +1088,7 @@ function applyFx(list){
 function openFire(){
   const day = G.phase==="day";
   openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Rest until "+(day?"nightfall":"dawn")+"? You heal to full and skip the rest of this "+(day?"day":"night")+" safely — no loot, no fights."
-    + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+BOSSES[G.bossUnlocked].name+" arrives at dawn.</b>" : "")
+    + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
     + "</div><div class='row'><button class='btn' id='fire-yes'>REST</button><button class='btn small' id='fire-no'>keep moving</button></div>");
   $("fire-yes").onclick=()=>{
     G.stats.hp=G.stats.maxhp; mlog("Rested. HP restored.", "good"); sfx("heal");
@@ -1038,20 +1100,20 @@ function openFire(){
 
 /* ---------- boss gate ---------- */
 function bossModal(b, title, fightLabel, canWait){
-  const face = G.bossLook[BOSSES.indexOf(b)].face;
+  const face = G.bossLook[G.bossIds.indexOf(b.id)].face;
   openModal("<h2>"+title+"</h2>"+(face?"<img class='boss-face' src='"+face+"' alt=''>":"")+"<div class='note'><i>"+b.intro+"</i></div><div class='stat-line'><span>mechanic</span><b>"+b.mechanic+"</b></div>"
     + "<div class='stat-line'><span>"+b.name+"</span><b>❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+"</b></div>"
     + "<div class='stat-line'><span>your odds right now</span><b>"+oddsText(fightOdds(b, {boss:b}))+"</b></div>"
     + "<div class='row'><button class='btn big' id='boss-fight'>"+fightLabel+"</button>"+(canWait?"<button class='btn small' id='boss-wait'>not yet</button>":"")+"</div>");
 }
 function openBossGate(){
-  const b = BOSSES[G.bossUnlocked];
+  const b = runBoss(G.bossUnlocked);
   bossModal(b, "⛩️ "+b.name, "FIGHT", true);
   $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, portrait:G.bossLook[G.bossUnlocked].portrait}); };
   $("boss-wait").onclick=()=>closeModal();
 }
 function bossArrives(){
-  const b = BOSSES[G.bossUnlocked];
+  const b = runBoss(G.bossUnlocked);
   mlog("⛩️ <b>"+b.name+" HAS ARRIVED.</b> There is nowhere left to post.", "bad");
   bossModal(b, b.name+"<br>HAS ARRIVED", "FACE IT", false);
   $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, forced:true, portrait:G.bossLook[G.bossUnlocked].portrait}); };
@@ -1145,6 +1207,13 @@ function fightEngine(foeDef, opts, io){
   if(foe.trait==="creeper") io.log("💥 "+foe.name+" will blow up when it dies.", "bad");
   if(foe.trait==="bomber") io.log("🎈 "+foe.name+" bombs you from a blimp every 4th tick.", "bad");
   io.strip(F);
+  if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first two relics are frozen all fight
+    for(const id of st.relics.slice(0,2)) you.suppressed.add(id);
+    const s2 = computeStats(st.relics.filter(r=>!you.suppressed.has(r)));
+    you.atk=s2.atk; you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets;
+    io.log("⚖️ INJUNCTION: "+st.relics.slice(0,2).map(id=>relicById(id).name).join(" and ")+" frozen.", "bad");
+    io.strip(F);
+  }
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
   you.shield = (act("network_spirituality")?12:0) + (act("jesus_tank")?8:0) + (set("cult",2)?8:0);
@@ -1154,7 +1223,7 @@ function fightEngine(foeDef, opts, io){
 
   function dmgCalc(att, def, isYou){
     let atk = att.atk;
-    if(boss && boss.id==="bonkler911") atk *= (0.5+Math.random()); // chaos
+    if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += 5;
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
     if(isYou) atk += you.hard;
@@ -1163,7 +1232,7 @@ function fightEngine(foeDef, opts, io){
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
     let dmg = Math.max(1, Math.round(atk - arm + randi(-1,1)));
     let crit = false;
-    if(Math.random()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
+    if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
     if(isYou) you.sure = false;
     if(isYou && crit && act("cigarette")) dmg += 4;
     if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-2);
@@ -1174,7 +1243,7 @@ function fightEngine(foeDef, opts, io){
   function strike(att, def, isYou){
     const an = isYou?"You":foe.name, dn = isYou?foe.name:"you";
     // bonkler redirect
-    if(!isYou && act("bonkler") && Math.random()<0.15){
+    if(!isYou && act("bonkler") && rnd()<0.15){
       const {dmg,crit}=dmgCalc(foe,foe,false);
       foe.hp-=dmg; io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
       io.hit("foe", dmg, crit);
@@ -1182,7 +1251,7 @@ function fightEngine(foeDef, opts, io){
     }
     if(!isYou && you.block){ you.block=0; io.log("🐯 Hobbes takes the hit for you.", "good"); io.float("you","blocked","heal"); return; }
     // dodge
-    if(!isYou && Math.random()*100 < (you.dodge||0)){
+    if(!isYou && rnd()*100 < (you.dodge||0)){
       io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
       if(act("cat_ears")) heal(3);
       if(act("matrix")) you.sure = true;
@@ -1203,7 +1272,7 @@ function fightEngine(foeDef, opts, io){
     if(!isYou && act("evil_eye")){ foe.hp-=2; io.log("🧿 Evil Eye reflects 2.", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
     // stun
-    if(isYou && act("balenciaga_bat") && Math.random()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
+    if(isYou && act("balenciaga_bat") && rnd()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
     // poison
     if(isYou && act("snakebites")){ def.poison=3; }
   }
@@ -1228,13 +1297,21 @@ function fightEngine(foeDef, opts, io){
     // boss: allegations suppression (a suppressed relic gives nothing this tick, stats included)
     if(boss && boss.id==="allegations"){
       you.suppressed.clear();
-      if(Math.random()<0.25 && st.relics.length && !st.relics.includes("tinfoil")){
+      if(rnd()<0.25 && st.relics.length && !st.relics.includes("tinfoil")){
         const s = choice(st.relics); you.suppressed.add(s);
         io.log("📢 FUD suppresses your "+relicById(s).name+"!", "bad");
       }
       const s2 = computeStats(st.relics.filter(r=>!you.suppressed.has(r)));
       you.atk=s2.atk; you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets;
       io.strip(F);
+    }
+    if(boss && boss.id==="drain" && st.cult>0){
+      const n = Math.min(st.cult, 15); st.cult-=n; foe.stolen+=n; foe.atk = foeDef.atk + Math.floor(foe.stolen/60);
+      io.log("🏦 DRAINED: "+n+" $CULT gone. ("+foe.stolen+" so far)", "bad");
+    }
+    if(boss && boss.id==="shift" && F.tick%4===0){
+      const t = you.atk; you.atk = foe.atk; foe.atk = t;
+      io.log("🌀 VIBE SHIFT: you now hit for "+you.atk+", it hits for "+foe.atk+".", "bad");
     }
     // cancel ratio
     if(boss && boss.id==="cancel" && F.tick%5===0){ const r = act("tinfoil") ? 2 : 5; you.hp-=r; io.log("📉 RATIO'D — "+r+" pure damage.", "bad"); io.hit("you",r,false); }
@@ -1254,9 +1331,9 @@ function fightEngine(foeDef, opts, io){
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
       if(act("remilio_friend") && you.compTick%3===0) companion(5, "🧸 Remilio Friend strikes");
-      if(act("tails") && Math.random()<0.3) companion(4, "🦊 Tails spins in");
+      if(act("tails") && rnd()<0.3) companion(4, "🦊 Tails spins in");
       if(act("dino") && you.compTick%2===0) companion(3, "🦖 Dino bites");
-      if(act("amogus") && !boss && foe.hp>0 && Math.random()<0.2){
+      if(act("amogus") && !boss && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
     }
@@ -1270,7 +1347,7 @@ function fightEngine(foeDef, opts, io){
       strike(att,def,isYou);
       if(foe.hp<=0) return done(true);
       if(lethalCheck()) return done(false);
-      if(isYou && ((set("armed",3) && ++you.swings%3===0) || (set("bonkler",4) && Math.random()<0.25))){
+      if(isYou && ((set("armed",3) && ++you.swings%3===0) || (set("bonkler",4) && rnd()<0.25))){
         io.log("⚡ You strike again!", "good");
         strike(you,foe,true);
         if(foe.hp<=0) return done(true);
@@ -1287,11 +1364,13 @@ function fightOdds(def, opts={}){
   if(oddsCache[key]) return oddsCache[key];
   const foe = foeInstance(def), N = 40;
   let wins=0, hp=0;
+  const keep = SEED; SEED = null; // trial fights must not use up the run's own luck
   for(let i=0;i<N;i++){
     const F = fightEngine(foe, opts, NOIO);
     for(let n=0; !F.over && n<3000; n++) F.step();
     if(F.win){ wins++; hp+=Math.max(1,F.you.hp); }
   }
+  SEED = keep;
   const p = wins/N;
   return oddsCache[key] = { p, hp: wins ? Math.round(hp/wins) : 0, tag: p>=0.85?"easy":p>=0.6?"fair":p>=0.35?"risky":"deadly" };
 }
@@ -1348,7 +1427,7 @@ function startCombat(foeDef, opts={}){
   function finish(){
     clearTimeout(timer);
     combatBars(you,foe);
-    $("combat-ctl").classList.add("hidden");
+    $("combat-ctl").classList.add("hidden"); $("combat-choice").classList.add("hidden");
     const win = F.win;
     $("port-"+(win?"foe":"you")).classList.add("dead");
     const btn=$("btn-combat-done"); btn.classList.remove("hidden");
@@ -1359,10 +1438,10 @@ function startCombat(foeDef, opts={}){
       if(foe.id==="kumicho") achieve("shark");
       if(F.dodges>=5) achieve("dodge");
       if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
-      if(boss) achieve(boss.id);
+      if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
       let c = randi(foe.cult[0], foe.cult[1]);
-      c = Math.round(c * (G.stats.cultMult||1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
-      if(hasRelic("no_meme") && Math.random()<0.2){ c*=3; clog("💌 There is no meme. I love you. The floor triples.", "crit"); }
+      c = Math.round(c * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
+      if(hasRelic("no_meme") && rnd()<0.2){ c*=3; clog("💌 There is no meme. I love you. The floor triples.", "crit"); }
       G.cult += c + foe.stolen;
       clog("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
       if(hasRelic("silver_coin")){ G.cult+=15; clog("🪙 Silver Coin: +15 $CULT.", "good"); }
@@ -1378,7 +1457,7 @@ function startCombat(foeDef, opts={}){
       btn.onclick=()=>{
         show("screen-map");
         if(boss) onBossDown(boss, opts.forced);
-        else if(Math.random() < (opts.elite?0.6:0.25)) openDraft("The fallen drops something.", null, opts.elite?1:0);
+        else if(rnd() < (opts.elite?0.6:0.25)) openDraft("The fallen drops something.", null, opts.elite?1:0);
         pump();
       };
     } else {
@@ -1389,9 +1468,31 @@ function startCombat(foeDef, opts={}){
       btn.onclick=()=>endRun(false);
     }
   }
+  let asked = false;
+  const choiceBox = $("combat-choice");
+  choiceBox.classList.add("hidden");
+  function ask(){ // once per boss, at half health: the fight stops and waits for you
+    asked = true;
+    const opts2 = [
+      ["CLAP BACK", "spend 50 $CULT: hit it for 22", F.st.cult>=50, ()=>{ F.st.cult-=50; foe.hp=Math.max(1,foe.hp-22); clog("📣 You clap back for 22.", "crit"); floatText("foe","-22","crit"); shake("foe"); }],
+      ["TOUCH GRASS", "heal 18 HP, but it gains +2 ATK", true, ()=>{ you.hp=Math.min(you.maxhp,you.hp+18); foe.atk+=2; clog("🌱 You touch grass. +18 HP. It gets angrier.", "good"); floatText("you","+18","heal"); }],
+      ["POST THROUGH IT", "+3 ATK for the rest of the fight, lose 6 HP", true, ()=>{ you.hard+=3; you.hp=Math.max(1,you.hp-6); clog("⌨️ You post through it. +3 ATK.", "good"); floatText("you","+3 ATK","heal"); }],
+    ];
+    choiceBox.innerHTML = "<div class='kicker'>"+boss.name+" is at half health — your move</div>"
+      + opts2.map((o,i)=>"<button class='choice' data-i='"+i+"'"+(o[2]?"":" disabled")+"><b>"+o[0]+"</b><span>"+o[1]+"</span></button>").join("");
+    choiceBox.classList.remove("hidden"); $("combat-ctl").classList.add("hidden");
+    sfx("boss");
+    choiceBox.querySelectorAll(".choice").forEach(b=>{ b.onclick=()=>{
+      opts2[+b.dataset.i][3](); sfx("click");
+      choiceBox.classList.add("hidden"); $("combat-ctl").classList.remove("hidden");
+      combatBars(you,foe); timer=setTimeout(loop, 500);
+    };});
+  }
   function loop(){
     F.step(); combatBars(you,foe);
-    if(F.over) finish(); else timer=setTimeout(loop, 600/META.speed);
+    if(F.over) return finish();
+    if(boss && !asked && foe.hp<=foe.maxhp/2) return ask();
+    timer=setTimeout(loop, 600/META.speed);
   }
   timer = setTimeout(loop, 500);
 }
@@ -1428,7 +1529,15 @@ function endRun(win){
   document.body.classList.remove("danger");
   const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked", Math.floor(G.cult/25)]];
   if(win) parts.push(["timeline saved", 300]);
+  if(G.heat) parts.push(["heat "+G.heat+" bonus", Math.round(parts.reduce((a,p)=>a+p[1],0)*0.25*G.heat)]);
   const d = parts.reduce((a,p)=>a+p[1], 0);
+  if(win && G.heat>=(META.heat||0) && G.heat<HEAT.length){ META.heat = G.heat+1; G.heatUp = true; }
+  let dailyNote = "";
+  if(G.daily){
+    const old = META.daily && META.daily.date===G.daily ? META.daily.score : 0;
+    if(d>old) META.daily = {date:G.daily, score:d, day:G.day, win};
+    dailyNote = "<div class='note good'>📅 DAILY "+G.daily+" — "+(d>old ? "new best: "+d : "your best today: "+old)+"</div>";
+  }
   const best = !win && G.day>META.best && META.runs>0;
   META.drip+=d; META.runs++;
   if(win){ META.wins++; META.best=9; } else META.best=Math.max(META.best,G.day);
@@ -1437,6 +1546,8 @@ function endRun(win){
   let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
     + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
     + "<canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
+    + dailyNote
+    + (G.heatUp ? "<div class='note good'>🔥 HEAT "+META.heat+" unlocked — "+HEAT[META.heat-1]+"</div>" : "")
     + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
     + (G.newAch ? "<div class='note good'>🏆 "+G.newAch+" achievement"+(G.newAch>1?"s":"")+" unlocked</div>" : "")
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
@@ -1447,21 +1558,78 @@ function endRun(win){
     html += "<div class='next-unlock'><div class='stat-line'><span>"+(can?"you can afford":"next unlock")+"</span><b>"+next.name+" · "+Math.min(META.drip,next.cost)+" / "+next.cost+"</b></div>"
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
-  html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>";
+  html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button><button class='btn small' id='end-card'>save card 📸</button></div>";
   openModal(html);
   paint($("end-avatar"), win ? G.avatar : fry(G.avatar, "CANCELLED"));
   countUp($("end-drip"), 0, d, 900);
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(); };
   $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
+  const run = G;
+  $("end-card").onclick=async()=>{
+    sfx("click");
+    const cv = await shareCard(run, win, d);
+    cv.toBlob(b=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="the-cancel-is-coming-"+run.name.replace(/\W+/g,"-")+".png"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000); });
+  };
+}
+/* a 1200x630 image of the run, for posting */
+async function shareCard(run, win, drip){
+  const cv = document.createElement("canvas"); cv.width=1200; cv.height=630;
+  const cx = cv.getContext("2d");
+  const bg = cx.createLinearGradient(0,0,1200,630); bg.addColorStop(0,"#2a0f24"); bg.addColorStop(0.55,"#0b0a14"); bg.addColorStop(1,"#10203a");
+  cx.fillStyle = bg; cx.fillRect(0,0,1200,630);
+  for(let i=0;i<140;i++){ cx.fillStyle="rgba(255,255,255,"+(0.15+Math.random()*0.5)+")"; cx.fillRect(Math.random()*1200, Math.random()*630, 2, 2); }
+  // the Milady, on her stage
+  const st = cx.createRadialGradient(250,250,20,250,300,330); st.addColorStop(0,"#ffe9f4"); st.addColorStop(0.5,"#f3bfdc"); st.addColorStop(1,"#8468c9");
+  cx.fillStyle = st; cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.fill();
+  cx.save(); cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.clip();
+  cx.drawImage(win ? run.avatar : fry(run.avatar, "CANCELLED"), 50, 60, 400, 500); cx.restore();
+  cx.lineWidth = 6; cx.strokeStyle = "#c54e71"; cx.beginPath(); cx.roundRect(50,60,400,500,28); cx.stroke();
+  const font = (px, w) => { cx.font = (w||"bold")+" "+px+"px ui-rounded, 'Comic Sans MS', 'Arial Rounded MT Bold', system-ui, sans-serif"; };
+  const text = (t, x, y, px, color, w) => { font(px, w); cx.fillStyle = color; cx.fillText(t, x, y); };
+  cx.textBaseline = "alphabetic";
+  font(54); cx.fillStyle="#c54e71"; cx.fillText("THE CANCEL IS COMING", 503, 113); cx.fillStyle="#f3e3b5"; cx.fillText("THE CANCEL IS COMING", 500, 110);
+  const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
+  text(run.name+" · "+tribe.name+(run.heat?" · heat "+run.heat:"")+(run.daily?" · daily "+run.daily:""), 500, 160, 28, "#ff9ecb");
+  text(win ? "TIMELINE SAVED" : "CANCELLED ON DAY "+run.day, 500, 240, 50, win ? "#a6ff5e" : "#ff6b6b");
+  text(run.bossesBeaten+" / 3 bosses   ·   "+run.kills+" kills   ·   "+run.cult+" $CULT", 500, 290, 28, "#ece7dd", "normal");
+  text("DRIP", 500, 370, 26, "#9794b0"); text(String(drip), 500, 440, 80, "#ffd75e");
+  const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.name+" "+r.c).join("   ");
+  if(sets) text(sets, 720, 420, 24, "#b9a4ff");
+  // relics
+  const ims = await Promise.all(run.relics.map(id=>loadImg(ICONS[id]).catch(()=>null)));
+  ims.forEach((im,i)=>{
+    const x = 500+i*92, y = 470;
+    cx.fillStyle = "#1a1730"; cx.beginPath(); cx.roundRect(x,y,82,82,14); cx.fill();
+    cx.lineWidth = 3; cx.strokeStyle = {rare:"#ffd75e", legendary:"#ff9ecb", cursed:"#b9a4ff"}[relicById(run.relics[i]).rar] || "#37325e"; cx.stroke();
+    if(im) cx.drawImage(im, x+5, y+5, 72, 72);
+  });
+  text(location.host || "thecancel.is/coming", 500, 600, 20, "#6b6885", "normal");
+  return cv;
 }
 function leaveRun(){
+  SEED = null; stopTravel();
   $("modal").classList.add("hidden");
   $("boss-banner").classList.add("hidden");
 }
 
 /* ---------- avatar screen ---------- */
 let AVA = null, avaTok = 0;
+const PICK = { tribe:"", heat:0, daily:"" }; // what the avatar screen is setting up
+const today = () => new Date().toISOString().slice(0,10);
+function renderPicks(){
+  if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[0].id;
+  PICK.heat = clamp(PICK.heat, 0, META.heat||0);
+  $("tribes").innerHTML = TRIBES.map(t=>"<button class='pick"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'>"+t.icon+" "+t.name+"</button>").join("");
+  const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(t.relic);
+  $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span></div>";
+  $("tribes").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.tribe=b.dataset.t; META.tribe=PICK.tribe; saveMeta(); sfx("click"); renderPicks(); }; });
+  const max = META.heat||0;
+  $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY RUN "+PICK.daily+" — same maze and same luck for everyone today</div>"
+    : !max ? "" : "<div class='kicker'>heat</div><div class='pick-row'>"+Array.from({length:max+1},(_,i)=>"<button class='pick"+(i===PICK.heat?" on":"")+"' data-h='"+i+"'>"+(i?"🔥 "+i:"off")+"</button>").join("")+"</div>"
+      + "<div class='note'>"+(PICK.heat ? HEAT.slice(0,PICK.heat).join(" · ")+" · +"+25*PICK.heat+"% DRIP" : "beat THE CANCEL to unlock the next heat")+"</div>";
+  $("heat-row").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.heat=+b.dataset.h; sfx("click"); renderPicks(); }; });
+}
 async function genAvatar(){
   const tok = ++avaTok;
   const ava = { picks: basePicks(), name: choice(NAMES) };
@@ -1472,6 +1640,7 @@ async function genAvatar(){
   paint(cv, ava.canvas); paint($("hud-avatar"), ava.canvas);
   cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
   $("avatar-name").textContent = ava.name;
+  renderPicks();
   $("btn-begin").disabled = false;
 }
 
@@ -1497,6 +1666,8 @@ function renderTitle(){
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
   if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
+  const dd = META.daily && META.daily.date===today() ? META.daily : null;
+  $("btn-daily").textContent = "📅 daily run"+(dd ? " · best "+dd.score : "");
   $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
   $("btn-start").className = save ? "btn small" : "btn big";
 }
@@ -1540,6 +1711,7 @@ function onKey(ev){
   }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
+  stopTravel();
   ev.preventDefault();
   tryMove(G.px+dir[0], G.py+dir[1]);
 }
@@ -1556,7 +1728,10 @@ async function init(){
     catch(e){ clearRun(); renderTitle(); }
     $("btn-continue").disabled=false;
   };
-  $("btn-start").onclick=async()=>{
+  $("btn-daily").onclick=()=>{ PICK.daily = today(); $("btn-start").click(); };
+  $("minimap").onclick=()=>$("minimap").classList.toggle("big");
+  $("btn-start").onclick=async(ev)=>{
+    if(ev && ev.isTrusted) PICK.daily = ""; // a real click on this button is a normal run
     const label = $("btn-start").textContent;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
     try{ await ready; }
@@ -1571,7 +1746,7 @@ async function init(){
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
     clearRun();
-    newRun(AVA);
+    newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily ? 0 : PICK.heat, daily:PICK.daily });
     show("screen-map");
     $("map-log").innerHTML="";
     mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");

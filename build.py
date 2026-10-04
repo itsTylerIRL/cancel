@@ -42,6 +42,7 @@ html = swap(html, '<script src="js/data.js"></script>\n', "")
 html = swap(html, '<script src="js/game.js"></script>', "<script>\n" + script + "\n</script>")
 coin = "assets/img/cult_coin.png"
 html = swap(html, 'src="%s"' % coin, 'src="%s"' % data_uri(coin))
+html = swap(html, 'href="%s"' % coin, 'href="%s"' % data_uri(coin))
 
 (ROOT / "dist.html").write_text(html, "utf8")
 print("dist.html: %.1f MB, %d inlined assets" % (len(html.encode()) / 1e6, len(files)))

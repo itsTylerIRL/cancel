@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>THE CANCEL IS COMING</title>
+<link rel="icon" href="assets/img/cult_coin.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -16,7 +17,7 @@
       <h1 class="game-title"><span>THE CANCEL</span><br><span class="is">IS COMING</span></h1>
       <div class="title-sub">9 days. 3 bosses. one timeline.</div>
       <button id="btn-continue" class="btn big hidden">CONTINUE</button>
-      <div><button id="btn-start" class="btn big">ENTER THE TIMELINE</button></div>
+      <div class="row" style="margin-top:0"><button id="btn-start" class="btn big">ENTER THE TIMELINE</button><button id="btn-daily" class="btn small">📅 daily run</button></div>
       <div class="meta-bar">
         <div class="meta-stat">DRIP <b id="meta-drip">0</b></div>
         <div class="meta-stat">WINS <b id="meta-wins">0</b></div>
@@ -36,6 +37,10 @@
       <h2>YOUR MILADY</h2>
       <canvas id="avatar-canvas" width="600" height="750"></canvas>
       <div class="avatar-name" id="avatar-name">…</div>
+      <div class="kicker">tribe</div>
+      <div class="pick-row" id="tribes"></div>
+      <div id="tribe-desc"></div>
+      <div id="heat-row"></div>
       <div class="row">
         <button id="btn-reroll" class="btn">REROLL</button>
         <button id="btn-begin" class="btn big">BEGIN →</button>
@@ -101,6 +106,7 @@
           <div class="hpbar foe"><div id="chp-foe"></div><span id="chp-foe-t"></span></div>
         </div>
       </div>
+      <div id="combat-choice" class="hidden"></div>
       <div id="combat-log"></div>
       <div class="row" id="combat-ctl">
         <button id="btn-speed" class="btn small">1X</button>
