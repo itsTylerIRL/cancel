@@ -5,6 +5,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
 
   POST /api/score   submit a finished run (JSON)
   GET  /api/board   ?daily=YYYY-MM-DD | ?seed=CODE | ?all=1   [&limit=50] [&player=ID]
+                    each entry carries the run's "id", its "share" link and its card "image"
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
   GET  /api/stats   how runs end, in aggregate (for balancing)
   GET  /api/pulse   games and wins today, this week and ever
@@ -193,6 +194,8 @@ def init_db():
             con.execute("ALTER TABLE scores ADD COLUMN look TEXT")  # how the character looked: a recipe of trait layers
         if "stats" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
             con.execute("ALTER TABLE runs ADD COLUMN stats TEXT")  # the build's final numbers, for balancing
+        if "card" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
+            con.execute("ALTER TABLE scores ADD COLUMN card TEXT")  # the share card of the run this row is
         if "handle" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN handle TEXT")  # the RemiliaNET account, when the player signed in
 
@@ -426,7 +429,10 @@ def public(row, rank):
     return {"rank": rank, "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]),
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
-            "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"]}
+            "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"],
+            # the run's id: its share link is /r/ID and its card image /api/card/ID.png
+            "id": row["card"], "share": PUBLIC + "/r/" + row["card"] if row["card"] else None,
+            "image": "%s/api/card/%s.png" % (PUBLIC, row["card"]) if row["card"] else None}
 
 
 def read_board(board, limit, player):
@@ -485,8 +491,10 @@ def hall(limit):
 
 
 def forget_old_cards(con, now):
-    old = [r[0] for r in con.execute("SELECT id FROM cards WHERE created<?", (now - CARD_DAYS * 86400,))]
-    con.execute("DELETE FROM cards WHERE created<?", (now - CARD_DAYS * 86400,))
+    # a card that a leaderboard row still points at is kept for as long as that row stands
+    old = [r[0] for r in con.execute("SELECT id FROM cards WHERE created<? AND id NOT IN (SELECT card FROM scores WHERE card IS NOT NULL)",
+                                     (now - CARD_DAYS * 86400,))]
+    con.executemany("DELETE FROM cards WHERE id=?", [(i,) for i in old])
     for cid in old:
         try:
             os.remove(os.path.join(CARDS, cid + ".png"))
@@ -725,18 +733,20 @@ class Handler(BaseHTTPRequestHandler):
             row["look"] = look_from_token(row["collection"], row["token"], key)
         now = int(time.time())
         ranks = {}
+        share = "".join(secrets.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(8))  # this run's id
+        row["card"] = share
         with db() as con:
             for board in boards:
                 # one row per player per board: a new run replaces it only if it scored higher
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created, look, handle)
+                                           relics, killed_by, ip_hash, created, look, handle, card)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created, :look, :handle)
+                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card)
                        ON CONFLICT(board, player) DO UPDATE SET
                          name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
-                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle,
+                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card,
                          ip_hash=excluded.ip_hash, created=excluded.created
                        WHERE excluded.score > scores.score""",
                     dict(row, board=board, ip_hash=key, created=now))
@@ -747,7 +757,6 @@ class Handler(BaseHTTPRequestHandler):
                            VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
             # and as a card: what the share link's preview is drawn from
-            share = "".join(secrets.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(8))
             con.execute("INSERT INTO cards (id, created, data) VALUES (?,?,?)", (share, now, json.dumps({
                 "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]), "bosses": row["bosses"],
                 "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],

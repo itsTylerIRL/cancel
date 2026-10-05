@@ -9,7 +9,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | Route | |
 |---|---|
 | `POST /api/score` | a finished run. Keeps each player's best per board: today's daily, all-time, and one per shared map |
-| `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE` or `?all=1` |
+| `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE` or `?all=1`. Each entry has the run's `id`, its `share` link and its card `image` |
 | `GET /api/hall` | the best run of every daily map |
 | `GET /api/pulse` | games and wins today, this week, ever |
 | `GET /api/stats` | how runs end, in aggregate. Useful for balancing |
