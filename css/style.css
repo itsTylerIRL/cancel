@@ -788,7 +788,8 @@ body.bg3d #modal{background:rgba(0,0,0,.78);}
 @media (max-width:899px){ #obj-bar .obj{font-size:11px;} }
 .bpfp{width:44px;height:44px;border-radius:6px;border:1px solid var(--line);background:var(--stage);opacity:.35;transition:opacity .3s;}
 .bpfp.ready{opacity:1;}
-.lineup{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 4px;}
+.lineup{display:grid;grid-template-columns:repeat(var(--n,10),minmax(0,56px));gap:6px;justify-content:center;margin:10px 0 4px;} /* the top ten in one even row */
+.lineup .bpfp.big{width:100%;height:auto;aspect-ratio:1;}
 .bpfp.big{width:64px;height:64px;border-radius:8px;}
 .lineup .bpfp.big:first-child{border-color:var(--gold);box-shadow:0 0 14px rgba(241,250,140,.4);}
 .pulse{margin:6px auto 14px;max-width:560px;}
@@ -960,3 +961,16 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 .ws-title span{color:var(--neon);}
 .ws-line{position:relative;font-size:13px;color:var(--neon2);animation:fadein .5s ease-out 2.2s backwards;text-align:center;}
 .ws-skip{position:relative;font-size:10px;color:var(--dim);letter-spacing:.2em;text-transform:uppercase;animation:fadein .5s ease-out 3s backwards;margin-top:8px;}
+@media (max-width:620px){ .lineup{grid-template-columns:repeat(min(var(--n,10),5),minmax(0,56px));} } /* two even rows of five on a phone */
+/* title: one action per row, the daily first */
+.title-actions{display:flex;flex-direction:column;align-items:center;gap:10px;margin:6px 0 4px;}
+.title-actions .btn{width:min(340px,86vw);margin:0;}
+.title-actions .btn.small{width:auto;min-width:200px;}
+#btn-daily{display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.2;}
+#btn-daily b{font-weight:inherit;} #btn-daily span{font-size:10px;letter-spacing:.08em;opacity:.8;text-transform:none;font-weight:400;}
+#btn-daily.funnel{background:rgba(80,250,123,.14);color:var(--acid);border-color:var(--acid);box-shadow:0 0 26px rgba(80,250,123,.3);animation:funnel 2.4s ease-in-out infinite;}
+#btn-daily.funnel:hover,#btn-daily.funnel.ksel{background:var(--acid);color:#000;}
+@keyframes funnel{50%{box-shadow:0 0 40px rgba(80,250,123,.55);}}
+#btn-daily.played{color:var(--dim);border-color:var(--line);}
+#btn-start{opacity:.92;} #btn-start.lead{opacity:1;box-shadow:0 0 26px rgba(139,233,253,.35);}
+body.calm #btn-daily.funnel{animation:none;}

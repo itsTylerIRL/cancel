@@ -3121,7 +3121,7 @@ async function openBoard(tab, back, seed){
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
   if(res && res.top.length){ // the characters, drawn one after another so the list stays responsive
-    $("modal-panel").querySelector(".board").insertAdjacentHTML("beforebegin", "<div class='lineup'>"+res.top.slice(0,12).map((e,i)=>"<canvas class='bpfp big' data-n='"+i+"' width='4' height='4' title='"+esc(e.name)+" · "+e.score+"'></canvas>").join("")+"</div>");
+    $("modal-panel").querySelector(".board").insertAdjacentHTML("beforebegin", "<div class='lineup' style='--n:"+Math.min(10, res.top.length)+"'>"+res.top.slice(0,10).map((e,i)=>"<canvas class='bpfp big' data-n='"+i+"' width='4' height='4' title='"+esc(e.name)+" · "+e.score+"'></canvas>").join("")+"</div>");
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
       if(!cv.isConnected) return; // the board was closed or switched
       const e = res.top[+cv.dataset.n];
@@ -3241,7 +3241,16 @@ async function genAvatar(nft){
 }
 
 /* ---------- title / unlocks ---------- */
+function renderDailyButton(){ // the daily is the way in: lit up until today's has been played, then it steps back
+  const b = $("btn-daily"), s = $("btn-start"); if(!b || !s) return;
+  const played = !!(META.dailyAt && META.dailyAt.date===today());
+  b.classList.toggle("funnel", !played); b.classList.toggle("big", !played); b.classList.toggle("small", played); b.classList.toggle("played", played);
+  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>play it again for practice</span>"
+                       : "<b>📅 play today's daily</b><span>one attempt · the same map for everyone</span>";
+  s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
+}
 function renderTitle(){
+  renderDailyButton();
   $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
   $("meta-best").textContent=META.best?("day "+META.best):"—";
   const shop=$("unlock-shop"); shop.innerHTML="<div class='kicker'>drip unlocks</div>";
@@ -3263,9 +3272,10 @@ function renderTitle(){
   c.classList.toggle("hidden", !save);
   if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
   const dd = META.daily && META.daily.date===today() ? META.daily : null;
-  $("btn-daily").textContent = "📅 daily run"+(dd ? " · best "+dd.score : "");
+  renderDailyButton();
   $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
   $("btn-start").className = save ? "btn small" : "btn big";
+  renderDailyButton(); // after the line above, which resets the start button's classes
 }
 function renderCodex(){ // every relic you have ever held; the rest stay silhouettes, or locks if an achievement gates them
   const pool = RELICS.filter(r=>!r.tags.includes("blackmarket") || META.unlocks.blackmarket);
