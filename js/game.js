@@ -682,6 +682,7 @@ function relicText(r, m, plain, copy){ // copy: a second item of a relic you alr
   const hi = v => plain ? v : "<b class='boost'>"+v+"</b>";
   let d = r.desc;
   if(FIGHT_RX[r.id]) d = d.replace(FIGHT_RX[r.id], (_, a, n, z)=>(/^an? $/.test(a) ? "a " : a)+"\u0001"+Math.round(n*m)+"\u0002"+(typeof z==="string" ? z : ""));
+  if(r.id==="ss_drip") return "\u0001+"+Math.round(50+100*BAL.dripExtra*(m-1))+"% ATK\u0002.".replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
   if(hasStatText(r)) d = d.replace(STAT_RX, (_, n, u, k)=>"\u0001+"+Math.round(n*m)+u+k+"\u0002").replace(DODGE_RX, (_, n, z)=>"\u0001"+Math.round(n*m)+"\u0002"+z);
   if(flat) d += " \u0001+"+2*flat+" ATK, +"+6*flat+" max HP.\u0002";
   return d.replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
@@ -737,7 +738,7 @@ function computeStats(relics){
   for(const id of new Set(relics)){ // an upgraded relic's positive stat bonuses grow with its tier
     const m = tm(id); if(m===1) continue;
     const without = rawStats(relics.filter(x=>x!==id), base.sets); // same synergies either way: a tier scales the relic's own numbers, not a set bonus it helps switch on
-    for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0) s[k] += Math.round(d*(m-1)); }
+    for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0) s[k] += Math.round(id==="ss_drip" && k==="atk" ? without.atk*BAL.dripExtra*(m-1) : d*(m-1)); } // SS Drip's first copy is +50%, each further copy's worth +20%: a multiplier that doubled every time ran away with the game
     if(flatTier(relicById(id))){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
   }
   s.dodge = Math.min(DODGE_CAP, s.dodge); // past this, nothing would ever land
@@ -1772,6 +1773,8 @@ function openBuild(){
     + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
     + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (thornsOf(G.stats.arm) ? "<span class='chip' title='every enemy swing that reaches you costs it a quarter of your ARM'>🛡️ thorns "+thornsOf(G.stats.arm)+"</span>" : "")
+    + (G.stats.crit>100 ? "<span class='chip' title='crit chance past 100% becomes crit damage'>✨ crits deal +"+Math.round((G.stats.crit-100)*BAL.critOver*100)+"% more</span>" : "")
+    + (G.day>1 ? "<span class='chip' title='burn, bleed, poison, shocks and companions grow "+Math.round(BAL.growth*100)+"% a day'>🔥🧸 statuses and companions +"+Math.round(BAL.growth*(G.day-1)*100)+"%</span>" : "")
     + (heftOf(G.stats.maxhp) ? "<span class='chip' title='every 12 max HP above 50 adds 1 to your hits'>💪 heft +"+heftOf(G.stats.maxhp)+"</span>" : "")
     + (G.stats.dodge ? "<span class='chip' title='every dodge hits back for half your ATK'>💨 "+Math.round(G.stats.dodge)+"% dodge"+(G.stats.dodge>=DODGE_CAP?" (max)":"")+" · counters for "+Math.max(1,Math.round(G.stats.atk/2))+"</span>" : "")
     + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
@@ -2124,7 +2127,7 @@ function fightEngine(foeDef, opts, io){
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
     if(!isYou && att.puppet){ // already past armour and crits on the other side: only what you carry can soften it now
-      let d = Math.max(1, Math.round(atk));
+      let d = Math.min(Math.max(1, Math.round(atk)), Math.ceil(you.maxhp * BAL.guardDuel)); // guarded: a duel is never one round long
       if(def===you && act("fbi_cap")) d = Math.max(1, d-tv("fbi_cap",3));
       if(def===you && you.hp < you.maxhp/2 && act("hodl")) d = Math.max(1, Math.round(d*0.7));
       return {dmg:d, crit:false};
@@ -2134,7 +2137,8 @@ function fightEngine(foeDef, opts, io){
     // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
     let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armour has the same limit
     let crit = false;
-    if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
+    if(rnd()*100 < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
+      dmg = Math.round(dmg * ((isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0))); crit=true; }
     if(isYou) you.sure = false;
     if(isYou && crit && act("cigarette")) dmg += tv("cigarette",4);
     if(isYou && act("bugatti") && foe.chill>=chillMax()) dmg = Math.round(dmg*1.3);
@@ -2153,7 +2157,7 @@ function fightEngine(foeDef, opts, io){
       return;
     }
     if(!isYou && foe.bleed>0){ // a bleeding enemy pays for every swing
-      const d = 2*foe.bleed; foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
+      const d = grow(2*foe.bleed); foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
       if(act("vampire")) heal(1);
       if(foe.hp<=0) return;
     }
@@ -2176,9 +2180,14 @@ function fightEngine(foeDef, opts, io){
       const soak = Math.min(you.shield, dmg); you.shield-=soak; dmg-=soak;
       if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
     }
+    let guarded = false;
+    if(isYou && !foe.puppet){ // guard: no single blow takes more than a share of an enemy's health, so a fight is never one swing long
+      const lim = Math.max(1, Math.ceil(foe.maxhp * (boss ? BAL.guardBoss : BAL.guardFoe)));
+      if(dmg > lim){ dmg = lim; guarded = true; }
+    }
     def.hp-=dmg;
     if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else F.took += dmg;
-    io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>.", crit?"crit":(isYou?"good":"bad"));
+    io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : ""), crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
     if(isYou && set("cheese",3)){ st.cult+=3; }
     if(isYou){
@@ -2256,15 +2265,15 @@ function fightEngine(foeDef, opts, io){
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
     // poison ticks
-    if(foe.burn>0){ const d = 3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(foe.poison>0){ const d = tv("snakebites",2) * (act("milady_pilled") ? 3 : 1); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(act("pikachu") && F.tick%4===0){ const z = tv("pikachu",8); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
+    if(foe.burn>0){ const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(act("pikachu") && F.tick%4===0){ const z = grow(tv("pikachu",8)); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     // companions
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
-      if(act("remilio_friend") && you.compTick%3===0) companion(tv("remilio_friend",5), "🧸 Remilio Friend strikes");
-      if(act("tails") && rnd()<0.3) companion(tv("tails",4), "🦊 Tails spins in");
-      if(act("dino") && you.compTick%2===0) companion(tv("dino",3), "🦖 Dino bites");
+      if(act("remilio_friend") && you.compTick%3===0) companion(grow(tv("remilio_friend",5)), "🧸 Remilio Friend strikes");
+      if(act("tails") && rnd()<0.3) companion(grow(tv("tails",4)), "🦊 Tails spins in");
+      if(act("dino") && you.compTick%2===0) companion(grow(tv("dino",3)), "🦖 Dino bites");
       if(act("amogus") && !boss && !foe.king && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
@@ -2305,6 +2314,12 @@ function trialFight(foe, opts){
   }
   return F;
 }
+/* Balance dials. guard: the most of an enemy's max HP one of your hits can take (a duel uses guardDuel on what lands
+   in a round). critOver: how much crit damage each point of crit chance past 100 becomes. */
+const BAL = { guardFoe:0.5, guardBoss:0.25, guardDuel:0.35, critOver:0.01, dripExtra:0.2, growth:0.15 };
+/* Burn, bleed, poison, shocks and companions deal fixed numbers, and enemies get tougher every day: without this they
+   were strong on day 2 and useless by day 7. They grow 15% a day, about as fast as what they are hitting. */
+const grow = n => Math.round(n * (1 + BAL.growth * Math.max(0, ((G && G.day) || 1) - 1)));
 /* Defence that fights back, so armour, dodge and health are builds of their own and not just a slower death:
    thorns: every enemy swing that reaches you costs it a quarter of your ARM. counter: every dodge hits back for half your ATK.
    heft: every 12 max HP above 50 adds 1 to your hits. Armour never stops more than about two thirds of a hit. */
@@ -3148,6 +3163,7 @@ function openTutorial(){
     + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
     + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🛡️</div><div class='sinfo'><b>Defence hits back</b><span>Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.</span></div></div>"
+    + "<div class='shop-row'><div class='heal-ico'>⚖️</div><div class='sinfo'><b>No one stat wins</b><span>Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
     + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
   $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
