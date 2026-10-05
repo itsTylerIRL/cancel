@@ -30,7 +30,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Tribes.** Hypebeast, Degen Trader, Lovebomber, Accelerationist, Wartime Poster. Each starts with its own relic.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 
-A few things that keep you from playing blind: draft cards show what each pick does to your odds against the next boss you can't already beat, every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.
+A few things that keep you from playing blind: every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.
 
 ## Bring your own
 

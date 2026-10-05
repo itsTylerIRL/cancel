@@ -1484,9 +1484,7 @@ function confirmSwap(r, j, onDone, onBack){
   const was = G.stats, relics = G.relics.slice(), tiers = G.tiers.slice();
   G.relics[j] = r.id; G.tiers[j] = 1;
   const now = computeStats(G.relics), setsNow = setRows(G.relics).filter(x=>x.on.length).map(x=>x.t.id);
-  const swapped = [G.relics.slice(), G.tiers.slice()];
   G.relics = relics; G.tiers = tiers;
-  const vs = runBoss(G.bossesBeaten) ? bossToBeat() : null;
   const delta = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
     const d = Math.round(now[k]-was[k]);
     return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
@@ -1497,49 +1495,10 @@ function confirmSwap(r, j, onDone, onBack){
   openModal("<h2>ARE YOU SURE?</h2><div class='note'>a dropped relic is gone for good</div>"
     + "<div class='swap'><div><u>drop</u>"+relicCard(old, "", false, t)+"</div><b class='swap-arrow'>→</b><div><u>take</u>"+relicCard(r, "", false, 1)+"</div></div>"
     + "<div class='delta swap-delta'>"+(delta || "<i>no change to your stats</i>")+"</div>"
-    + (vs ? "<div class='vsboss solo'>"+bossOddsLine(vs.i, vs.now, oddsVsBoss(swapped[0], swapped[1], vs.i))+"</div>" : "")+warn
+    + warn
     + "<div class='row'><button class='btn small' id='swap-no'>← pick another</button><button class='btn danger' id='swap-yes'>drop "+old.name+"</button></div>");
   $("swap-no").onclick = ()=>{ sfx("click"); onBack(); };
   $("swap-yes").onclick = ()=>{ G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
-}
-/* The chance of beating the next boss with a given build, at full health on the day it arrives. More trial fights
-   than the map's quick estimate, since two picks are being compared. */
-function oddsVsBoss(relics, tiers, i){
-  const b = runBoss(i); if(!b) return null;
-  const keep = { relics:G.relics, tiers:G.tiers, stats:G.stats, day:G.day, seed:SEED };
-  let wins = 0; const N = 90;
-  try{
-    G.relics = relics; G.tiers = tiers; G.day = Math.max(G.day, BOSS_DAYS[i]);
-    G.stats = computeStats(relics); G.stats.hp = G.stats.maxhp;
-    const foe = foeInstance(b);
-    SEED = null; // trial fights must not use up the run's own luck
-    for(let i=0;i<N;i++) if(trialFight(foe, {boss:b}).win) wins++;
-  } finally { G.relics = keep.relics; G.tiers = keep.tiers; G.stats = keep.stats; G.day = keep.day; SEED = keep.seed; }
-  return wins/N;
-}
-const pct = p => Math.round(p*20)*5; // to the nearest 5%: the estimate isn't finer than that
-/* Which boss to measure a pick against: the next one the build doesn't already beat almost every time. Early on
-   that is often the day-6 boss, since the first one falls to most builds at full health. */
-function bossToBeat(){
-  for(let i=G.bossesBeaten; i<3; i++){ const p = oddsVsBoss(G.relics, G.tiers, i); if(p<0.95 || i===2) return { i, now:p }; }
-  return null;
-}
-function bossOddsLine(i, now, then){
-  const b = runBoss(i), a = pct(now), z = pct(then), d = z-a;
-  return "<span>vs "+b.name+" · day "+BOSS_DAYS[i]+"</span> <b class='"+(d>=10?"up":d<=-10?"down":"")+"'>"+a+"% → "+z+"%</b>";
-}
-function showBossOdds(pool){ // fills in each draft card after the dialog has drawn, so opening it stays instant
-  if(!runBoss(G.bossesBeaten)) return;
-  const panel = $("modal-panel"), mark = panel.querySelector("h2");
-  setTimeout(()=>{
-    if(panel.querySelector("h2")!==mark) return; // the dialog has moved on
-    const vs = bossToBeat(), full = G.relics.length>=G.maxSlots; if(!vs) return;
-    panel.querySelectorAll(".card[data-i]").forEach(c=>{
-      const r = pool[+c.dataset.i]; if(!r) return;
-      const then = oddsVsBoss(G.relics.concat(r.id), G.tiers.concat(1), vs.i);
-      c.insertAdjacentHTML("beforeend", "<div class='vsboss'>"+bossOddsLine(vs.i, vs.now, then)+(full ? "<small>before dropping one</small>" : "")+"</div>");
-    });
-  }, 40);
 }
 /* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of draft again).
    A reroll costs $CULT and the price doubles every time you use one in a run. */
@@ -1574,7 +1533,6 @@ function openDraft(flavor, pool, luck, gen){
     mlog("🎲 Rerolled the draft for "+cost+" $CULT.", "");
     openDraft(flavor, gen, luck);
   };
-  showBossOdds(pool);
   return true;
 }
 
