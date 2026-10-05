@@ -19,6 +19,8 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `GET /api/card/ID.png` | the card itself |
 | `GET /api/auth/login`, `/callback` | Sign in with RemiliaNET |
 
+Boards rank every run that saved the timeline above every run that was cancelled, then by score, then by who got there first. A player's row is replaced only by a run that ranks higher.
+
 Scores can't be proven, since the game runs in the browser. The service checks shape and plausibility and rate-limits. That keeps the board tidy, not tamper-proof.
 
 ## Cards and portraits

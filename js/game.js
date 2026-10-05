@@ -2848,7 +2848,7 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
     const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
     if(b.locked) return "<div>📅 the daily keeps your <b>first run</b> of the day"+(b.rank ? ": #"+b.rank+" of "+b.total+" with "+b.score : "")+" <span class='dim'>(this one was practice)</span></div>";
-    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score>res.sent ? " <span class='dim'>(your best: "+b.score+")</span>" : "")+"</div>";
+    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score!==res.sent ? " <span class='dim'>(the board keeps your best: "+b.score+(b.win ? " 👑" : "")+")</span>" : "")+"</div>";
   }).join("");
 }
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
@@ -2889,6 +2889,7 @@ async function openBoard(tab, back, seed){
         + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "👑 timeline saved" : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
         + "<div class='brel'>"+relics+"</div><em>"+e.score+"</em></div>";
     }).join("")+"</div>"
+    + "<div class='note'>👑 saved timelines rank first, then score</div>"
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
   if(res && res.top.length){ // the characters, drawn one after another so the list stays responsive

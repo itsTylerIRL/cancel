@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS scores (
   UNIQUE(board, player)
 );
 CREATE INDEX IF NOT EXISTS scores_board ON scores(board, score DESC, created ASC);
+CREATE INDEX IF NOT EXISTS scores_rank ON scores(board, win DESC, score DESC, created ASC);
 CREATE TABLE IF NOT EXISTS runs (
   id INTEGER PRIMARY KEY, created INTEGER NOT NULL,
   score INTEGER NOT NULL, day INTEGER NOT NULL, win INTEGER NOT NULL, bosses INTEGER NOT NULL, kills INTEGER NOT NULL,
@@ -434,14 +435,18 @@ def parse_run(d):
     return boards, row
 
 
+# Boards rank everyone who saved the timeline above everyone who was cancelled, then by score, then by who got there first.
+BOARD_ORDER = "win DESC, score DESC, created ASC"
+
+
 def rank_of(con, board, player):
-    me = con.execute("SELECT score, created FROM scores WHERE board=? AND player=?", (board, player)).fetchone()
+    me = con.execute("SELECT win, score, created FROM scores WHERE board=? AND player=?", (board, player)).fetchone()
     if not me:
         return None
     ahead = con.execute(
-        "SELECT COUNT(*) FROM scores WHERE board=? AND (score>? OR (score=? AND created<?))",
-        (board, me["score"], me["score"], me["created"])).fetchone()[0]
-    return {"rank": ahead + 1, "score": me["score"]}
+        "SELECT COUNT(*) FROM scores WHERE board=? AND (win>? OR (win=? AND (score>? OR (score=? AND created<?))))",
+        (board, me["win"], me["win"], me["score"], me["score"], me["created"])).fetchone()[0]
+    return {"rank": ahead + 1, "score": me["score"], "win": bool(me["win"])}
 
 
 def public(row, rank):
@@ -456,7 +461,7 @@ def public(row, rank):
 
 def read_board(board, limit, player):
     with db() as con:
-        rows = con.execute("SELECT * FROM scores WHERE board=? ORDER BY score DESC, created ASC LIMIT ?", (board, limit)).fetchall()
+        rows = con.execute("SELECT * FROM scores WHERE board=? ORDER BY " + BOARD_ORDER + " LIMIT ?", (board, limit)).fetchall()
         total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
         you = rank_of(con, board, player) if player else None
     return {"board": board, "total": total, "top": [public(r, i + 1) for i, r in enumerate(rows)], "you": you}
@@ -504,7 +509,7 @@ def hall(limit):
     with db() as con:
         rows = con.execute(
             """SELECT s.*, (SELECT COUNT(*) FROM scores c WHERE c.board=s.board) AS players FROM scores s
-               WHERE s.board LIKE 'daily:%' AND s.id=(SELECT t.id FROM scores t WHERE t.board=s.board ORDER BY t.score DESC, t.created ASC LIMIT 1)
+               WHERE s.board LIKE 'daily:%' AND s.id=(SELECT t.id FROM scores t WHERE t.board=s.board ORDER BY t.win DESC, t.score DESC, t.created ASC LIMIT 1)
                ORDER BY s.board DESC LIMIT ?""", (limit,)).fetchall()
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
 
@@ -805,7 +810,7 @@ class Handler(BaseHTTPRequestHandler):
                     total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                     ranks[board] = dict(rank_of(con, board, row["player"]) or {}, total=total, locked=True)
                     continue
-                # one row per player per board: a new run replaces it only if it scored higher
+                # one row per player per board: a new run replaces it only if it ranks higher (a win beats any loss)
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
                                            relics, killed_by, ip_hash, created, look, handle, card)
@@ -816,7 +821,7 @@ class Handler(BaseHTTPRequestHandler):
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
                          token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card,
                          ip_hash=excluded.ip_hash, created=excluded.created
-                       WHERE excluded.score > scores.score""",
+                       WHERE excluded.win > scores.win OR (excluded.win = scores.win AND excluded.score > scores.score)""",
                     dict(row, board=board, ip_hash=key, created=now))
                 total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
