@@ -230,8 +230,19 @@ def clean_text(v, limit):
     return re.sub(r"\s+", " ", v).strip()[:limit]
 
 
-def utc_today():
-    return datetime.now(timezone.utc).date()
+try:  # the daily turns over at midnight Eastern (New York)
+    from zoneinfo import ZoneInfo
+    DAILY_TZ = ZoneInfo("America/New_York")
+except Exception:  # no time zone data on this machine: fixed UTC-5
+    DAILY_TZ = timezone(timedelta(hours=-5))
+
+
+def daily_now():
+    return datetime.now(DAILY_TZ)
+
+
+def utc_today():  # (the name is historical) today's date where the daily is kept
+    return daily_now().date()
 
 
 _hits = {}
@@ -468,8 +479,8 @@ def run_stats():
 
 
 def pulse():
-    """Headline numbers for the title screen: games and wins today (UTC), over the last 7 days, and ever."""
-    now = datetime.now(timezone.utc)
+    """Headline numbers for the title screen: games and wins today (Eastern), over the last 7 days, and ever."""
+    now = daily_now()
     midnight = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     out = {}
     with db() as con:

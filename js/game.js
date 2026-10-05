@@ -2845,7 +2845,7 @@ async function openBoard(tab, back, seed){
       : !days.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
       : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+(e.handle ? " ✓" : "")+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
           + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
-        + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight UTC.</div>")); wire();
+        + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
       if(!cv.isConnected) return;
       try{ await drawLook(cv, days[+cv.dataset.n].look, days[+cv.dataset.n].relics); }catch(err){}
@@ -2930,7 +2930,10 @@ let AVA = null, avaTok = 0;
 /* names end up inside HTML in the feed and dialogs, so keep them to plain characters */
 const cleanName = v => v.replace(/[<>&"'`\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
 const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen is setting up
-const today = () => new Date().toISOString().slice(0,10);
+/* The daily turns over at midnight Eastern (New York), wherever the player is. */
+const DAILY_TZ = "America/New_York";
+const today = () => { try{ return new Intl.DateTimeFormat("en-CA", {timeZone:DAILY_TZ, year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()); }
+  catch(e){ return new Date(Date.now()-5*3600e3).toISOString().slice(0,10); } }; // no time zone data: fixed UTC-5
 function renderPicks(){
   if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favourite yet: don't always hand out the first one
   PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);

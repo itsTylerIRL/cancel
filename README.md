@@ -40,7 +40,7 @@ You never fight your own collection. Everyone else is fair game: Pixeladys, Radb
 
 ## Daily map and sharing
 
-One seed per UTC day, same maze for everyone, one leaderboard. Any other run has a seed code too, and its link drops whoever opens it into the same map.
+One seed per day, turning over at midnight Eastern. Same maze for everyone, one leaderboard. Any other run has a seed code too, and its link drops whoever opens it into the same map.
 
 When a run ends you get a Wordle-style result to paste, and a link whose preview is that run's own card: your character as she finished, relics and all. The leaderboard shows everyone's final look side by side, and the hall of fame keeps each day's winner.
 
