@@ -25,7 +25,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Inflation.** Shops put their prices up 25% for every boss you beat.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.
-- **Nights.** Hunters path toward you. Campfires burn out after one rest.
+- **Nights.** Hunters path toward you. Campfires only work after dark: sleep at one to heal and skip to dawn, and it burns out.
+- **Done waiting?** Click the next boss on the timeline to skip straight to it.
 - **Tribes.** Hypebeast, Degen Trader, Lovebomber, Accelerationist, Wartime Poster. Each starts with its own relic.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 

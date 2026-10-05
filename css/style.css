@@ -890,3 +890,6 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 @media (max-width:640px){ .tribe-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .tribe-grid .pick.tribe,.tribe-grid .pick.tribe:nth-child(n+4){grid-column:auto;} .tribe-grid .pick.tribe:last-child{grid-column:1 / -1;} .pick.tribe b{font-size:10px;letter-spacing:.04em;} }
 .reroll-note{font-size:11px;margin-top:2px;}
 #draft-reroll .cult-coin{width:16px;height:16px;}
+#timeline .day.boss.next,#doom{cursor:pointer;}
+#timeline .day.boss.next:hover{box-shadow:0 0 16px rgba(255,85,85,.7);filter:brightness(1.25);}
+#doom:hover b{text-decoration:underline;}

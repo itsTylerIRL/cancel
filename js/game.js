@@ -1019,12 +1019,14 @@ function renderTimeline(){
   for(let d=1; d<=9; d++){
     const bi = BOSS_DAYS.indexOf(d), look = bi>=0 && G.bossLook[bi];
     const cls = "day"+(d<G.day?" past":"")+(d===G.day?" now "+G.phase:"")+(bi>=0?" boss":"")+(bi>=0 && bi<G.bossesBeaten?" beaten":"");
-    h += "<div class='"+cls+"'"+(bi>=0?" title='"+runBoss(bi).name+"'":"")+">"
+    const next = bi>=0 && bi===G.bossesBeaten; // the one that is coming: click it to stop waiting
+    h += "<div class='"+cls+(next?" next":"")+"'"+(bi>=0?" title='"+runBoss(bi).name+(next?" — click to skip ahead and face it now":"")+"'":"")+(next?" data-skip='1'":"")+">"
       + (bi>=0 ? (look && look.face ? "<img src='"+look.face+"' alt=''>" : "<span>☠</span>") : "<span>"+d+"</span>")
       + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+"</div>";
   }
   $("timeline").innerHTML = h;
   const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
+  $("doom").title = nb ? "click to skip ahead and face "+nb.name+" now" : "";
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
@@ -1158,7 +1160,7 @@ function renderMinimap(){
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
-  [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
+  [T.FIRE]:"<b>Campfire</b> — at night only: sleep to heal to full and skip to dawn. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
@@ -1739,9 +1741,13 @@ function applyFx(list){
 /* ---------- campfire ---------- */
 function openFire(){
   const day = G.phase==="day";
-  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Rest until "+(day?"nightfall":"dawn")+"? You heal to full and skip the rest of this "+(day?"day":"night")+" safely — no loot, no fights. The fire burns out once you've used it."
+  if(day){ // a fire is for sleeping, and you only sleep at night
+    mlog("🔥 A campfire. It isn't dark yet: <b>you can only sleep here at night.</b>", ""); mapFloat("🔥 night only", "loot"); sfx("click");
+    return;
+  }
+  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Sleep until dawn? You heal to full and skip the rest of this night safely — no loot, no fights. The fire burns out once you've used it."
     + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
-    + "</div><div class='row'><button class='btn' id='fire-yes'>REST</button><button class='btn small' id='fire-no'>keep moving</button></div>");
+    + "</div><div class='row'><button class='btn' id='fire-yes'>SLEEP</button><button class='btn small' id='fire-no'>keep moving</button></div>");
   $("fire-yes").onclick=()=>{
     G.stats.hp=G.stats.maxhp; clearTile(); G.flags.rested = true; mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal");
     G.queue = G.queue.filter(f=>f!==endPhase); G.queue.push(endPhase);
@@ -1763,6 +1769,27 @@ function openBossGate(){
   bossModal(b, "⛩️ "+b.name, "FIGHT", true);
   $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, portrait:G.bossLook[G.bossUnlocked].portrait}); };
   $("boss-wait").onclick=()=>closeModal();
+}
+/* Done looting? Clicking the next boss on the timeline jumps straight to the day it arrives and starts the fight.
+   It is as strong as it would be that day; you are only as strong as you are now. */
+function skipToBoss(){
+  if(!G || G.over || busy() || !$("screen-map").classList.contains("active")) return;
+  const bi = G.bossesBeaten, b = runBoss(bi); if(!b) return;
+  const to = BOSS_DAYS[bi], gap = Math.max(0, to-G.day), was = G.day;
+  G.day = to; // show its numbers, and your odds, as they will be when it arrives
+  try{ bossModal(b, "SKIP TO<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; }
+  $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note bad'>"
+    + (gap ? "time jumps to day "+to+": you give up "+gap+" day"+(gap>1?"s":"")+" of looting, and it arrives at full strength"
+           : "it arrives now: you give up the rest of today")+"</div>");
+  $("boss-wait").onclick=()=>closeModal();
+  $("boss-fight").onclick=()=>{
+    closeModal();
+    G.day = to; G.phase = "night"; G.movesLeft = 0; G.hunters = []; G.bossUnlocked = bi;
+    G.queue = G.queue.filter(f=>f!==endPhase);
+    mlog("⏩ You stop waiting. <b>"+b.name+"</b> is called out on day "+to+".", "bad");
+    showBanner(); renderMap(); quake();
+    startCombat(foeInstance(b), {boss:b, forced:true, portrait:G.bossLook[bi].portrait});
+  };
 }
 function bossArrives(){
   const b = runBoss(G.bossUnlocked);
@@ -3005,7 +3032,7 @@ function openTutorial(){
   openModal("<h2>HOW TO SURVIVE</h2>"
     + "<div class='shop-row'><div class='heal-ico'>👣</div><div class='sinfo'><b>Find your way through the maze</b><span>Every step burns daylight. Loot hides in dead ends; scroll or drag the map to look around. Hover a tile (or tap a foe once) to scout it first.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
-    + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Campfires heal you and skip to the next dawn or dusk.</span></div></div>"
+    + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🛡️</div><div class='sinfo'><b>Defence hits back</b><span>Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
     + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
@@ -3198,6 +3225,8 @@ async function init(){
   };
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;
+  $("timeline").onclick=ev=>{ if(ev.target.closest("[data-skip]")){ sfx("click"); skipToBoss(); } };
+  $("doom").onclick=()=>{ sfx("click"); skipToBoss(); };
   document.addEventListener("keydown", onKey);
   // phones: the page never zooms. A pinch or a double tap mid-run left players stuck zoomed in on the map.
   for(const ev of ["gesturestart","gesturechange","gestureend"]) document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
