@@ -2848,7 +2848,7 @@ function endRun(win){
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
-    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
+    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); if(next && META.drip>=next.cost) openUnlocks(); };
     $("end-copy").onclick=async()=>{
       sfx("click");
       let ok = false;
@@ -3362,48 +3362,99 @@ function renderTitle(){
   renderDailyButton();
   $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
   $("meta-best").textContent=META.best?("day "+META.best):"—";
-  const shop=$("unlock-shop"); shop.innerHTML="<div class='kicker'>drip unlocks</div>";
-  for(const u of UNLOCKS){
-    const owned=!!META.unlocks[u.id];
-    const locked=u.req && !META.unlocks[u.req];
-    const d=document.createElement("div"); d.className="unlock"+(owned?" owned":"");
-    d.innerHTML="<div class='uinfo'><b>"+u.name+"</b><span>"+u.desc+"</span></div>";
-    const b=document.createElement("button"); b.className="btn small";
-    b.textContent=owned?"OWNED":(locked?"LOCKED":u.cost+" DRIP");
-    b.disabled=owned||locked||META.drip<u.cost;
-    if(!b.disabled) b.onclick=()=>{
-      META.drip-=u.cost; META.unlocks[u.id]=1; saveMeta(); renderTitle();
-    };
-    d.appendChild(b); shop.appendChild(d);
-  }
-  renderCodex();
+  // the collections live behind three buttons; each says how far along you are
+  const pool = codexPool(), have = pool.filter(r=>META.seen[r.id]).length, done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
+  const afford = UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
+  $("menu-codex").innerHTML = "📖 codex <small>"+have+" / "+pool.length+"</small>";
+  $("menu-ach").innerHTML = "🏆 achievements <small>"+done+" / "+ACHIEVEMENTS.length+"</small>";
+  $("menu-unlocks").innerHTML = "✨ unlocks <small>"+META.drip+" drip</small>";
+  $("menu-unlocks").classList.toggle("ready", afford); // something is affordable
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
   if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
-  const dd = META.daily && META.daily.date===today() ? META.daily : null;
-  renderDailyButton();
   $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
   $("btn-start").className = save ? "btn small" : "btn big";
   renderDailyButton(); // after the line above, which resets the start button's classes
 }
-function renderCodex(){ // every relic you have ever held; the rest stay silhouettes, or locks if an achievement gates them
-  const pool = RELICS.filter(r=>!r.tags.includes("blackmarket") || META.unlocks.blackmarket);
-  const have = pool.filter(r=>META.seen[r.id]).length;
-  $("codex").innerHTML = "<div class='kicker'>relics discovered · "+have+" / "+pool.length+"</div><div class='codex-grid'>"
-    + pool.map(r=>{
-        const a = LOCKED[r.id] && !META.ach[LOCKED[r.id]] && ACHIEVEMENTS.find(x=>x.id===LOCKED[r.id]);
-        if(a) return "<div class='relic-ico unknown locked' title='locked — "+a.name+": "+a.desc.replace(/'/g,"&#39;")+"'>🔒</div>";
-        return META.seen[r.id] && ICONS[r.id]
-          ? "<img class='relic-ico "+rarity(r)+"' src='"+ICONS[r.id]+"' alt='"+r.name+"' title='"+r.name+" — "+r.desc.replace(/'/g,"&#39;")+"'>"
-          : "<div class='relic-ico unknown' title='undiscovered'>?</div>";
-      }).join("")+"</div>";
+const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
+const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
+/* ---------- drip unlocks ---------- */
+function openUnlocks(){
+  let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div><div class='unlock-shop'>";
+  UNLOCKS.forEach((u,i)=>{
+    const owned = !!META.unlocks[u.id], locked = u.req && !META.unlocks[u.req];
+    html += "<div class='unlock"+(owned?" owned":"")+"'><div class='uinfo'><b>"+u.name+"</b><span>"+u.desc+"</span></div>"
+      + "<button class='btn small' data-u='"+i+"'"+(owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned?"OWNED":locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
+  });
+  openModal(html+"</div>"+backRow); wireClose();
+  $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
+    const u = UNLOCKS[+b.dataset.u]; if(META.drip<u.cost || META.unlocks[u.id]) return;
+    META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); sfx("fanfare"); openUnlocks();
+  };});
+}
+/* ---------- achievements ---------- */
+function openAchievements(){
   const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
-  $("achievements").innerHTML = "<div class='kicker'>achievements · "+done+" / "+ACHIEVEMENTS.length+"</div>"
+  openModal("<h2>ACHIEVEMENTS</h2><div class='stat-line'><span>each one adds its relic to the loot pool for good</span><b>"+done+" / "+ACHIEVEMENTS.length+"</b></div><div class='unlock-shop'>"
     + ACHIEVEMENTS.map(a=>{
         const r = relicById(a.relic), on = !!META.ach[a.id];
         return "<div class='ach"+(on?" on":"")+"'>"+(ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''>" : "<div class='relic-ico unknown'>?</div>")
           + "<div class='uinfo'><b>"+(on?"🏆 ":"")+a.name+"</b><span>"+a.desc+"</span><span class='rew'>unlocks <b class='"+r.rar+"'>"+r.name+"</b> — "+r.desc+"</span></div></div>";
-      }).join("");
+      }).join("")+"</div>"+backRow);
+  wireClose();
+}
+/* ---------- the codex: everything in the game, in one place ---------- */
+const codexPool = () => RELICS.filter(r=>!r.tags.includes("blackmarket") || META.unlocks.blackmarket);
+const TRAIT_TEXT = { mirror:"copies part of your ATK when the fight starts", thief:"steals $CULT with every hit. kill it to get it back", hard:"gains ATK every third tick",
+  creeper:"blows up in your face when it dies", bomber:"bombs you every fourth tick", revive:"gets back up once, at half health" };
+const CODEX_TABS = [["relics","💎 relics"],["sets","✨ synergies"],["foes","👹 enemies"],["bosses","☠ bosses"],["maze","🗺 the maze"],["lore","📜 lore"]];
+function openCodex(tab, pick){
+  tab = tab || "relics";
+  let body = "";
+  if(tab==="relics"){
+    const pool = codexPool(), have = pool.filter(r=>META.seen[r.id]).length;
+    const r = pick && relicById(pick), seen = r && META.seen[r.id], lockA = r && LOCKED[r.id] && !META.ach[LOCKED[r.id]] && ACHIEVEMENTS.find(x=>x.id===LOCKED[r.id]);
+    body = "<div class='stat-line'><span>every relic you have held shows here</span><b>"+have+" / "+pool.length+"</b></div>"
+      + "<div class='cx-detail'>"+(!r ? "<span class='dim'>pick a relic to read it</span>"
+          : lockA ? "<div class='relic-ico unknown locked'>🔒</div><div><b>locked</b><span>"+lockA.name+": "+lockA.desc+"</span></div>"
+          : !seen ? "<div class='relic-ico unknown'>?</div><div><b>undiscovered</b><span>hold it in a run and it's written down here</span></div>"
+          : "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''><div><b class='"+r.rar+"'>"+r.name+" <small class='rar-tag'>"+r.rar+"</small></b><span>"+r.desc+"</span>"
+            + "<span class='dim'>"+r.set.map(k=>{ const s = SETS.find(t=>t.id===k); return s.icon+" "+s.name; }).join(" · ")
+            + " · 🥇 "+relicText(r, 2, true)+" · 💎 "+relicText(r, 4, true)+"</span></div>")+"</div>"
+      + ["common","rare","legendary","cursed"].map(rar=>{ const list = pool.filter(x=>x.rar===rar); if(!list.length) return "";
+          return "<div class='kicker cx-h'>"+rar+"</div><div class='codex-grid'>"+list.map(x=>{
+            const a = LOCKED[x.id] && !META.ach[LOCKED[x.id]];
+            return "<button class='cx"+(x.id===pick?" on":"")+"' data-r='"+x.id+"' title='"+(a ? "locked" : META.seen[x.id] ? esc(x.name) : "undiscovered")+"'>"
+              + (a ? "<span class='relic-ico unknown locked'>🔒</span>" : META.seen[x.id] && ICONS[x.id] ? "<img class='relic-ico "+x.rar+"' src='"+ICONS[x.id]+"' alt=''>" : "<span class='relic-ico unknown'>?</span>")+"</button>"; }).join("")+"</div>"; }).join("");
+  } else if(tab==="sets"){
+    body = "<div class='note'>hold enough relics of a set and it switches on</div>" + SETS.map(s=>{
+      const mine = RELICS.filter(r=>r.set.includes(s.id));
+      return "<div class='cx-row' style='--sc:"+s.color+"'><b>"+s.icon+" "+s.name+"</b><span>"+s.tiers.map(([n,d])=>"<i>"+n+"</i> "+d).join(" &nbsp;·&nbsp; ")+"</span>"
+        + "<div class='codex-grid left'>"+mine.map(r=>META.seen[r.id] && ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt='' title='"+esc(r.name)+"'>" : "<span class='relic-ico unknown'>?</span>").join("")+"</div></div>"; }).join("");
+  } else if(tab==="foes"){
+    const tiers = [["mon","monsters","they hold the rooms and corridors"],["elite","elites","gold ring on the map. most stay away until the first boss falls"],["hunter","night hunters","they come out after dark and walk toward you"]];
+    body = tiers.map(([t,name,note])=>"<div class='kicker cx-h'>"+name+" <small>"+note+"</small></div>"+ENEMIES.filter(e=>e.tier===t).map(e=>
+      "<div class='cx-row'><b>"+e.name+"</b><span>❤️ "+e.hp+" · ⚔️ "+e.atk+" · 🛡️ "+e.arm+" · 💨 "+e.spd+(e.nft && NFT[e.nft] ? " · "+NFT[e.nft].name : "")
+      + (e.home && e.home.length ? " · "+e.home.map(i=>DISTRICTS[i].name.toLowerCase()).join(", ") : "")+"</span>"
+      + (e.trait ? "<span class='dim'>"+TRAIT_TEXT[e.trait]+"</span>" : "")+"</div>").join("")).join("")
+      + "<div class='note'>numbers are for day 1. everything grows by the day, and elites and bosses push back against a strong build</div>";
+  } else if(tab==="bosses"){
+    body = [0,1,2].map(slot=>"<div class='kicker cx-h'>day "+BOSS_DAYS[slot]+"</div>"+BOSSES.filter(b=>b.slot===slot).map(b=>
+      "<div class='cx-row boss'><b>"+b.name+"</b><span><i>"+b.intro+"</i></span><span>"+b.mechanic+"</span><span class='dim'>❤️ "+b.hp+" · ⚔️ "+b.atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+" on day 1</span></div>").join("")).join("")
+      + "<div class='note'>a run draws one boss for day 3 and one for day 6. THE CANCEL always closes</div>";
+  } else if(tab==="lore"){
+    body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
+      + EVENTS.map(e=>"<div class='cx-row' style='--sc:#bd93f9'><b>"+(e.icon||"❓")+" "+e.name+"</b><span><i>"+e.text+"</i></span></div>").join("");
+  } else {
+    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO];
+    body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
+      + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
+      + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+t.desc+" · starts with "+relicById(t.relic).name+"</span></div>").join("");
+  }
+  openModal("<h2>CODEX</h2><div class='pick-row'>"+CODEX_TABS.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div><div class='codex-body'>"+body+"</div>"+backRow);
+  wireClose();
+  $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openCodex(b.dataset.tab); }; });
+  $("modal-panel").querySelectorAll("[data-r]").forEach(b=>{ b.onclick=()=>{ sfx("click"); const y = $("modal-panel").scrollTop; openCodex("relics", b.dataset.r); $("modal-panel").scrollTop = y; navSet($("modal-panel").querySelector(".cx.on")); }; });
 }
 function openTutorial(){
   openModal("<h2>HOW TO SURVIVE</h2>"
@@ -3540,7 +3591,11 @@ async function init(){
   document.body.classList.add("on-title");
   if(!/^https?:/.test(location.protocol)) $("floating-home").remove(); // opened as a file: there is no site to go home to
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
-  let ready = loadAssets().then(renderCodex); // start loading right away so ENTER is instant
+  $("menu-codex").onclick=()=>{ sfx("click"); openCodex(); };
+  $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
+  $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
+  $("menu-help").onclick=()=>{ sfx("click"); openTutorial(); };
+  let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
   ready.catch(()=>{});
   $("btn-continue").onclick=async()=>{
     const d = loadRun(); if(!d) return renderTitle();
@@ -3567,7 +3622,7 @@ async function init(){
     const label = $("btn-start").textContent;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
     try{ await ready; }
-    catch(e){ ready = loadAssets().then(renderCodex); ready.catch(()=>{}); $("btn-start").textContent="asset load failed — retry"; $("btn-start").disabled=false; return; }
+    catch(e){ ready = loadAssets().then(renderTitle); ready.catch(()=>{}); $("btn-start").textContent="asset load failed — retry"; $("btn-start").disabled=false; return; }
     $("btn-start").disabled=false; $("btn-start").textContent=label;
     sfx("click");
     $("btn-begin").disabled = true;
