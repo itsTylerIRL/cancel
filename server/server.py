@@ -4,6 +4,7 @@
 Standard library only. Listens on localhost; nginx terminates TLS and proxies to it.
 
   POST /api/score   submit a finished run (JSON)
+  POST /api/daily/start   a daily run has begun. Only a player's first daily run of the day counts on that board
   GET  /api/board   ?daily=YYYY-MM-DD | ?seed=CODE | ?all=1   [&limit=50] [&player=ID]
                     each entry carries the run's "id", its "share" link and its card "image"
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
@@ -53,6 +54,7 @@ POSTS_PER_HOUR = 30       # per client address
 TRIBES = {"hypebeast", "gyaru", "lolita", "harajuku", "prep"}
 COLLECTIONS = {"milady", "remilio"}
 RE_PLAYER = re.compile(r"^[a-z0-9]{8,32}$")
+RE_RUN = re.compile(r"^[a-z0-9]{8,32}$")
 RE_SEED = re.compile(r"^[a-z0-9]{1,12}$")
 RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 RE_RELIC = re.compile(r"^[a-z0-9_]{1,24}$")
@@ -77,6 +79,10 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE TABLE IF NOT EXISTS cards (
   id TEXT PRIMARY KEY, created INTEGER NOT NULL, data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS attempts (
+  date TEXT NOT NULL, player TEXT NOT NULL, run TEXT NOT NULL, created INTEGER NOT NULL,
+  PRIMARY KEY(date, player)
 );
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
@@ -414,12 +420,14 @@ def parse_run(d):
 
     cult = d.get("cult")  # an older copy of the game doesn't send it: leave it off the card rather than print 0
     cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
+    run = d.get("run")
+    run = run if isinstance(run, str) and RE_RUN.match(run) else None
     st = d.get("stats")
     stats = None
     if isinstance(st, dict):
         stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
                  and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
-    row = dict(stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
+    row = dict(run=run, stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
                player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
@@ -499,6 +507,18 @@ def hall(limit):
                WHERE s.board LIKE 'daily:%' AND s.id=(SELECT t.id FROM scores t WHERE t.board=s.board ORDER BY t.score DESC, t.created ASC LIMIT 1)
                ORDER BY s.board DESC LIMIT ?""", (limit,)).fetchall()
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
+
+
+def daily_attempt(con, date, player, run, now):
+    """True if `run` is this player's one daily run for `date`. The first run started (or, failing that, the first
+    one posted) claims the day; a player already on that day's board from before this rule has used theirs."""
+    got = con.execute("SELECT run FROM attempts WHERE date=? AND player=?", (date, player)).fetchone()
+    if got:
+        return got[0] == run
+    if con.execute("SELECT 1 FROM scores WHERE board=? AND player=?", ("daily:" + date, player)).fetchone():
+        return False
+    con.execute("INSERT OR IGNORE INTO attempts (date, player, run, created) VALUES (?,?,?,?)", (date, player, run, now))
+    return True
 
 
 def forget_old_cards(con, now):
@@ -720,7 +740,39 @@ class Handler(BaseHTTPRequestHandler):
         player = one("player") if RE_PLAYER.match(one("player")) else None
         self.send(200, read_board(board, limit, player))
 
+    def daily_start(self):
+        """A daily run has begun: the first one a player starts on a given day is the one that will count."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = json.loads(self.rfile.read(length)) if 0 < length <= MAX_BODY else None
+        except (ValueError, UnicodeDecodeError):
+            d = None
+        if not isinstance(d, dict):
+            return self.send(400, {"error": "bad json"})
+        player, run, daily = d.get("player"), d.get("run"), d.get("daily")
+        handle = read_session(d.get("session"))
+        if handle:
+            player = verified_player(handle)
+        ok = (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith("rn"))
+              and isinstance(run, str) and RE_RUN.match(run) and isinstance(daily, str) and RE_DATE.match(daily))
+        if ok:
+            try:
+                ok = abs((datetime.strptime(daily, "%Y-%m-%d").date() - utc_today()).days) <= 1
+            except ValueError:
+                ok = False
+        if not ok:
+            return self.send(400, {"error": "bad start"})
+        if not rate_ok("start:" + self.client_key(), 60):
+            return self.send(429, {"error": "slow down"})
+        with db() as con:
+            first = daily_attempt(con, daily, player, run, int(time.time()))
+        self.send(200, {"ok": True, "first": first})
+
     def do_POST(self):
+        if urlparse(self.path).path == "/api/daily/start":
+            if not self.allowed_origin():
+                return self.send(403, {"error": "origin not allowed"})
+            return self.daily_start()
         if urlparse(self.path).path != "/api/score":
             return self.send(404, {"error": "not found"})
         if not self.allowed_origin():  # browsers always send Origin on a cross-site POST
@@ -748,6 +800,11 @@ class Handler(BaseHTTPRequestHandler):
         row["card"] = share
         with db() as con:
             for board in boards:
+                if board.startswith("daily:") and not daily_attempt(con, board[6:], row["player"], row["run"] or share, now):
+                    # not this player's first daily run today: the board keeps the first, this one is practice
+                    total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
+                    ranks[board] = dict(rank_of(con, board, row["player"]) or {}, total=total, locked=True)
+                    continue
                 # one row per player per board: a new run replaces it only if it scored higher
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,

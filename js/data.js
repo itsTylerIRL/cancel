@@ -92,7 +92,7 @@ const RELICS = [
  {id:"trucker", name:"White Rabbit Trucker", rar:"legendary", set:["hype"], desc:"Your crits heal you for 5.", icon:["Milady", "Hat", "Trucker White Rabbit"], tags:[]},
  {id:"scarface", name:"Scarface Suit", rar:"rare", set:["degen", "cheese"], desc:"+1 damage per 40 $CULT you hold (max +8).", icon:["Remilio", "Shirt", "Scarface Suit"], tags:[]},
  {id:"silver_coin", name:"Silver Coin", rar:"common", set:["degen"], desc:"+15 $CULT after every victory.", icon:["Milady", "Necklaces", "Silver Coin Necklace"], tags:[]},
- {id:"game_watch", name:"Game & Watch", rar:"legendary", set:["degen", "bonkler"], desc:"Degen Shrines never lose.", icon:["Bonkler", "Offhand", "Game & Watch"], tags:[]},
+ {id:"game_watch", name:"Game & Watch", rar:"legendary", set:["degen", "bonkler"], desc:"Your first Degen Shrine flip each day can't lose.", icon:["Bonkler", "Offhand", "Game & Watch"], tags:[]},
  {id:"cat_ears", name:"Cat Ears", rar:"common", set:["kawaii"], desc:"+6% dodge. Heal 3 HP whenever you dodge.", icon:["Milady", "Hat", "Cat Ears with Bell"], tags:[]},
  {id:"strawberry", name:"Strawberry Earring", rar:"common", set:["kawaii"], desc:"+8 max HP. Heal 3 HP after every victory.", icon:["Milady", "Earrings", "Strawberry Earring"], tags:[]},
  {id:"lollipop", name:"Lollipop", rar:"common", set:["kawaii"], desc:"Heal 1 HP every tick.", icon:["Remilio", "Mouth", "Lollipop"], tags:[]},

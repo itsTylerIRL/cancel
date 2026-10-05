@@ -562,6 +562,7 @@ function newRun(ava, opt){
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
+    runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
     maxSlots: 4 + (META.unlocks.slot1?1:0) - (heat>=5?1:0),
@@ -592,7 +593,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1628,10 +1629,13 @@ function openShop(note){
 }
 
 /* ---------- shrine (the gambler's corner) ---------- */
+const watchReady = () => hasRelic("game_watch") && G.watchDay!==G.day;
+const watchNote = () => !hasRelic("game_watch") ? "" : watchReady() ? "🎮 Game & Watch: your first flip today can't lose" : "🎮 Game & Watch: used today. this flip is a real one";
 function openShrine(){
   let flipping = false;
   let html = "<h2>🎰 DEGEN SHRINE</h2><div class='stat-line'><span>your $CULT</span><b id='shrine-cult'>"+G.cult+"</b></div>"
     + "<div class='note'>Bet $CULT on a coin flip.<br>Win → double your bet and draft a relic. Lose → the void keeps it.<br>The shrine goes dark once it pays out.</div>"
+    + "<div class='note "+(watchReady()?"good":"")+"' id='watch-note'>"+watchNote()+"</div>"
     + "<div class='coinflip' id='coinflip'>🪙</div><div class='bet-row'>"
     + [25,50,100].map(b=>"<button class='btn small' data-b='"+b+"'>"+b+"</button>").join("")
     + "<button class='btn small' data-b='all'>ALL IN</button></div>"
@@ -1640,6 +1644,7 @@ function openShrine(){
   const bets = [...document.querySelectorAll("#modal-panel .bet-row .btn")];
   const refresh = ()=>{
     $("shrine-cult").textContent = G.cult;
+    $("watch-note").textContent = watchNote(); $("watch-note").classList.toggle("good", watchReady());
     bets.forEach(b=>{ b.disabled = flipping || G.cult<=0 || (b.dataset.b!=="all" && G.cult < +b.dataset.b); });
     $("shrine-leave").disabled = flipping;
   };
@@ -1650,7 +1655,9 @@ function openShrine(){
     const cf=$("coinflip"); cf.textContent="🪙"; cf.classList.add("spin");
     refresh(); renderHUD();
     setTimeout(()=>{
-      const win = hasRelic("game_watch") || rnd() < (districtAt(G.px,G.py)===3 ? 0.65 : 0.5);
+      const sure = watchReady(); // Game & Watch: the first flip of each day can't lose
+      if(sure) G.watchDay = G.day;
+      const win = sure || rnd() < (districtAt(G.px,G.py)===3 ? 0.65 : 0.5);
       cf.classList.remove("spin");
       cf.textContent = win?"🌸":"💀";
       sfx(win?"win":"bad");
@@ -2800,9 +2807,25 @@ async function drawLook(cv, look, relics){ // paint a board entry's face onto a 
   cv.getContext("2d").drawImage(full, w*0.1, w*0.14, w*0.8, w*0.8, 0, 0, 144, 144);
   cv.classList.add("ready");
 }
+/* The daily board takes one run per player per day: the first one started. The service is told when a daily
+   begins, so quitting a bad run doesn't buy another go; later runs that day are practice. */
+function startDaily(run){
+  if(!run.daily) return;
+  const mine = META.dailyAt && META.dailyAt.date===run.daily;
+  if(!mine){ META.dailyAt = {date:run.daily, run:run.runId}; saveMeta(); }
+  else if(META.dailyAt.run!==run.runId) markPractice(run);
+  api("/api/daily/start", { player:playerId(), run:run.runId, daily:run.daily, session: rnUser() ? rnUser().token : undefined })
+    .then(r=>{ if(r && r.first===false && G===run) markPractice(run); });
+}
+function markPractice(run){
+  if(run.practice) return;
+  run.practice = true;
+  mlog("📅 You've already played today's daily. <b>This run is practice</b>: it won't change your place on the daily board.", "");
+}
 function submitRun(run, win, drip){
   const nft = run.base.nft;
   return api("/api/score", {
+    run: run.runId,
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
@@ -2824,6 +2847,7 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
   if(!res || !res.boards) return "";
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
     const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
+    if(b.locked) return "<div>📅 the daily keeps your <b>first run</b> of the day"+(b.rank ? ": #"+b.rank+" of "+b.total+" with "+b.score : "")+" <span class='dim'>(this one was practice)</span></div>";
     return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score>res.sent ? " <span class='dim'>(your best: "+b.score+")</span>" : "")+"</div>";
   }).join("");
 }
@@ -2946,7 +2970,10 @@ function renderPicks(){
     + (kit.note && kit.note.length ? "<span class='kit'>token kit: "+kit.note.join(" · ")+"</span>" : "")+"</div>";
   $("tribes").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.tribe=b.dataset.t; META.tribe=PICK.tribe; saveMeta(); sfx("click"); renderPicks(); }; });
   const max = META.heat||0;
+  const played = PICK.daily && META.dailyAt && META.dailyAt.date===PICK.daily;
   $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
+      + "<div class='note"+(played?" bad":"")+"'>"+(played ? "you've already played today's daily: only that first run counts. this one is practice"
+                                                          : "one attempt: only your first run of the day counts on the daily board")+"</div>"
     : PICK.seed ? "<div class='note good'>🔗 MAP "+PICK.seed+" — the same maze as whoever sent you the link</div>"
     : !max ? "" : "<div class='kicker'>heat</div><div class='pick-row'>"+Array.from({length:max+1},(_,i)=>"<button class='pick"+(i===PICK.heat?" on":"")+"' data-h='"+i+"'>"+(i?"🔥 "+i:"off")+"</button>").join("")+"</div>"
       + "<div class='note'>"+(PICK.heat ? HEAT.slice(0,PICK.heat).join(" · ")+" · +"+25*PICK.heat+"% DRIP" : "beat THE CANCEL to unlock the next heat")+"</div>";
@@ -3222,6 +3249,7 @@ async function init(){
     mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     startDay();
+    startDaily(G);
     sfx("relic"); saveRun();
     if(!META.tut) openTutorial();
   };
