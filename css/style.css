@@ -974,3 +974,84 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 #btn-daily.played{color:var(--dim);border-color:var(--line);}
 #btn-start{opacity:.92;} #btn-start.lead{opacity:1;box-shadow:0 0 26px rgba(139,233,253,.35);}
 body.calm #btn-daily.funnel{animation:none;}
+/* ---------- cursed altar ---------- */
+.tile.poi.t18 span{border-color:#bd93f9;background:#0d0618;box-shadow:0 2px 0 #000,0 0 14px rgba(189,147,249,.6);animation:altar 2.6s ease-in-out infinite;}
+@keyframes altar{50%{box-shadow:0 2px 0 #000,0 0 24px rgba(255,85,85,.7);}}
+.npc-face.altar{border-color:#bd93f9;background:#0d0618;box-shadow:0 0 26px rgba(189,147,249,.5);}
+.altar-offer{justify-content:center;} .altar-offer .card{pointer-events:none;max-width:260px;}
+.curses{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;} .curses .choice{margin:0;border-color:rgba(255,85,85,.4);}
+.curses .choice:not(:disabled):hover,.curses .choice.ksel{border-color:var(--red);box-shadow:0 0 16px rgba(255,85,85,.3);}
+.chip.curse{border-color:rgba(255,85,85,.5);color:#ff8b8b;background:rgba(255,85,85,.07);}
+@media (max-width:520px){ .curses{grid-template-columns:1fr;} }
+/* ---------- hit effects: every kind of damage looks like what it is ---------- */
+.hitfx{position:absolute;inset:0;pointer-events:none;z-index:4;border-radius:10px;overflow:hidden;}
+.hitfx i{position:absolute;left:50%;top:50%;font-style:normal;}
+.fx-slash::before,.fx-crit::before{content:"";position:absolute;left:-10%;right:-10%;top:calc(50% - 2px);height:4px;border-radius:4px;background:linear-gradient(90deg,transparent,#fff 30%,#fff 70%,transparent);
+  transform:rotate(var(--rot,-30deg)) scaleX(0);animation:slash .28s ease-out forwards;box-shadow:0 0 12px #fff;}
+.fx-crit::before{height:8px;background:linear-gradient(90deg,transparent,#f1fa8c 25%,#fff 50%,#f1fa8c 75%,transparent);box-shadow:0 0 22px #f1fa8c;}
+.fx-crit::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.85),rgba(241,250,140,.4) 35%,transparent 65%);animation:pop .32s ease-out forwards;}
+@keyframes slash{0%{transform:rotate(var(--rot,-30deg)) scaleX(0);opacity:1;}60%{transform:rotate(var(--rot,-30deg)) scaleX(1);opacity:1;}100%{transform:rotate(var(--rot,-30deg)) scaleX(1.1);opacity:0;}}
+@keyframes pop{0%{transform:scale(.2);opacity:1;}100%{transform:scale(1.5);opacity:0;}}
+.critflash{animation:critflash .26s ease-out;} @keyframes critflash{0%{filter:brightness(2.2) contrast(1.3);}100%{filter:none;}}
+.fx-guard::before{content:"";position:absolute;inset:12%;border:3px solid #8be9fd;border-radius:50%;box-shadow:0 0 18px #8be9fd,inset 0 0 18px rgba(139,233,253,.6);animation:ripple .5s ease-out forwards;}
+.fx-ward::before{content:"";position:absolute;inset:8%;border:3px solid #f1fa8c;border-radius:14px;box-shadow:0 0 18px #f1fa8c,inset 0 0 22px rgba(241,250,140,.5);animation:ripple .5s ease-out forwards;}
+@keyframes ripple{0%{transform:scale(.55);opacity:1;}100%{transform:scale(1.25);opacity:0;}}
+.fx-bleed i,.fx-poison i,.fx-pounce i,.fx-blast i,.fx-frost i,.fx-burn i{width:9px;height:9px;border-radius:50%;animation:spray .55s ease-out forwards;}
+@keyframes spray{0%{transform:rotate(var(--a)) translateX(0) scale(1);opacity:1;}100%{transform:rotate(var(--a)) translateX(var(--d)) scale(.3);opacity:0;}}
+.fx-bleed i{background:#c00018;box-shadow:0 0 6px #ff3040;border-radius:50% 50% 50% 0;}
+.fx-poison i{background:#50fa7b;box-shadow:0 0 8px #50fa7b;opacity:.9;}
+.fx-pounce i{background:#fff;width:5px;height:16px;border-radius:3px;box-shadow:0 0 8px #fff;}
+.fx-blast i{background:#ffb86c;box-shadow:0 0 12px #ff5555;width:12px;height:12px;}
+.fx-frost i{background:#dff8ff;width:6px;height:18px;border-radius:1px;box-shadow:0 0 10px #9ff3ff;clip-path:polygon(50% 0,100% 100%,0 100%);}
+.fx-frost{background:radial-gradient(circle,rgba(190,240,255,.55),transparent 65%);animation:fadeaway .6s ease-out forwards;}
+.fx-burn i{background:#ffb347;box-shadow:0 0 10px #ff5a00;animation:ember .6s ease-out forwards;top:78%;}
+@keyframes ember{0%{transform:translate(calc(-50% + (var(--d) - 50px) * 2),0) scale(1);opacity:1;}100%{transform:translate(calc(-50% + (var(--d) - 50px) * 2.6),-90px) scale(.2);opacity:0;}}
+.fx-burn{background:linear-gradient(0deg,rgba(255,110,0,.5),transparent 55%);animation:fadeaway .6s ease-out forwards;}
+.fx-shock{background:linear-gradient(100deg,transparent 46%,#fff 48%,#f1fa8c 50%,transparent 53%),linear-gradient(80deg,transparent 30%,#fff 32%,transparent 35%);animation:shock .3s steps(3) forwards;}
+@keyframes shock{0%{opacity:1;filter:brightness(2);}66%{opacity:.4;transform:translateX(6px);}100%{opacity:0;}}
+.fx-thorns{background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.75) 0 4deg,transparent 4deg 30deg);-webkit-mask-image:radial-gradient(circle,transparent 30%,#000 32%,#000 60%,transparent 62%);mask-image:radial-gradient(circle,transparent 30%,#000 32%,#000 60%,transparent 62%);animation:pop .4s ease-out forwards;}
+.fx-dodge{background:linear-gradient(90deg,transparent,rgba(139,233,253,.5),transparent);animation:whoosh .35s ease-out forwards;}
+@keyframes whoosh{0%{transform:translateX(-80%) skewX(-20deg);opacity:1;}100%{transform:translateX(80%) skewX(-20deg);opacity:0;}}
+.fx-hex{background:repeating-linear-gradient(0deg,rgba(255,85,85,.5) 0 3px,transparent 3px 9px);animation:hex .4s steps(4) forwards;}
+@keyframes hex{0%{opacity:1;transform:translateY(-4px);}50%{transform:translateY(4px);}100%{opacity:0;}}
+@keyframes fadeaway{0%{opacity:1;}100%{opacity:0;}}
+/* ---------- the map is a place ---------- */
+.map-frame{position:relative;}
+.weather{position:absolute;inset:8px;z-index:6;pointer-events:none;border-radius:12px;overflow:hidden;opacity:.5;transition:opacity .8s;}
+.weather::before,.weather::after{content:"";position:absolute;inset:-100% 0 0 0;}
+/* Milady Maker: drifting petals */
+.weather.w0::before{background-image:radial-gradient(circle,rgba(255,121,198,.85) 0 2px,transparent 3px),radial-gradient(circle,rgba(255,180,220,.7) 0 1.5px,transparent 2.5px);background-size:190px 170px,130px 210px;background-position:20px 30px,90px 110px;animation:drift 16s linear infinite;}
+/* Remilio: neon rain */
+.weather.w1::before{background-image:linear-gradient(105deg,transparent 0 49.4%,rgba(189,147,249,.75) 49.6% 50%,transparent 50.2%);background-size:46px 120px;animation:rain .7s linear infinite;}
+.weather.w1::after{background-image:linear-gradient(105deg,transparent 0 49.5%,rgba(139,233,253,.5) 49.7% 50%,transparent 50.2%);background-size:74px 170px;animation:rain 1.1s linear infinite;}
+/* Bonkler: square embers rising */
+.weather.w2::before{background-image:linear-gradient(rgba(80,250,123,.8),rgba(80,250,123,.8)),linear-gradient(rgba(255,184,108,.7),rgba(255,184,108,.7));background-size:3px 3px,2px 2px;background-repeat:repeat;
+  -webkit-mask-image:radial-gradient(circle,#000 0 2px,transparent 3px);mask-image:radial-gradient(circle,#000 0 2px,transparent 3px);-webkit-mask-size:150px 130px;mask-size:150px 130px;animation:rise 9s linear infinite;}
+/* Cult: slow candle motes */
+.weather.w3::before{background-image:radial-gradient(circle,rgba(241,250,140,.9) 0 1.5px,rgba(241,250,140,.25) 3px,transparent 6px);background-size:210px 190px;animation:rise 22s linear infinite;}
+.weather.w3::after{background-image:radial-gradient(circle,rgba(255,184,108,.7) 0 1px,transparent 4px);background-size:140px 230px;background-position:60px 0;animation:rise 30s linear infinite;}
+@keyframes drift{to{transform:translate(-90px,50%);}} @keyframes rain{to{transform:translate(-24px,120px);}} @keyframes rise{from{transform:translateY(50%);}to{transform:translateY(0);}}
+/* night: the edges close in */
+.weather.night{opacity:.75;box-shadow:inset 0 0 90px 30px rgba(4,2,16,.92),inset 0 0 0 200vmax rgba(20,10,60,.16);}
+#map.night .tile.poi.t7 span{box-shadow:0 0 22px 6px rgba(255,150,40,.8);border-color:#ffd08a;}
+.tile.poi.t7 span{animation:flicker 1.7s steps(7) infinite;} @keyframes flicker{0%,100%{filter:brightness(1);}20%{filter:brightness(1.35);}45%{filter:brightness(.85);}70%{filter:brightness(1.2);}}
+.tile.reveal{animation:unfog .55s ease-out backwards;} @keyframes unfog{from{opacity:0;filter:blur(6px) brightness(2);transform:scale(.85);}}
+.hunter-eyes{position:absolute;aspect-ratio:1;z-index:3;pointer-events:none;display:flex;align-items:center;justify-content:center;gap:16%;animation:eyes 3.2s ease-in-out infinite;transition:left .22s ease-in-out,top .22s ease-in-out;}
+.hunter-eyes i{width:14%;aspect-ratio:1;border-radius:50%;background:#ff3030;box-shadow:0 0 8px 2px #ff3030,0 0 18px 4px rgba(255,48,48,.6);}
+@keyframes eyes{0%,42%,48%,100%{opacity:.95;transform:scaleY(1);}45%{opacity:.2;transform:scaleY(.1);}}
+/* ---------- THE CANCEL is coming: the last three days ---------- */
+#doom-veil{position:fixed;inset:0;z-index:150;pointer-events:none;opacity:0;transition:opacity 2s, box-shadow 2s;}
+body.doom-1 #doom-veil{opacity:1;box-shadow:inset 0 0 120px 10px rgba(255,40,40,.16);}
+body.doom-2 #doom-veil{opacity:1;box-shadow:inset 0 0 170px 30px rgba(255,40,40,.28);animation:doompulse 3.4s ease-in-out infinite;}
+body.doom-3 #doom-veil{opacity:1;box-shadow:inset 0 0 200px 40px rgba(255,30,30,.30);animation:doompulse 1.9s ease-in-out infinite;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,0,0,.022) 3px 4px);}
+@keyframes doompulse{50%{filter:brightness(1.5);}}
+body[class*="doom-"] #timeline .day.boss:last-child{animation:cancelnear 1.4s ease-in-out infinite;border-color:#ff2020;}
+body.doom-3 #timeline .day.boss:last-child{animation-duration:.6s;}
+@keyframes cancelnear{50%{box-shadow:0 0 22px 4px rgba(255,40,40,.8);transform:scale(1.05);}}
+body.doom-2 #timeline .day:not(.boss),body.doom-3 #timeline .day:not(.boss){background-image:linear-gradient(115deg,transparent 46%,rgba(255,60,60,.5) 47% 48%,transparent 49%),linear-gradient(60deg,transparent 60%,rgba(255,60,60,.35) 61% 62%,transparent 63%);}
+body.doom-2 #doom b,body.doom-3 #doom b{animation:blink .9s steps(2) infinite;color:#ff3030;}
+body.doom-2 .brand,body.doom-3 .brand{text-shadow:-2px 0 #ff3030,2px 0 #8be9fd;animation:blink 2.3s steps(2) infinite;}
+#app.tear{animation:tear .2s steps(3);} @keyframes tear{0%{transform:translateX(-7px) skewX(-1.5deg);filter:hue-rotate(-25deg) saturate(1.8);clip-path:inset(0 0 62% 0);}50%{transform:translateX(6px);clip-path:inset(38% 0 20% 0);}100%{transform:none;clip-path:none;}}
+.whisper{color:#ff8b8b;opacity:.85;}
+body.calm .weather::before,body.calm .weather::after,body.calm .hunter-eyes,body.calm #doom-veil,body.calm .tile.poi.t7 span,body.calm [class*="doom-"] #timeline .day{animation:none!important;}

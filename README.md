@@ -18,6 +18,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
 - **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and returns one random relic a grade higher. One trade each, and neither lets you pick.
 - **Scearpo.** Scorched earth policy. Hand him a relic and he flips a coin: it comes back a tier higher, or it burns.
+- **Cursed altars.** A legendary relic, lying there, free. Take it and you carry a curse of your choosing for the rest of the run: a sealed slot, blood at every dawn, shops that won't serve you, or a chunk of your health.
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
 - **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
 - **No one stat wins.** Enemies are guarded: a single hit takes at most half their health, a quarter of a boss's, so nothing dies in one swing. Crit past 100% turns into crit damage. Burn, bleed, poison and companions grow stronger every day, the way enemies do.
@@ -27,6 +28,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Inflation.** Shops put their prices up 25% for every boss you beat.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.
+- **The last three days.** From day 7 the interface itself starts to give: red at the edges, cracks in the timeline, things said in the feed. By day 9 you know something is arriving.
 - **Nights.** Hunters path toward you. Campfires only work after dark: sleep at one to heal and skip to dawn, and it burns out.
 - **Done waiting?** Click the next boss on the timeline to fight it now. Win and it never shows up, so the days it would have taken are yours.
 - **Tribes.** Hypebeast, Degen Trader, Lovebomber, Accelerationist, Wartime Poster. Each starts with its own relic.

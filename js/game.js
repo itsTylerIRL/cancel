@@ -579,7 +579,7 @@ function newRun(ava, opt){
   };
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
-  G.keys = 0; G.flags = {};
+  G.keys = 0; G.flags = {}; G.curses = {}; G.altars = {};
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
@@ -593,7 +593,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -832,10 +832,10 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18 };
 const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp" }; // their own profile pictures
-const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo" };
+const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -900,7 +900,7 @@ function genMap(){
   put(T.VAULT,5,true); // locked rooms at dead ends; the keys are somewhere else entirely
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
-  put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); // placed last, so everything above stays where it always was on a given seed
+  put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); put(T.ALTAR,4); // placed last, so everything above stays where it always was on a given seed
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
@@ -998,7 +998,11 @@ function renderHUD(){
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
-  $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"")+(G.keys?chip("🗝️","keys",G.keys):"");
+  $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"")+(G.keys?chip("🗝️","keys",G.keys):"")
+    + (G.curses ? (G.curses.dawn?"<span class='chip curse' title='cursed: you lose this much HP every dawn'>🩸 −"+G.curses.dawn+"/dawn</span>":"")
+      + (G.curses.shunned?"<span class='chip curse' title='cursed: no shop will serve you'>🚫 shunned</span>":"")
+      + (G.curses.sealed?"<span class='chip curse' title='cursed: relic slots sealed'>🔒 −"+G.curses.sealed+" slot</span>":"")
+      + (G.curses.frail?"<span class='chip curse' title='cursed: max HP taken'>💔 −"+G.curses.frail+"</span>":"") : "");
   if(shownStats) for(const el of $("hud-chips").children){ const k = el.title, d = now[k]-shownStats[k]; if(d) el.classList.add(d>0?"bump-up":"bump-down"); }
   if(shownStats && now.HP!==shownStats.HP) { const hb = $("hp-fill").parentNode; hb.classList.remove("bump"); void hb.offsetWidth; hb.classList.add("bump"); }
   shownStats = now;
@@ -1049,6 +1053,8 @@ function renderMap(){
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)"; m.style.gridTemplateRows = "repeat("+H+", 1fr)";
   $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
+  { const w = $("weather"); if(w) w.className = "weather w"+districtAt(G.px,G.py)+(G.phase==="night" ? " night" : ""); }
+  setDoom();
   m.innerHTML = ""; tileEl = {};
   const coin = coinSrc();
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
@@ -1140,6 +1146,39 @@ function placeHunters(){ // one sliding token per demon you can see
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
   }
   inner.querySelectorAll(".hunter-tok").forEach(el=>{ if(!live[el.dataset.id]) el.remove(); });
+  // the ones you can't see yet: if they are close, their eyes show in the dark
+  inner.querySelectorAll(".hunter-eyes").forEach(el=>el.remove());
+  for(const h of G.hunters){
+    if(!G.fog[h.y][h.x] || Math.abs(h.x-G.px)+Math.abs(h.y-G.py) > 8) continue;
+    const el = document.createElement("div"); el.className = "hunter-eyes"; el.innerHTML = "<i></i><i></i>";
+    el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
+    el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
+    el.style.animationDelay = (-(h.x*7+h.y*3)%30/10)+"s";
+    inner.appendChild(el);
+  }
+}
+/* ---------- THE CANCEL is coming: from day 7 the interface itself starts to give ----------
+   doom-1 on day 7, doom-2 on day 8, doom-3 on day 9, for as long as THE CANCEL is still out there. */
+const DOOM_LINES = [
+  ["someone you don't follow just quote-posted you.", "the notifications tab has a number on it. you didn't post anything.", "a screenshot is going around. you haven't seen it yet."],
+  ["people are being asked to \"address\" you.", "your mentions are loading slowly. there are a lot of them.", "a document has been compiled. it has headings."],
+  ["the thread has a part two.", "it's trending.", "everyone you know has seen it."] ];
+let doomLevel = 0, doomTimer = 0;
+function setDoom(){
+  const live = G && !G.over && G.bossesBeaten<3 && !$("screen-title").classList.contains("active") && !$("screen-avatar").classList.contains("active");
+  const lvl = live ? clamp(G.day-6, 0, 3) : 0;
+  if(lvl===doomLevel) return;
+  doomLevel = lvl;
+  for(let i=1;i<=3;i++) document.body.classList.toggle("doom-"+i, lvl===i);
+  clearInterval(doomTimer);
+  if(lvl>=2 && !META.calm) doomTimer = setInterval(()=>{ // now and then the whole screen tears for a moment
+    if(!doomLevel || document.hidden || Math.random() > (doomLevel===3 ? 0.6 : 0.3)) return;
+    const a = $("app"); a.classList.add("tear"); setTimeout(()=>a.classList.remove("tear"), 160+Math.random()*160);
+  }, 2600);
+}
+function doomWhisper(){ // something is said in the feed at each dawn and dusk of the last three days
+  if(!doomLevel || !G || G.over) return;
+  mlog("<i class='whisper'>"+DOOM_LINES[doomLevel-1][Math.floor(Math.random()*3)]+"</i>", "bad");
 }
 function mapFloat(text, cls){ // a line of text that rises off the player's tile
   const t = $("you-tok"), d = document.createElement("div"); d.className = "map-float "+(cls||""); d.textContent = text;
@@ -1154,7 +1193,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1179,6 +1218,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier, get one random relic of the next tier up. One trade.",
+  [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. One bargain.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
@@ -1226,6 +1266,7 @@ function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
   document.body.classList.toggle("on-title", id==="screen-title"); // the Return Home card only belongs on the title screen
+  setTimeout(setDoom, 0);
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
   window.scrollTo(0,0);
   if(id==="screen-avatar") navBegin = true;
@@ -1357,6 +1398,10 @@ function endPhase(){
 function startDay(){
   G.phase="day"; G.movesLeft=DAY_MOVES; G.hunters=[];
   mlog("☀️ <b>DAY "+G.day+"</b> dawns over the timeline.", "gold");
+  if(G.curses && G.curses.dawn && G.stats.hp>1){ // the altar's price
+    const d = Math.min(G.curses.dawn, G.stats.hp-1); G.stats.hp -= d;
+    mlog("🩸 The curse takes its due: <b>−"+d+" HP</b>.", "bad");
+  }
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
   if(bi>=0 && bi>=G.bossesBeaten){ // one you already beat early doesn't come
@@ -1367,6 +1412,7 @@ function startDay(){
   } else splash("☀️ DAY "+G.day, "day");
   showBanner();
   renderMap();
+  doomWhisper();
 }
 function showBanner(){
   const bb = $("boss-banner"), b = runBoss(G.bossUnlocked);
@@ -1377,6 +1423,7 @@ function startNight(){
   G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
   mlog("<b>NIGHT falls.</b> Schizoposters are hunting. Find a campfire.", "bad");
   splash("NIGHT FALLS<small>the schizoposters are hunting</small>", "night");
+  setTimeout(doomWhisper, 50);
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
@@ -1412,6 +1459,7 @@ function enterTile(t){
     case T.ONNO: openOnno(); break;
     case T.FANG: openFang(); break;
     case T.SCEARPO: openScearpo(); break;
+    case T.ALTAR: openAltar(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one. 📌 Pinned.", "bad"); setPin(G.px, G.py, true); break; }
@@ -1585,6 +1633,7 @@ function relicRow(r, extra, tail, tier, copy){ // a relic as a row: art, name, t
 }
 const SHOP_INFLATION = 0.25; // per boss beaten
 function openShop(note){
+  if(G.curses && G.curses.shunned){ mlog("🚫 The shutters come down as you walk up. <b>The shops won't serve you.</b>", "bad"); mapFloat("🚫 shunned", "loot"); sfx("bad"); return; }
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
@@ -1957,6 +2006,47 @@ function openFang(note, picked){
   $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
 }
 
+/* ---------- the cursed altar: the best relic on the map, for a price you pick ----------
+   Curses last the rest of the run. sealed: one relic slot is gone. dawn: you lose HP every morning.
+   shunned: no shop will serve you. frail: your max HP drops for good. */
+const CURSES = [
+  { id:"sealed",  icon:"🔒", name:"a slot seals shut",   text:"lose one relic slot for the rest of the run",
+    can:()=> G.relics.length <= G.maxSlots-2 ? "" : "needs a free slot to seal as well as one for the relic",
+    take:()=>{ G.maxSlots--; G.curses.sealed = (G.curses.sealed||0)+1; } },
+  { id:"dawn",    icon:"🩸", name:"it bleeds you at dawn", text:"lose 6 HP every morning (it won't take your last)",
+    can:()=>"", take:()=>{ G.curses.dawn = (G.curses.dawn||0)+6; } },
+  { id:"shunned", icon:"🚫", name:"the shops shun you",   text:"no shop will serve you again this run",
+    can:()=> G.curses.shunned ? "they already won't serve you" : "", take:()=>{ G.curses.shunned = 1; } },
+  { id:"frail",   icon:"💔", name:"it takes your health",  text:"−15 max HP, for good",
+    can:()=> G.stats.maxhp > 30 ? "" : "there isn't enough of you left to take", take:()=>{ G.bonus.maxhp -= 15; G.curses.frail = (G.curses.frail||0)+15; } },
+];
+function openAltar(note){
+  G.curses = G.curses || {}; G.altars = G.altars || {};
+  const key = G.px+","+G.py;
+  if(!G.altars[key]){ // what it offers is fixed the first time you look, so walking away and back doesn't reroll it
+    const best = shuffle(relicPool().filter(r=>r.rar==="legendary")), good = shuffle(relicPool().filter(r=>r.rar==="rare"));
+    G.altars[key] = (best[0] || good[0] || {}).id || "";
+  }
+  const r = relicById(G.altars[key]);
+  if(!r){ clearTile(); mlog("🕯️ The altar is bare. Whatever it held is gone.", ""); return; }
+  let html = "<h2>THE CURSED ALTAR</h2><div class='npc-face well altar'>🕯️</div>"
+    + "<div class='note'><i>Something is lying on the stone, and nobody is guarding it. That is the part that should worry you.</i><br>take it, and carry one curse of your choosing for the rest of the run</div>"
+    + (note ? "<div class='note bad'>"+note+"</div>" : "")
+    + "<div class='draft-cards altar-offer'>"+relicCard(r, "", true)+"</div><div class='curses'>";
+  CURSES.forEach((c,i)=>{ const no = c.can();
+    html += "<button class='choice' data-curse='"+i+"'"+(no?" disabled":"")+"><b>"+c.icon+" "+c.name+"</b><span>"+c.text+(no ? " — <i>"+no+"</i>" : "")+"</span></button>"; });
+  html += "</div><div class='row'><button class='btn small' id='altar-leave'>leave it on the stone</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-curse]").forEach(b=>{ b.onclick=()=>{
+    const c = CURSES[+b.dataset.curse]; if(c.can()) return;
+    acquireRelic(r, old=>{
+      c.take(); recalcStats(); clearTile(); delete G.altars[key]; sfx("boss"); burst("🕯️🩸");
+      mlog("🕯️ You took <b>"+r.name+"</b> from the altar"+(old?" <i>(dropped "+old.name+")</i>":"")+". The price: <b>"+c.icon+" "+c.name+"</b>.", "bad");
+      closeModal(); renderMap();
+    }, ()=>openAltar());
+  };});
+  $("altar-leave").onclick=()=>closeModal();
+}
 /* ---------- Scearpo: scorched earth policy. One relic, one coin flip: doubled, or ash ---------- */
 function openScearpo(note, cls){
   const here = G.px+","+G.py, done = G.traded===here;
@@ -2076,6 +2166,21 @@ function combatBars(you, foe){
   $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["💫",foe.stun,"stunned"]]
     .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
 }
+/* Every kind of damage has its own look. The fight log already says what happened, so the effect is read from it:
+   [which portrait, which effect]. */
+const LOG_FX = [ [/\(guarded\)/, "foe", "guard"], [/^🔥/, "foe", "burn"], [/^🩸 The curse/, "", ""], [/^🩸/, "foe", "bleed"], [/^🐍/, "foe", "poison"], [/^⚡/, "foe", "shock"],
+  [/freezes solid/, "foe", "frost"], [/^🛡️ Your armour/, "foe", "thorns"], [/^🧿/, "foe", "thorns"], [/^💨 You (dodge|slip)/, "you", "dodge"],
+  [/^🕯️/, "you", "ward"], [/^(🧸|🦊|🦖|📮)/, "foe", "pounce"], [/^💥|^🎈|^📉/, "you", "blast"], [/^📢|^🏦|^🌀|^📵/, "you", "hex"] ];
+function logFx(m){ const t = m.replace(/<[^>]+>/g,""); for(const [rx, side, kind] of LOG_FX) if(rx.test(t)) return side ? [side, kind] : null; return null; }
+function hitFx(side, kind){
+  if(META.calm) return;
+  const port = $("port-"+side); if(!port) return;
+  const d = document.createElement("div"); d.className = "hitfx fx-"+kind;
+  if(kind==="slash" || kind==="crit") d.style.setProperty("--rot", (-50+Math.random()*100).toFixed(0)+"deg");
+  if(["bleed","burn","poison","frost","pounce","blast"].includes(kind)) d.innerHTML = Array.from({length:kind==="frost"?7:6}, (_,i)=>"<i style='--a:"+Math.round(i*360/6+Math.random()*30)+"deg;--d:"+(30+Math.round(Math.random()*40))+"px'></i>").join("");
+  port.appendChild(d); setTimeout(()=>d.remove(), 700);
+}
+function critFlash(){ if(META.calm) return; const s = $("screen-combat"); s.classList.remove("critflash"); void s.offsetWidth; s.classList.add("critflash"); setTimeout(()=>s.classList.remove("critflash"), 260); }
 function lunge(side){ // the attacker jabs toward the other portrait
   const c = $("port-"+side), cls = side==="you" ? "lunge-r" : "lunge-l";
   c.classList.remove(cls); void c.offsetWidth; c.classList.add(cls);
@@ -2531,8 +2636,9 @@ function startCombat(foeDef, opts={}){
     d ? setTimeout(run, d) : run();
   };
   const io = {
-    log: clog,
-    hit: (side,dmg,crit)=>fx(()=>{ floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit"); if(crit) quake(); }),
+    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); },
+    hit: (side,dmg,crit)=>fx(()=>{ floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
+      hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
     strip: f=>{
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
@@ -2688,7 +2794,7 @@ function endRun(win){
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
   if(win) achieve("win");
-  document.body.classList.remove("danger");
+  document.body.classList.remove("danger"); setDoom();
   const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked", Math.floor(G.cult/25)]];
   if(win) parts.push(["timeline saved", 300]);
   const objDone = (G.objectives||[]).filter(o=>o.state==="done").length;
