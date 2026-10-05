@@ -687,6 +687,19 @@ function relicText(r, m, plain, copy){ // copy: a second item of a relic you alr
   if(flat) d += " \u0001+"+2*flat+" ATK, +"+6*flat+" max HP.\u0002";
   return d.replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
 }
+/* Just what a tier changes, without the rest of the sentence: "+8 ATK, +20% crit chance", "bites for 12". */
+function tierChange(r, m){
+  if(r.id==="ss_drip") return "+"+Math.round(50+100*BAL.dripExtra*(m-1))+"% ATK";
+  const out = [];
+  const f = FIGHT_RX[r.id] && r.desc.match(FIGHT_RX[r.id]);
+  if(f) out.push(((/^an? $/.test(f[1]) ? "" : f[1])+Math.round(f[2]*m)+(f[3]||"")).trim().replace(/^[A-Z]/, c=>c.toLowerCase()));
+  if(hasStatText(r)){
+    for(const s of r.desc.matchAll(new RegExp(STAT_RX.source, "g"))) out.push("+"+Math.round(s[1]*m)+s[2]+s[3]);
+    const d = r.desc.match(DODGE_RX); if(d) out.push(Math.round(d[1]*m)+d[2]);
+  }
+  if(flatTier(r)) out.push("+"+2*(m-1)+" ATK, +"+6*(m-1)+" max HP");
+  return out.join(", ").replace(/^(\d+%)$/, "$1 chance").replace(/^poison: (\d+)/, "poison $1 a tick");
+}
 const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain, G.relics.indexOf(r.id)!==i); // the item in slot i
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
@@ -3420,7 +3433,7 @@ function openCodex(tab, pick){
           : !seen ? "<div class='relic-ico unknown'>?</div><div><b>undiscovered</b><span>hold it in a run and it's written down here</span></div>"
           : "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''><div><b class='"+r.rar+"'>"+r.name+" <small class='rar-tag'>"+r.rar+"</small></b><span>"+r.desc+"</span>"
             + "<span class='dim'>"+r.set.map(k=>{ const s = SETS.find(t=>t.id===k); return s.icon+" "+s.name; }).join(" · ")
-            + " · 🥇 "+relicText(r, 2, true)+" · 💎 "+relicText(r, 4, true)+"</span></div>")+"</div>"
+            + "</span><span class='cx-tiers'><i class='gold'>🥇 "+tierChange(r, 2)+"</i><i class='diamond'>💎 "+tierChange(r, 4)+"</i></span></div>")+"</div>"
       + ["common","rare","legendary","cursed"].map(rar=>{ const list = pool.filter(x=>x.rar===rar); if(!list.length) return "";
           return "<div class='kicker cx-h'>"+rar+"</div><div class='codex-grid'>"+list.map(x=>{
             const a = LOCKED[x.id] && !META.ach[LOCKED[x.id]];
