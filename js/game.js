@@ -584,7 +584,7 @@ function newRun(ava, opt){
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
   if(META.unlocks.secondchance){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
-  oddsCache = {}; shownCult = G.cult; shownStats = null;
+  oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
   genMap();
@@ -618,7 +618,7 @@ async function resumeRun(d){
   SEED = d.rng;
   G.avatar = await composeAvatar(G.base, G.relics);
   G.face = faceToken(G.avatar, "Milady"); G.worn = G.relics.join();
-  oddsCache = {}; shownCult = G.cult;
+  oddsCache = {}; adaptCache = {}; shownCult = G.cult;
   recalcStats(); G.stats.hp = clamp(d.hp, 1, G.stats.maxhp);
   for(const k in d.foes) spawnFoe(k, ENEMIES.find(e=>e.id===d.foes[k].id), d.foes[k].picks, d.foes[k].tok);
   G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || cosmetic(()=>pinnedPicks(runBoss(i)))));
@@ -1171,7 +1171,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
-  return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts));
+  return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts))
+    + (f.adapt ? " · <span class='adapt' title='your build would walk through this, so the timeline raised it. it pays more'>📈 pushed back +"+Math.round(f.adapt*100)+"%</span>" : "");
 }
 /* Pins: a mark on a tile you mean to come back to. Right-click (or long-press, or P while pointing at it) to
    toggle one; a vault you had no key for and an NPC you left without trading pin themselves. A pin goes when
@@ -1420,7 +1421,35 @@ function enterTile(t){
    +22% on day 3, +65% on day 6, x2.2 on day 9), a point of ARM every three days, and they pay out more $CULT to
    match. Bosses grow +8.5% per day. */
 let BOSS_ATK_PER_DAY = 0.085;
-function foeInstance(def){
+/* The timeline pushes back. When a build would beat an elite, a hunter or a boss nearly every time, it meets a
+   tougher version: the game finds how much stronger the foe would need to be for the fight to be in doubt, and
+   raises it by most of that (so a better build still has better odds, just never a free pass). There is a limit,
+   ordinary monsters are left alone, nothing is raised before the first boss falls, and a raised foe pays more. */
+const ADAPT = { step:0.1, foe:1.2, boss:1.0, share:0.75, win:0.9, hpLeft:0.35, trials:14, pay:0.5 };
+let adaptCache = {};
+function adaptLevel(def){
+  if(!G || !G.stats) return 0;
+  const boss = BOSSES.find(b=>b.id===def.id) || null, s = G.stats;
+  if(!boss && def.tier!=="elite" && def.tier!=="hunter") return 0;
+  if(!G.bossesBeaten) return 0; // not until the first boss is down: the opening days are for finding your feet
+  const key = [def.id, G.day, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40))].join("|");
+  if(key in adaptCache) return adaptCache[key];
+  const keepSeed = SEED, hp = s.hp, base = foeBase(def), cap = boss ? ADAPT.boss : ADAPT.foe;
+  let need = 0;
+  SEED = null; s.hp = s.maxhp; // judged on the build at full health, not on how hurt you are right now
+  try{
+    for(; need < cap-1e-9; need = Math.round((need+ADAPT.step)*100)/100){ // how much tougher before the fight is in doubt
+      const foe = raised(base, need); let wins = 0, left = 0;
+      for(let i=0; i<ADAPT.trials; i++){ const F = trialFight(foe, boss ? {boss} : {}); if(F.win){ wins++; left += Math.max(0, F.you.hp); } }
+      if(wins < ADAPT.trials*ADAPT.win || left/Math.max(1,wins) < s.maxhp*ADAPT.hpLeft) break;
+    }
+  } finally { SEED = keepSeed; s.hp = hp; }
+  return adaptCache[key] = Math.round(need*ADAPT.share*20)/20; // to the nearest 5%
+}
+const raised = (f, lvl) => !lvl ? f : { ...f, hp:Math.round(f.hp*(1+lvl)), maxhp:Math.round(f.hp*(1+lvl)), atk:Math.round(f.atk*(1+lvl)),
+  cult:f.cult.map(c=>Math.round(c*(1+lvl*ADAPT.pay))), adapt:lvl };
+function foeInstance(def){ return raised(foeBase(def), adaptLevel(def)); }
+function foeBase(def){
   const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
   const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
   const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
@@ -1727,6 +1756,7 @@ function bossModal(b, title, fightLabel, canWait){
   const face = G.bossLook[G.bossIds.indexOf(b.id)].face;
   openModal("<h2>"+title+"</h2>"+(face?"<img class='boss-face' src='"+face+"' alt=''>":"")+"<div class='note'><i>"+b.intro+"</i></div><div class='stat-line'><span>mechanic</span><b>"+b.mechanic+"</b></div>"
     + "<div class='stat-line'><span>"+b.name+"</span><b>❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+"</b></div>"
+    + (foeInstance(b).adapt ? "<div class='note adapt'>📈 the timeline is pushing back: it is "+Math.round(foeInstance(b).adapt*100)+"% stronger against a build like yours</div>" : "")
     + "<div class='stat-line'><span>your odds right now</span><b>"+oddsText(fightOdds(b, {boss:b}))+"</b></div>"
     + "<div class='row'><button class='btn big' id='boss-fight'>"+fightLabel+"</button>"+(canWait?"<button class='btn small' id='boss-wait'>not yet</button>":"")+"</div>");
 }
@@ -2409,7 +2439,7 @@ function startCombat(foeDef, opts={}){
   navSet($("btn-skip"));
   $("combat-log").innerHTML="";
   $("combat-title").textContent = opts.label || (boss ? boss.name : "WILD "+foeDef.name.toUpperCase());
-  $("foe-name").textContent = foeDef.name.toUpperCase();
+  $("foe-name").textContent = foeDef.name.toUpperCase()+(foeDef.adapt ? "  📈+"+Math.round(foeDef.adapt*100)+"%" : "");
   $("you-name").textContent = G.name.toUpperCase();
   $("port-foe").classList.toggle("boss", !!boss);
   for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
@@ -3163,7 +3193,7 @@ function openTutorial(){
     + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
     + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🛡️</div><div class='sinfo'><b>Defence hits back</b><span>Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>⚖️</div><div class='sinfo'><b>No one stat wins</b><span>Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day.</span></div></div>"
+    + "<div class='shop-row'><div class='heal-ico'>⚖️</div><div class='sinfo'><b>No one stat wins</b><span>Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day. And once the first boss is down, the timeline pushes back: an elite or boss your build would walk through comes at you stronger, and pays more.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
     + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
   $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };

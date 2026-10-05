@@ -21,6 +21,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
 - **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
 - **No one stat wins.** Enemies are guarded: a single hit takes at most half their health, a quarter of a boss's, so nothing dies in one swing. Crit past 100% turns into crit damage. Burn, bleed, poison and companions grow stronger every day, the way enemies do.
+- **The timeline pushes back.** Once the first boss is down, an elite or boss your build would walk through shows up stronger, and pays more for it. A better build still has better odds. It just never gets a free pass.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
 - **Rerolls.** Don't like a draft? Pay to roll it again. The price doubles every time, so the third one hurts.
 - **Inflation.** Shops put their prices up 25% for every boss you beat.

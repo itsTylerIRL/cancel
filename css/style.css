@@ -909,3 +909,4 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 .duel-relics{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;} .duel-relics .relic-ico{width:24px;height:24px;}
 .king-box .duel-relics{justify-content:flex-start;margin:6px 2px 0;}
 .daily-clock{font-size:11px;margin:6px 0 0;} .daily-clock b{color:var(--neon);font-variant-numeric:tabular-nums;}
+.adapt{color:#ffb86c;} .note.adapt{font-size:11px;margin:2px 0;}
