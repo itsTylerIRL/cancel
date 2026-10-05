@@ -1076,3 +1076,8 @@ body.calm .weather::before,body.calm .weather::after,body.calm .hunter-eyes,body
 .cx-tiers{display:flex;flex-wrap:wrap;gap:6px 14px;} .cx-tiers i{font-style:normal;font-size:11px;} .cx-tiers .gold{color:#f1fa8c;} .cx-tiers .diamond{color:#9ff3ff;}
 #stale-note{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:400;display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--gold);border-radius:8px;background:rgba(2,6,8,.96);
   box-shadow:0 0 26px rgba(241,250,140,.3);font-size:12px;color:var(--gold);white-space:nowrap;} #stale-note .btn{margin:0;}
+/* hunters after each boss: redder, larger, more restless */
+.hunter-tok.nt1{box-shadow:0 0 16px 2px rgba(255,60,60,.8);border-color:#ff3030;}
+.hunter-tok.nt2{box-shadow:0 0 22px 5px rgba(255,30,30,.95);border-color:#ff1010;transform:scale(1.12);z-index:4;}
+.hunter-tok.nt1 img{animation-duration:.5s;} .hunter-tok.nt2 img{animation-duration:.32s;filter:saturate(1.6) contrast(1.2);}
+.hunter-eyes.nt1 i{width:17%;} .hunter-eyes.nt2 i{width:21%;box-shadow:0 0 12px 4px #ff2020,0 0 28px 8px rgba(255,32,32,.7);} .hunter-eyes.nt2{animation-duration:1.6s;}

@@ -1156,7 +1156,7 @@ function placeHunters(){ // one sliding token per demon you can see
     if(G.fog[h.y][h.x]) continue;
     h.id = h.id || Math.random().toString(36).slice(2,9); live[h.id] = 1;
     let el = inner.querySelector(".hunter-tok[data-id='"+h.id+"']");
-    if(!el){ el = document.createElement("div"); el.className="hunter-tok"; el.dataset.id=h.id; el.innerHTML="<img alt='' src='"+NFT.schizo.src(1+parseInt(h.id,36)%SCHIZO_LOCAL.length)+"'>"; inner.appendChild(el); }
+    if(!el){ el = document.createElement("div"); el.className="hunter-tok nt"+nightTier(); el.dataset.id=h.id; el.innerHTML="<img alt='' src='"+NFT.schizo.src(1+parseInt(h.id,36)%SCHIZO_LOCAL.length)+"'>"; inner.appendChild(el); }
     el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
   }
@@ -1165,7 +1165,7 @@ function placeHunters(){ // one sliding token per demon you can see
   inner.querySelectorAll(".hunter-eyes").forEach(el=>el.remove());
   for(const h of G.hunters){
     if(!G.fog[h.y][h.x] || Math.abs(h.x-G.px)+Math.abs(h.y-G.py) > 8) continue;
-    const el = document.createElement("div"); el.className = "hunter-eyes"; el.innerHTML = "<i></i><i></i>";
+    const el = document.createElement("div"); el.className = "hunter-eyes nt"+nightTier(); el.innerHTML = "<i></i><i></i>";
     el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
     el.style.animationDelay = (-(h.x*7+h.y*3)%30/10)+"s";
@@ -1386,7 +1386,7 @@ function travelTo(tx, ty){
 function advanceTime(){
   G.movesLeft--;
   // hunters stalk at night
-  if(G.phase==="night" && G.movesLeft%2===0){
+  if(G.phase==="night" && [G.movesLeft%2===0, G.movesLeft%3!==0, G.movesLeft%4!==0][nightTier()]){ // every 2nd step, then 2 of every 3, then 3 of every 4
     const dist = walkDist(G.px,G.py);
     for(const h of [...G.hunters]){
       // one step along the shortest way through the maze
@@ -1436,14 +1436,14 @@ function showBanner(){
 }
 function startNight(){
   G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
-  mlog("<b>NIGHT falls.</b> Schizoposters are hunting. Find a campfire.", "bad");
-  splash("NIGHT FALLS<small>the schizoposters are hunting</small>", "night");
+  mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
+  splash("NIGHT FALLS<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
   setTimeout(doomWhisper, 50);
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
   const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
-  for(const k of spots.slice(0, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
+  for(const k of spots.slice(0, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
 function clearTile(){ G.map[G.py][G.px]=T.EMPTY; }
@@ -1523,7 +1523,16 @@ function adaptLevel(def){
 const raised = (f, lvl) => !lvl ? f : { ...f, hp:Math.round(f.hp*(1+lvl)), maxhp:Math.round(f.hp*(1+lvl)), atk:Math.round(f.atk*(1+lvl)),
   cult:f.cult.map(c=>Math.round(c*(1+lvl*ADAPT.pay))), adapt:lvl };
 function foeInstance(def){ return raised(foeBase(def), adaptLevel(def)); }
+/* The night gets worse every time a boss falls: the hunters come back tougher, quicker and in greater number. */
+const NIGHT = { power:0.35, names:["Schizoposter","Unhinged Schizoposter","Terminal Schizoposter","Terminal Schizoposter"],
+  mood:["the schizoposters are hunting", "they are bolder tonight", "they are everywhere, and they are fast"] };
+const nightTier = () => clamp((G && G.bossesBeaten) || 0, 0, 2);
 function foeBase(def){
+  if(def.tier==="hunter" && nightTier() && !def.night){ // a hunter, raised for the bosses already beaten, then grown by the day like anything else
+    const t = nightTier();
+    return foeBase({ ...def, night:t, name:NIGHT.names[t], hp:Math.round(def.hp*(1+NIGHT.power*t)), atk:Math.round(def.atk*(1+NIGHT.power*t)), arm:def.arm+t, spd:def.spd+t,
+      cult:def.cult.map(c=>Math.round(c*(1+0.3*t))) });
+  }
   const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
   const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
   const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
@@ -2776,6 +2785,7 @@ function onBossDown(boss, forced, called){
   mlog("👑 <b>"+boss.name+" defeated!</b> +1 relic slot, HP restored.", "gold");
   renderMap(); // show the new slot and the full health bar now, before the tribute is offered over them
   if(G.bossesBeaten===1) wakeElites();
+  if(boss.id!=="cancel") mlog("🌑 The nights will be worse now. <b>The schizoposters come back "+(G.bossesBeaten>=2 ? "in greater number, and faster still" : "tougher and quicker")+".</b>", "bad");
   if(boss.id==="cancel"){ endRun(true); return; }
   if(!forced && !called) G.flags.gateBoss = true; // calling it out from across the map isn't beating it at its gate
   G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll)); // boss tribute always offers at least one relic above common
