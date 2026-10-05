@@ -11,7 +11,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `POST /api/score` | a finished run. Keeps each player's best per board: today's daily, all-time, and one per shared map |
 | `POST /api/daily/start` | a daily run has begun. A player's first daily run of the day is the only one that counts on that day's board |
 | `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE` or `?all=1`. Each entry has the run's `id`, its `share` link and its card `image` |
-| `GET /api/king` | today's king of the hill and when the hill next resets |
+| `GET /api/king` | this week's king of the hill, their relics, and when the hill (Sunday night, Eastern) and the daily next reset |
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
 | `GET /api/hall` | the best run of every daily map |
 | `GET /api/pulse` | games and wins today, this week, ever |

@@ -906,3 +906,6 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 .duel-log{height:150px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.5);padding:8px 10px;font-size:11px;line-height:1.5;text-align:left;}
 .duel-log .good{color:var(--acid);} .duel-log .bad{color:#ff8b8b;} .duel-log .crit{color:var(--gold);}
 @media (max-width:520px){ .king-card{flex-wrap:wrap;} .king-clock{border-left:0;padding-left:0;flex-basis:100% !important;flex-direction:row !important;justify-content:center;gap:8px !important;} }
+.duel-relics{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;} .duel-relics .relic-ico{width:24px;height:24px;}
+.king-box .duel-relics{justify-content:flex-start;margin:6px 2px 0;}
+.daily-clock{font-size:11px;margin:6px 0 0;} .daily-clock b{color:var(--neon);font-variant-numeric:tabular-nums;}

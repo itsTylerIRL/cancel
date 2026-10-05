@@ -9,7 +9,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
                     each entry carries the run's "id", its "share" link and its card "image"
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
   GET  /api/stats   how runs end, in aggregate (for balancing)
-  GET  /api/king    today's king of the hill, and when the hill (and the daily) next resets
+  GET  /api/king    this week's king of the hill, and when the hill and the daily next reset
   POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
   GET  /api/hall    the best run of every daily map
@@ -520,10 +520,23 @@ def hall(limit):
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
 
 
-# King of the hill. Anyone who beats THE CANCEL may fight the day's king: the king's final build, as a stat block.
+# King of the hill. Anyone who beats THE CANCEL may fight the week's king, build against build.
 # The fight runs in the challenger's browser like everything else, so the result is taken on trust, within limits:
 # one challenge per winning run, made soon after that run was posted, by the player who posted it.
-KING_LIMITS = {"hp": (10, 600), "atk": (1, 300), "arm": (0, 80), "spd": (1, 40), "crit": (0, 100), "dodge": (0, 65)}
+KING_LIMITS = {"hp": (10, 600), "atk": (1, 300), "arm": (0, 80), "spd": (1, 40), "crit": (0, 100), "dodge": (0, 65),
+               "batk": (0, 60), "bhp": (0, 200), "bspd": (0, 10)}
+
+
+def hill_week():
+    """The hill is held for a week. Its key is the Monday the week began on; it empties as Sunday night ends, Eastern."""
+    today = utc_today()
+    return (today - timedelta(days=today.weekday())).isoformat()
+
+
+def hill_reset():
+    now = daily_now()
+    monday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+    return int((monday + timedelta(days=7)).timestamp())
 
 
 def next_reset():
@@ -533,7 +546,7 @@ def next_reset():
 
 
 def king_public(con):
-    row = con.execute("SELECT * FROM hill WHERE date=?", (utc_today().isoformat(),)).fetchone()
+    row = con.execute("SELECT * FROM hill WHERE date=?", (hill_week(),)).fetchone()
     if not row:
         return None, None
     c = con.execute("SELECT data FROM cards WHERE id=?", (row["card"],)).fetchone()
@@ -543,7 +556,7 @@ def king_public(con):
     st = d.get("stats") or {}
     stats = {k: max(lo, min(hi, int(st.get(k, lo)))) for k, (lo, hi) in KING_LIMITS.items()}
     return {"name": d["name"], "handle": d.get("handle"), "look": d.get("look"), "relics": d["relics"], "tribe": d["tribe"],
-            "score": d["score"], "stats": stats, "since": row["since"], "defences": row["defences"], "id": row["card"],
+            "score": d["score"], "kills": d.get("kills", 0), "cult": d.get("cult") or 0, "stats": stats, "since": row["since"], "defences": row["defences"], "id": row["card"],
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"])}, row["player"]
 
 
@@ -555,7 +568,7 @@ def king_challenge(card, player, won, now):
         if not d or not d.get("win") or d.get("player") != player or not d.get("stats"):
             return 400, {"error": "only a run that just beat THE CANCEL can climb the hill"}
         if now - c["created"] > 3 * 3600:
-            return 400, {"error": "that win is too old: the hill is for today's runs"}
+            return 400, {"error": "that win is too old: challenge straight after the run"}
         king, king_player = king_public(con)
         if king_player == player:
             return 200, {"ok": True, "king": king, "you": True, "result": "already"}
@@ -563,10 +576,10 @@ def king_challenge(card, player, won, now):
             return 400, {"error": "this run has already had its challenge"}
         con.execute("INSERT INTO duels (card, created) VALUES (?,?)", (card, now))
         if king and not won:
-            con.execute("UPDATE hill SET defences=defences+1 WHERE date=?", (utc_today().isoformat(),))
+            con.execute("UPDATE hill SET defences=defences+1 WHERE date=?", (hill_week(),))
             return 200, {"ok": True, "king": king_public(con)[0], "you": False, "result": "lost"}
         con.execute("INSERT OR REPLACE INTO hill (date, card, player, since, defences) VALUES (?,?,?,?,0)",
-                    (utc_today().isoformat(), card, player, now))
+                    (hill_week(), card, player, now))
         return 200, {"ok": True, "king": king_public(con)[0], "you": True, "result": "took" if king else "claimed"}
 
 
@@ -774,7 +787,7 @@ class Handler(BaseHTTPRequestHandler):
             player = one("player") if RE_PLAYER.match(one("player")) else None
             with db() as con:
                 king, king_player = king_public(con)
-            return self.send(200, {"date": utc_today().isoformat(), "resets": next_reset(), "king": king,
+            return self.send(200, {"week": hill_week(), "resets": hill_reset(), "dailyResets": next_reset(), "king": king,
                                    "you": bool(player and king_player == player)})
         if u.path == "/api/pulse":
             return self.send(200, pulse())

@@ -2116,13 +2116,19 @@ function fightEngine(foeDef, opts, io){
   if(act("vibe_shift")){ foe.stun=1; io.log("🌀 Vibe shift. "+foe.name+" is caught off guard.", "good"); }
 
   function dmgCalc(att, def, isYou){
-    let atk = att.atk;
+    let atk = !isYou && att.puppet ? att.nextDmg : att.atk; // in a duel the foe's swing carries what the other build dealt this round
     if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += tv("blood_splatter",5);
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
     if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0) + heftOf(you.maxhp);
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
+    if(!isYou && att.puppet){ // already past armour and crits on the other side: only what you carry can soften it now
+      let d = Math.max(1, Math.round(atk));
+      if(def===you && act("fbi_cap")) d = Math.max(1, d-tv("fbi_cap",3));
+      if(def===you && you.hp < you.maxhp/2 && act("hodl")) d = Math.max(1, Math.round(d*0.7));
+      return {dmg:d, crit:false};
+    }
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
     // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
@@ -2165,13 +2171,7 @@ function fightEngine(foeDef, opts, io){
       const th = thornsOf(you.arm);
       if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
-    if(isYou && foe.dodge && rnd()*100 < foe.dodge){ // a king dodges like a player does, and answers back
-      const d = Math.max(1, Math.round(foe.atk/2) - (you.arm||0));
-      you.hp -= d; F.took += d; io.log("💨 "+foe.name+" slips it and counters for "+d+".", "bad"); io.float("foe","dodge","psn"); io.hit("you", d, false);
-      return;
-    }
     let {dmg,crit}=dmgCalc(att,def,isYou);
-    if(isYou && foe.thorns){ you.hp -= foe.thorns; F.took += foe.thorns; io.log("🛡️ "+foe.name+"'s armour bites back for "+foe.thorns+".", "bad"); }
     if(!isYou && you.shield>0){
       const soak = Math.min(you.shield, dmg); you.shield-=soak; dmg-=soak;
       if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
@@ -2276,6 +2276,7 @@ function fightEngine(foeDef, opts, io){
       const att = isYou?you:foe, def = isYou?foe:you;
       F.fxDelay = isYou===order[0] ? 0 : 270; // the second striker's visuals land a beat later
       if(att.stun>0){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned.", ""); continue; }
+      if(!isYou && foe.puppet && !(foe.nextDmg>0)) continue; // nothing to land this round
       strike(att,def,isYou);
       if(foe.hp<=0) return done(true);
       if(lethalCheck()) return done(false);
@@ -2665,16 +2666,55 @@ function memeCanvas(run, top, bottom, fried){
   return cv;
 }
 /* ---------- king of the hill ----------
-   Beat THE CANCEL and you may fight the day's king, 1v1: your final build against theirs. The king fights as the
-   numbers their build added up to (with a player's dodge, thorns and heft), not relic by relic. Win and the hill
-   is yours until someone takes it or the day resets. One challenge per winning run. */
-function kingFoe(k){
-  const s = k.stats;
-  return { id:"king", king:true, name:k.name, cfg:"Milady", hp:s.hp, maxhp:s.hp, atk:s.atk + heftOf(s.hp), arm:s.arm, spd:s.spd,
-           lck:clamp((s.crit-5)*2, 0, 190), dodge:s.dodge, thorns:thornsOf(s.arm), cult:[0,0] };
+   Beat THE CANCEL and you may fight the week's king, 1v1: your final build against theirs, every relic on both
+   sides doing what it does. Win and the hill is yours until someone takes it or the week ends (Sunday night,
+   Eastern). One challenge per winning run. */
+/* Both fighters bring their whole build. The engine only knows "a build against a foe", so a duel runs two of
+   them side by side: yours against a stand-in for the king, and the king's against a stand-in for you. Each round,
+   whatever one build did to its stand-in (hits, burn, companions, thorns, counters) is carried across and landed on
+   the real opponent, who gets everything their own relics do about being hit: dodges, shields, FBI Cap, revives. */
+const DUEL_HP = 1e7;
+function kingContext(k){ // the king as a run of their own, so stats and relic tiers are read from their build, not yours
+  const st = k.stats, ids = [], tiers = [];
+  for(const [id,t] of k.relics) if(relicById(id)){ ids.push(id); tiers.push(t||1); }
+  const ctx = { relics:ids, tiers, cult:k.cult||0, memUsed:false, bonus:{atk:st.batk||0, maxhp:st.bhp||0, spd:st.bspd||0}, tribe:k.tribe,
+                kills:k.kills||0, bossesBeaten:3, heat:0, day:9, flags:{}, queue:[], over:true };
+  inRun(ctx, ()=>{ ctx.stats = computeStats(ids); ctx.stats.hp = ctx.stats.maxhp; });
+  return ctx;
 }
-const untilReset = at => { const t = Math.max(0, at - Math.floor(Date.now()/1000)), h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60;
-  return (h ? h+"h " : "")+String(m).padStart(h?2:1,"0")+"m "+String(s).padStart(2,"0")+"s"; };
+function inRun(ctx, fn){ const mine = G; G = ctx; try{ return fn(); } finally { G = mine; } } // do something as another run
+const standIn = (name, s) => ({ id:"duel", king:true, puppet:true, name, hp:DUEL_HP, maxhp:DUEL_HP, atk:0, arm:s.arm, spd:s.spd, lck:0, cult:[0,0], nextDmg:0 });
+function makeDuel(run, k, log){
+  const kg = kingContext(k), kn = "👑 "+esc(k.name);
+  G.stats.hp = G.stats.maxhp;
+  const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
+  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c); }, hit(){}, float(){}, strip(){} };
+  const flip = {good:"bad", bad:"good"};
+  const ioB = { log:(m,c)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
+      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c); },
+    hit(){}, float(){}, strip(){} };
+  const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
+  const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
+  let fromKing = 0, fromYou = 0;
+  // the faster build moves first each round and its damage lands that same round; a tie in speed is a coin toss
+  const youFirst = A.you.spd!==B.you.spd ? A.you.spd > B.you.spd : Math.random()<0.5;
+  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); fromYou = Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; };
+  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); fromKing = Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; };
+  const D = { A, B, you:A.you, king:B.you, kg, rounds:0, over:false, win:false, youFirst,
+    step(){
+      if(D.over) return;
+      D.rounds++;
+      for(const turn of (youFirst ? [yours, theirs] : [theirs, yours])){
+        turn();
+        if(A.over){ D.over = true; D.win = false; return; } // you fell
+        if(B.over){ D.over = true; D.win = true; return; }  // the king fell
+      }
+      if(D.rounds>=300){ D.over = true; D.win = false; log("⏳ Neither falls. The hill stays with its king.", ""); }
+    } };
+  return D;
+}
+const untilReset = at => { const t = Math.max(0, at - Math.floor(Date.now()/1000)), d = Math.floor(t/86400), h = Math.floor(t%86400/3600), m = Math.floor(t%3600/60), s = t%60;
+  return d ? d+"d "+h+"h "+String(m).padStart(2,"0")+"m" : (h ? h+"h " : "")+String(m).padStart(h?2:1,"0")+"m "+String(s).padStart(2,"0")+"s"; };
 async function kingPanel(run, back){
   const el = $("end-king"); if(!el || !online()) return;
   if(!run.cardId){ el.innerHTML = "<div class='dim'>👑 king of the hill: waiting for your run to post…</div>"; return; }
@@ -2693,33 +2733,33 @@ async function kingPanel(run, back){
 async function kingReport(run, won, k, back){
   const r = await api("/api/king/challenge", { player:playerId(), card:run.cardId, won, session: rnUser() ? rnUser().token : undefined });
   const res = r && r.result;
-  run.kingDone = "<div class='king-line'>👑 "+(res==="claimed" ? "<b>the hill is yours.</b> hold it until midnight Eastern, if you can"
+  run.kingDone = "<div class='king-line'>👑 "+(res==="claimed" ? "<b>the hill is yours.</b> hold it until Sunday night, if you can"
     : res==="took" ? "<b>you took the hill from "+esc(k.name)+".</b> long live the king"
     : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+r.king.defences+" defence"+(r.king.defences===1?"":"s")+" now"
     : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
   if(res==="claimed" || res==="took"){ sfx("fanfare"); burst("👑✨🌸"); }
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
+const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
 function kingDuel(run, k, back){
   const keep = SEED; SEED = null; // the run is over: this fight is its own luck
-  G.stats.hp = G.stats.maxhp;
   let ended = false;
-  const lines = [], io = { log:(m,c)=>lines.push("<div class='"+(c||"")+"'>"+m+"</div>"), hit(){}, float(){}, strip(){} };
-  const F = fightEngine(kingFoe(k), {}, io), you = F.you, foe = F.foe;
-  openModal("<h2>KING OF THE HILL</h2><div class='duel'><div><canvas id='duel-you' width='4' height='5'></canvas><b>"+esc(run.name)+"</b><div class='hpbar'><div id='duel-hp-you'></div><span id='duel-t-you'></span></div></div>"
-    + "<b class='vs'>VS</b><div><canvas id='duel-king' class='bpfp' width='4' height='4'></canvas><b>👑 "+esc(k.name)+"</b><div class='hpbar foe'><div id='duel-hp-king'></div><span id='duel-t-king'></span></div></div></div>"
+  const lines = [], D = makeDuel(run, k, (m,c)=>lines.push("<div class='"+(c||"")+"'>"+m+"</div>")), you = D.you, king = D.king;
+  openModal("<h2>KING OF THE HILL</h2><div class='duel'><div><canvas id='duel-you' width='4' height='5'></canvas><b>"+esc(run.name)+"</b><div class='hpbar'><div id='duel-hp-you'></div><span id='duel-t-you'></span></div>"
+    + relicStrip(run.relics.map((id,i)=>[id, (run.tiers||[])[i]||1]))+"</div>"
+    + "<b class='vs'>VS</b><div><canvas id='duel-king' class='bpfp' width='4' height='4'></canvas><b>👑 "+esc(k.name)+"</b><div class='hpbar foe'><div id='duel-hp-king'></div><span id='duel-t-king'></span></div>"
+    + relicStrip(k.relics)+"</div></div>"
     + "<div id='duel-log' class='duel-log'></div><div class='row'><button class='btn small' id='duel-skip'>skip ⏩</button></div>");
   paint($("duel-you"), run.avatar); drawLook($("duel-king"), k.look, k.relics).catch(()=>{});
-  const bars = ()=>{ if(!$("duel-log")) return;
-    $("duel-hp-you").style.width = clamp(100*you.hp/you.maxhp,0,100)+"%"; $("duel-t-you").textContent = Math.max(0,Math.round(you.hp))+" / "+you.maxhp;
-    $("duel-hp-king").style.width = clamp(100*foe.hp/foe.maxhp,0,100)+"%"; $("duel-t-king").textContent = Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
-    const lg = $("duel-log"); lg.innerHTML = lines.slice(-40).join(""); lg.scrollTop = lg.scrollHeight; };
+  const bar = (id, f)=>{ $("duel-hp-"+id).style.width = clamp(100*f.hp/f.maxhp,0,100)+"%"; $("duel-t-"+id).textContent = Math.max(0,Math.round(f.hp))+" / "+f.maxhp+(f.shield>0?" 🕯️"+f.shield:""); };
+  const bars = ()=>{ if(!$("duel-log")) return; bar("you", you); bar("king", king);
+    const lg = $("duel-log"); lg.innerHTML = lines.slice(-60).join(""); lg.scrollTop = lg.scrollHeight; };
   const finish = ()=>{ if(ended) return; ended = true; SEED = keep; bars();
-    if($("duel-skip")){ $("duel-skip").textContent = F.win ? "TAKE THE HILL 👑" : "walk back down"; $("duel-skip").classList.add("big"); $("duel-skip").onclick = ()=>{ sfx("click"); kingReport(run, F.win, k, back); }; navSet($("duel-skip")); }
-    sfx(F.win ? "win" : "lose"); };
-  const tick = ()=>{ if(ended || !$("duel-log")) return; F.step(); bars(); if(F.over || F.tick>400) return finish(); setTimeout(tick, META.calm ? 420 : 300); };
-  $("duel-skip").onclick = ()=>{ for(let n=0; !F.over && n<3000; n++) F.step(); finish(); };
-  bars(); setTimeout(tick, 600);
+    if($("duel-skip")){ $("duel-skip").textContent = D.win ? "TAKE THE HILL 👑" : "walk back down"; $("duel-skip").classList.add("big"); $("duel-skip").onclick = ()=>{ sfx("click"); kingReport(run, D.win, k, back); }; navSet($("duel-skip")); }
+    sfx(D.win ? "win" : "lose"); };
+  const tick = ()=>{ if(ended || !$("duel-log")) return; D.step(); bars(); if(D.over) return finish(); setTimeout(tick, META.calm ? 520 : 380); };
+  $("duel-skip").onclick = ()=>{ while(!D.over) D.step(); finish(); };
+  bars(); setTimeout(tick, 700);
 }
 /* the title screen's king panel, with the clock to the next reset (the daily turns over then too) */
 let kingClock = 0;
@@ -2731,13 +2771,16 @@ async function loadKing(){
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " <span class='dim'>✓ @"+esc(k.handle)+"</span>" : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
            + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
-         : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL today takes it</span></div>")
-    + "<div class='king-clock'><u>resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>midnight Eastern</span></div></div>";
+         : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
+    + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>"
+    + (k ? relicStrip(k.relics) : "")
+    + "<div class='note daily-clock'>📅 the daily map resets in <b id='daily-left'>"+untilReset(r.dailyResets)+"</b></div>";
   el.classList.remove("hidden");
   if(k) drawLook(el.querySelector("canvas"), k.look, k.relics).catch(()=>{});
   clearInterval(kingClock);
   kingClock = setInterval(()=>{ const c = $("king-left"); if(!c || !$("screen-title").classList.contains("active")) return;
-    c.textContent = untilReset(r.resets); if(r.resets <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
+    c.textContent = untilReset(r.resets); if($("daily-left")) $("daily-left").textContent = untilReset(r.dailyResets);
+    if(Math.min(r.resets, r.dailyResets) <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
 }
 function openMeme(run, win, back){
   const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;

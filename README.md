@@ -46,7 +46,7 @@ When a run ends you get a Wordle-style result to paste, and a link whose preview
 
 ## King of the hill
 
-Beat THE CANCEL and you get one shot at the day's king: your final build against theirs, 1v1. Win and the hill is yours until someone takes it, or until midnight Eastern, when it empties and the first winner of the new day walks up unopposed. The title screen shows who's up there and how long they have left.
+Beat THE CANCEL and you get one shot at the king: your final build against theirs, 1v1, every relic on both sides doing its thing. Win and the hill is yours until someone takes it, or until Sunday night (Eastern), when it empties and the first winner of the new week walks up unopposed. The title screen shows who's up there, what they're carrying, and how long they have left.
 
 ## Controls
 
