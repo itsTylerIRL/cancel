@@ -2615,14 +2615,14 @@ function quickFight(foeDef, opts){
   if(rnd() < (opts.elite?0.6:0.25)) G.queue.unshift(()=>openDraft("The fallen drops something.", null, opts.elite?1:0));
   return true;
 }
-const BOSS_ENTRANCE = {
+const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss's own name (THE CANCEL's reads as a sentence)
   default:     { cls:"plain",  ms:2100, warn:"⚠ WARNING ⚠" },
   lawsuit:     { cls:"served", ms:2400, warn:"⚖️ YOU HAVE BEEN SERVED", rain:["📄","📃","📑"], line:"case no. 9-11 · filed against you, personally" },
   allegations: { cls:"thread", ms:2400, warn:"📢 A THREAD IS GOING AROUND", rain:["💬","🧵","❗"], line:"1/47 · \"i wasn't going to say anything, but\"" },
   drain:       { cls:"drain",  ms:2400, warn:"🏦 WITHDRAWAL PENDING", rain:["🪙","💸","🪙"], line:"the treasury is being moved somewhere safer" },
   shift:       { cls:"shift",  ms:2500, warn:"🌀 THE VIBE IS SHIFTING", line:"what worked a minute ago doesn't any more" },
   bonkler911:  { cls:"bonk",   ms:2400, warn:"🔨 NEVER FORGET", rain:["🔨","💥","🧱"], line:"the reserve cannot save you" },
-  cancel:      { cls:"cancel", ms:3400, warn:"📵 THIS ACCOUNT IS BEING", line:"everyone you know has seen the post", sfx:"boss" },
+  cancel:      { cls:"cancel", ms:3400, warn:"📵 YOU ARE ABOUT TO BE", title:"CANCELLED", line:"everyone you know has seen the post", sfx:"boss" },
 };
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
@@ -2748,7 +2748,7 @@ function startCombat(foeDef, opts={}){
   const entrance = boss && !META.calm ? (BOSS_ENTRANCE[boss.id] || BOSS_ENTRANCE.default) : null;
   if(entrance){ // every boss arrives its own way, before the first blow
     const rain = Array.from({length:entrance.rain ? 22 : 0}, (_,i)=>"<i style='left:"+Math.round(Math.random()*96)+"%;animation-delay:"+(Math.random()*0.9).toFixed(2)+"s;font-size:"+(18+Math.round(Math.random()*20))+"px'>"+entrance.rain[i%entrance.rain.length]+"</i>").join("");
-    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div><div class='bi-name'>"+boss.name+"</div>"
+    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div><div class='bi-name'>"+(entrance.title || boss.name)+"</div>"
       + (entrance.line ? "<div class='bi-line'>"+entrance.line+"</div>" : "")+"<div class='bi-mech'>"+boss.mechanic+"</div>";
     intro.className = "show bi-"+entrance.cls;
     intro.style.animationDuration = entrance.ms+"ms";
