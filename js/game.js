@@ -975,6 +975,17 @@ function renderHUD(){
   $("hp-fill").style.width = clamp(100*s.hp/s.maxhp,0,100)+"%";
   $("hp-fill").classList.toggle("low", s.hp <= s.maxhp*0.3);
   $("hud-avatar").classList.toggle("hurt", s.hp <= s.maxhp*0.3);
+  { // what the build does beyond its stat line
+    const th = thornsOf(s.arm), hf = heftOf(s.maxhp), over = Math.max(0, s.crit-100), gr = Math.round(BAL.growth*(G.day-1)*100);
+    const dot = G.relics.some(id=>["fire_glasses","laser_eyes","claw","vampire","desert_eagle","snakebites","pikachu","dino","tails","remilio_friend","amogus"].includes(id));
+    const bits = [ th ? ["🛡️ thorns "+th, "every enemy swing that lands costs it a quarter of your ARM"] : 0,
+      s.dodge ? ["💨 counter "+Math.max(1,Math.round(s.atk/2)), "every dodge ("+Math.round(s.dodge)+"%) hits back for half your ATK"] : 0,
+      hf ? ["💪 heft +"+hf, "every 12 max HP above 50 adds 1 to your hits"] : 0,
+      over ? ["✨ crit dmg +"+Math.round(over*BAL.critOver*100)+"%", "crit chance past 100% becomes crit damage"] : 0,
+      dot && gr ? ["🔥 +"+gr+"%", "your burn, bleed, poison, shocks and companions have grown this much with the days"] : 0 ].filter(Boolean);
+    $("hud-build").innerHTML = bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join("");
+    if(hf) tip("heft"); if(over) tip("crit");
+  }
   $("hp-text").textContent = s.hp+" / "+s.maxhp;
   if(shownCult!==G.cult){
     const d = G.cult-shownCult, c = $("hud-cult");
@@ -1737,7 +1748,7 @@ function applyFx(list){
 function openFire(){
   const day = G.phase==="day";
   if(day){ // a fire is for sleeping, and you only sleep at night
-    mlog("🔥 A campfire. It isn't dark yet: <b>you can only sleep here at night.</b>", ""); mapFloat("🔥 night only", "loot"); sfx("click");
+    mlog("🔥 A campfire. It isn't dark yet: <b>you can only sleep here at night.</b>", ""); mapFloat("🔥 night only", "loot"); sfx("click"); tip("night");
     return;
   }
   openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Sleep until dawn? You heal to full and skip the rest of this night safely — no loot, no fights. The fire burns out once you've used it."
@@ -2099,8 +2110,9 @@ function fightEngine(foeDef, opts, io){
   }
   const you = {...base, stun:0, wartime:true, blunt:true, compTick:0, shield:0, suppressed:new Set()};
   const foe = {...foeDef, poison:0, stun:0, stolen:0, burn:0, bleed:0, chill:0};
-  const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0, dealt:{}, took:0 };
+  const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0, dealt:{}, took:0, hurt:{}, guarded:0 };
   const credit = (what, n) => { if(n>0) F.dealt[what] = (F.dealt[what]||0) + n; }; // who did the damage, for the summary after the fight
+  const hurtBy = (what, n) => { if(n>0) F.hurt[what] = (F.hurt[what]||0) + n; };   // and what did it to you
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
   const done = win => {
@@ -2111,7 +2123,7 @@ function fightEngine(foeDef, opts, io){
     }
     if(win && foe.trait==="creeper" && !F.over){ // goes off when it dies, but can't finish you
       const d = Math.min(8, Math.round(you.hp)-1);
-      if(d>0){ you.hp-=d; io.log("💥 "+foe.name+" blows up in your face for "+d+".", "bad"); io.hit("you",d,false); }
+      if(d>0){ you.hp-=d; hurtBy("💥 the blast", d); io.log("💥 "+foe.name+" blows up in your face for "+d+".", "bad"); io.hit("you",d,false); }
     }
     F.over=true; F.win=win;
   };
@@ -2216,7 +2228,8 @@ function fightEngine(foeDef, opts, io){
       if(dmg > lim){ dmg = lim; guarded = true; }
     }
     def.hp-=dmg;
-    if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else F.took += dmg;
+    if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else { F.took += dmg; hurtBy(crit ? "✨ its crits" : "⚔️ its hits", dmg); }
+    if(guarded) F.guarded++;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : ""), crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
     if(isYou && set("cheese",3)){ st.cult+=3; }
@@ -2284,13 +2297,13 @@ function fightEngine(foeDef, opts, io){
       io.log("🌀 VIBE SHIFT: you now hit for "+you.atk+", it hits for "+foe.atk+".", "bad");
     }
     // cancel ratio
-    if(boss && boss.id==="cancel" && F.tick%5===0){ const r = act("tinfoil") ? 2 : 5; you.hp-=r; io.log("📉 RATIO'D — "+r+" pure damage.", "bad"); io.hit("you",r,false); }
+    if(boss && boss.id==="cancel" && F.tick%5===0){ const r = act("tinfoil") ? 2 : 5; you.hp-=r; hurtBy("📉 RATIO'D", r); io.log("📉 RATIO'D — "+r+" pure damage.", "bad"); io.hit("you",r,false); }
     // regen
     if(F.tick%3===0){
       if(foe.trait==="hard"){ foe.atk+=1; io.log("🧀 "+foe.name+" goes harder. ATK "+foe.atk+".", "bad"); }
       if(set("cheese",2)){ you.hard+=1; io.float("you","+1 ATK","heal"); }
     }
-    if(foe.trait==="bomber" && F.tick%4===0){ you.hp-=8; io.log("🎈 Blimp bombing! 8 damage.", "bad"); io.hit("you",8,false); }
+    if(foe.trait==="bomber" && F.tick%4===0){ you.hp-=8; hurtBy("🎈 bombs", 8); io.log("🎈 Blimp bombing! 8 damage.", "bad"); io.hit("you",8,false); }
     const regen = (act("cult_robe")?tv("cult_robe",2):0) + (act("lollipop")?tv("lollipop",1):0) + (set("kawaii",4)?2:0);
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
@@ -2350,6 +2363,39 @@ const BAL = { guardFoe:0.5, guardBoss:0.25, guardDuel:0.35, critOver:0.01, dripE
 /* Burn, bleed, poison, shocks and companions deal fixed numbers, and enemies get tougher every day: without this they
    were strong on day 2 and useless by day 7. They grow 15% a day, about as fast as what they are hitting. */
 const grow = n => Math.round(n * (1 + BAL.growth * Math.max(0, ((G && G.day) || 1) - 1)));
+const TIPS = {
+  guard:   ["🛡️", "Guarded", "One hit can take at most half an enemy's health, a quarter of a boss's. Past that, more attack is wasted: fights have to be survived."],
+  thorns:  ["🛡️", "Thorns", "Your armour just hurt the thing that hit you. Every enemy swing that lands costs it a quarter of your ARM."],
+  counter: ["💨", "Counter", "A dodge isn't just a miss. Every one hits back for half your ATK."],
+  heft:    ["💪", "Heft", "A big health pool puts weight behind your hits: +1 damage for every 12 max HP above 50."],
+  crit:    ["✨", "Crit overflow", "Crit chance past 100% isn't wasted. Every extra point makes your crits hit 1% harder."],
+  growth:  ["🔥", "They keep up", "Burn, bleed, poison, shocks and companions grow 15% stronger every day, like the enemies do."],
+  adapt:   ["📈", "The timeline pushes back", "Your build would have walked through this one, so it arrived stronger. It pays more. Ordinary monsters are never raised."],
+  night:   ["🔥", "Campfires", "A campfire only works after dark: sleep there to heal and skip to dawn."],
+};
+const tipQueue = []; let tipUp = null;
+function tip(id){ // each rule explains itself once, the first time it actually happens
+  META.tips = META.tips || {};
+  if(META.tips[id] || !TIPS[id]) return;
+  META.tips[id] = 1; saveMeta();
+  tipQueue.push(id); nextTip();
+}
+function nextTip(){ // one at a time, and never over a boss making its entrance
+  if(tipUp || !tipQueue.length) return;
+  if($("boss-intro").classList.contains("show") || $("win-seq")){ setTimeout(nextTip, 600); return; }
+  const [icon, title, text] = TIPS[tipQueue.shift()], t = document.createElement("div");
+  t.className = "toast tip";
+  t.innerHTML = "<i>"+icon+"</i><div><em>HOW IT WORKS</em><b>"+title+"</b><span>"+text+"</span></div>";
+  const gone = ()=>{ if(tipUp!==t) return; tipUp = null; t.remove(); setTimeout(nextTip, 400); };
+  t.onclick = gone; tipUp = t;
+  $("toasts").appendChild(t); setTimeout(gone, 7500);
+}
+function fightTips(F, foeDef){
+  if(F.guarded) tip("guard");
+  if(F.dealt["🛡️ thorns"]) tip("thorns");
+  if(F.dealt["💨 counters"]) tip("counter");
+  if(G.day>1 && Object.keys(F.dealt).some(k=>/^(🔥|🩸|🐍|⚡|🧸|🦊|🦖)/u.test(k))) tip("growth");
+}
 /* Defence that fights back, so armour, dodge and health are builds of their own and not just a slower death:
    thorns: every enemy swing that reaches you costs it a quarter of your ARM. counter: every dodge hits back for half your ATK.
    heft: every 12 max HP above 50 adds 1 to your hits. Armour never stops more than about two thirds of a hit. */
@@ -2379,6 +2425,26 @@ function oddsText(o){
 }
 
 /* everything a won fight changes: loot, post-fight heals, achievements. log(msg, cls) receives the lines. */
+/* After a death: what happened in the fight that ended the run, in plain numbers, and the one thing most worth knowing. */
+function deathRecap(d){
+  if(!d) return "";
+  const list = o => { const rows = Object.entries(o).sort((a,b)=>b[1]-a[1]), t = rows.reduce((a,r)=>a+r[1],0);
+    return rows.slice(0,4).map(([k,n])=>k+" <b>"+n+"</b> <small>"+Math.round(100*n/Math.max(1,t))+"%</small>").join(" · ") || "nothing"; };
+  const pct = Math.round(100*d.left/Math.max(1,d.max)), top = Object.entries(d.hurt).sort((a,b)=>b[1]-a[1])[0];
+  const did = Object.values(d.dealt).reduce((a,n)=>a+n,0);
+  const lesson = pct<=15 ? "It was close: "+esc(d.foe)+" had "+d.left+" health left, a hit or two from dead."
+    : top && !/its (hits|crits)/.test(top[0]) ? "Most of the damage wasn't its attacks, it was "+top[0].replace(/^\S+ /,"")+". Plan around the mechanic, not the stat line."
+    : d.guarded>=2 ? d.guarded+" of your hits were cut short by its guard. Past that point more attack does nothing: it had to be outlasted."
+    : pct>=60 ? "It wasn't close. It kept "+pct+"% of its health; this build wasn't ready for it."
+    : d.arm<=2 && d.foeAtk>=d.hp/5 ? "With "+d.arm+" armour, every one of its hits landed in full. You fell in "+d.rounds+" rounds."
+    : "It had "+pct+"% left after "+d.rounds+" rounds. A little more of anything would have turned it.";
+  return "<div class='recap'><div class='box-h'>HOW IT ENDED</div>"
+    + "<div class='stat-line'><span>"+esc(d.foe)+(d.adapt ? " <small class='adapt'>📈 pushed back +"+Math.round(d.adapt*100)+"%</small>" : "")+"</span><b>"+d.left+" / "+d.max+" left</b></div>"
+    + "<div class='bar'><div style='width:"+pct+"%'></div></div>"
+    + "<div class='recap-row'><u>what hit you</u><span>"+list(d.hurt)+"</span></div>"
+    + "<div class='recap-row'><u>what you did"+(did?" ("+did+")":"")+"</u><span>"+list(d.dealt)+"</span></div>"
+    + "<div class='note lesson'>"+lesson+"</div></div>";
+}
 function fightSummary(F){ // what did the work, biggest first
   const rows = Object.entries(F.dealt).sort((a,b)=>b[1]-a[1]), total = rows.reduce((a,r)=>a+r[1], 0);
   if(!total) return "";
@@ -2429,6 +2495,15 @@ function quickFight(foeDef, opts){
   if(rnd() < (opts.elite?0.6:0.25)) G.queue.unshift(()=>openDraft("The fallen drops something.", null, opts.elite?1:0));
   return true;
 }
+const BOSS_ENTRANCE = {
+  default:     { cls:"plain",  ms:2100, warn:"⚠ WARNING ⚠" },
+  lawsuit:     { cls:"served", ms:2400, warn:"⚖️ YOU HAVE BEEN SERVED", rain:["📄","📃","📑"], line:"case no. 9-11 · filed against you, personally" },
+  allegations: { cls:"thread", ms:2400, warn:"📢 A THREAD IS GOING AROUND", rain:["💬","🧵","❗"], line:"1/47 · \"i wasn't going to say anything, but\"" },
+  drain:       { cls:"drain",  ms:2400, warn:"🏦 WITHDRAWAL PENDING", rain:["🪙","💸","🪙"], line:"the treasury is being moved somewhere safer" },
+  shift:       { cls:"shift",  ms:2500, warn:"🌀 THE VIBE IS SHIFTING", line:"what worked a minute ago doesn't any more" },
+  bonkler911:  { cls:"bonk",   ms:2400, warn:"🔨 NEVER FORGET", rain:["🔨","💥","🧱"], line:"the reserve cannot save you" },
+  cancel:      { cls:"cancel", ms:3400, warn:"📵 THIS ACCOUNT IS BEING", line:"everyone you know has seen the post", sfx:"boss" },
+};
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
   if(trivial(foeDef, opts) && quickFight(foeDef, opts)) return;
@@ -2439,6 +2514,7 @@ function startCombat(foeDef, opts={}){
   navSet($("btn-skip"));
   $("combat-log").innerHTML="";
   $("combat-title").textContent = opts.label || (boss ? boss.name : "WILD "+foeDef.name.toUpperCase());
+  if(foeDef.adapt) tip("adapt");
   $("foe-name").textContent = foeDef.name.toUpperCase()+(foeDef.adapt ? "  📈+"+Math.round(foeDef.adapt*100)+"%" : "");
   $("you-name").textContent = G.name.toUpperCase();
   $("port-foe").classList.toggle("boss", !!boss);
@@ -2508,6 +2584,8 @@ function startCombat(foeDef, opts={}){
     } else {
       G.stats.hp = 0;
       G.killedBy = foe.name; G.diedToBoss = !!boss;
+      G.death = { foe:foe.name, left:Math.max(0,Math.round(foe.hp)), max:foe.maxhp, adapt:foeDef.adapt||0, rounds:F.tick, guarded:F.guarded, boss:!!boss,
+                  hurt:{...F.hurt}, dealt:{...F.dealt}, hp:you.maxhp, atk:you.atk, arm:you.arm, foeAtk:foe.atk };
       G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult;
       clog("💀 You died.", "bad");
       if(fightSummary(F)) clog("📊 "+fightSummary(F), "sum");
@@ -2539,21 +2617,26 @@ function startCombat(foeDef, opts={}){
     };});
   }
   function loop(){
-    F.step(); combatBars(you,foe);
+    F.step(); combatBars(you,foe); fightTips(F, foeDef);
     if(F.over) return finish();
     if(boss && !asked && foe.hp<=foe.maxhp/2) return ask();
     timer=setTimeout(loop, 600/META.speed);
   }
   const intro = $("boss-intro");
   intro.className = "";
-  if(boss && !META.calm){ // the boss gets an entrance before the first blow
-    intro.innerHTML = "<div class='bi-warn'>⚠ WARNING ⚠</div><div class='bi-name'>"+boss.name+"</div><div class='bi-mech'>"+boss.mechanic+"</div>";
-    intro.className = "show";
+  const entrance = boss && !META.calm ? (BOSS_ENTRANCE[boss.id] || BOSS_ENTRANCE.default) : null;
+  if(entrance){ // every boss arrives its own way, before the first blow
+    const rain = Array.from({length:entrance.rain ? 22 : 0}, (_,i)=>"<i style='left:"+Math.round(Math.random()*96)+"%;animation-delay:"+(Math.random()*0.9).toFixed(2)+"s;font-size:"+(18+Math.round(Math.random()*20))+"px'>"+entrance.rain[i%entrance.rain.length]+"</i>").join("");
+    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div><div class='bi-name'>"+boss.name+"</div>"
+      + (entrance.line ? "<div class='bi-line'>"+entrance.line+"</div>" : "")+"<div class='bi-mech'>"+boss.mechanic+"</div>";
+    intro.className = "show bi-"+entrance.cls;
+    intro.style.animationDuration = entrance.ms+"ms";
     $("port-foe").classList.add("slam");
-    setTimeout(()=>{ if(tok===combatTok){ quake(); sfx("hurt"); } }, 520);
-    setTimeout(()=>{ if(tok===combatTok){ intro.className = ""; $("port-foe").classList.remove("slam"); } }, 2100);
+    if(entrance.cls==="shift") $("app").classList.add("vibeshift");
+    setTimeout(()=>{ if(tok===combatTok){ quake(); sfx(entrance.sfx||"hurt"); } }, 520);
+    setTimeout(()=>{ $("app").classList.remove("vibeshift"); if(tok===combatTok){ intro.className = ""; $("port-foe").classList.remove("slam"); } }, entrance.ms);
   }
-  timer = setTimeout(loop, boss && !META.calm ? 2200 : 500);
+  timer = setTimeout(loop, entrance ? entrance.ms+100 : 500);
 }
 
 /* ---------- boss down / endings ---------- */
@@ -2587,7 +2670,22 @@ function countUp(el, from, to, ms){
   setTimeout(()=>{ if(el._count===tok){ el.textContent = to; el._counting = false; } }, ms+60); // lands on the real number even if the tab was in the background
 }
 /* the end-of-run screen: what the run was worth, and how close the next unlock is */
+function winSequence(then){ // THE CANCEL is down: a few seconds that belong to the player, before the stats
+  const run = G, el = document.createElement("div"); el.id = "win-seq";
+  el.innerHTML = "<div class='ws-rays'></div><canvas id='ws-ava' width='4' height='5'></canvas>"
+    + "<div class='ws-kicker'>THE CANCEL HAS BEEN CANCELLED</div><div class='ws-title'>timeline<br><span>saved_</span></div>"
+    + "<div class='ws-line'>"+esc(run.name)+" · day "+run.day+" · "+run.kills+" kills · "+run.relics.length+" relics</div><div class='ws-skip'>click to continue</div>";
+  document.body.appendChild(el);
+  if(run.avatar) paint(el.querySelector("canvas"), run.avatar);
+  sfx("fanfare");
+  const pops = [300, 1100, 1900, 2800].map((ms,i)=>setTimeout(()=>burst(["🌸✨💖","👑✨🎀","🌸💖🎀","✨👑🌸"][i]), ms));
+  let done = false;
+  const go = ()=>{ if(done) return; done = true; pops.forEach(clearTimeout); clearTimeout(auto); el.classList.add("out"); setTimeout(()=>{ el.remove(); then(); }, 350); };
+  const auto = setTimeout(go, 4600);
+  setTimeout(()=>{ el.onclick = go; document.addEventListener("keydown", function k(e){ if(e.key==="Enter"||e.key===" "||e.key==="Escape"){ document.removeEventListener("keydown", k); go(); } }); }, 700); // not skippable by the click that ended the fight
+}
 function endRun(win){
+  if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
   if(win) achieve("win");
   document.body.classList.remove("danger");
@@ -2625,6 +2723,7 @@ function endRun(win){
     html += "<div class='next-unlock'><div class='stat-line'><span>"+(can?"you can afford":"next unlock")+"</span><b>"+next.name+" · "+Math.min(META.drip,next.cost)+" / "+next.cost+"</b></div>"
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
+  if(!win) html += deathRecap(G.death);
   html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
     + "<div id='end-rank' class='end-rank'></div>"+(win ? "<div id='end-king' class='end-king'></div>" : "")
     + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
