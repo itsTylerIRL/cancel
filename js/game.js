@@ -103,7 +103,7 @@ async function loadAssets(){
 const LAYER_ODDS = {
   Milady:  { Face:0.6, Necklaces:0.3, "Face Decoration":0.2, Earrings:0.3, Glasses:0.3, Hat:0.4 },
   Remilio: { Costume:0.2, Mouth:0.6, Face:0.3, Earrings:0.3, Glasses:0.3, Hat:0.4, Friend:0.3, Weapon:0.25 },
-  Bonkler: { Armor:0.5, Hand:0.6, Offhand:0.5, Pilot:0.7 },
+  Bonkler: { Armor:1, Hand:0.6, Offhand:0.5, Pilot:0.7 }, // "Armor" is a Bonkler's arms and legs: without it there is only a torso
 };
 function randomPicks(cfg, pinned){
   const picks = {}, odds = LAYER_ODDS[cfg] || {};
@@ -947,6 +947,8 @@ function queueRender(){ // many portraits can finish at once: redraw the map onc
   requestAnimationFrame(()=>{ renderQueued = false; if(G && !G.over && !busy()) renderMap(); });
 }
 function spawnBoss(i, picks){
+  const limbs = (ASSETS.Bonkler||{}).Armor || [];
+  if(runBoss(i).cfg==="Bonkler" && !picks.Armor && limbs.length) picks.Armor = limbs[Math.floor(Math.random()*limbs.length)]; // a look saved before limbs were guaranteed
   const run = G, b = runBoss(i), look = G.bossLook[i] = { picks, face:"", portrait: compositePortrait(b.cfg, picks) };
   look.portrait.then(cv=>{ look.face = faceToken(cv, b.cfg); if(G===run) renderTimeline(); });
 }
@@ -2759,6 +2761,7 @@ function onBossDown(boss, forced, called){
   G.stats.hp=G.stats.maxhp;
   $("boss-banner").classList.add("hidden");
   mlog("👑 <b>"+boss.name+" defeated!</b> +1 relic slot, HP restored.", "gold");
+  renderMap(); // show the new slot and the full health bar now, before the tribute is offered over them
   if(G.bossesBeaten===1) wakeElites();
   if(boss.id==="cancel"){ endRun(true); return; }
   if(!forced && !called) G.flags.gateBoss = true; // calling it out from across the map isn't beating it at its gate
