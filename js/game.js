@@ -1020,13 +1020,13 @@ function renderTimeline(){
     const bi = BOSS_DAYS.indexOf(d), look = bi>=0 && G.bossLook[bi];
     const cls = "day"+(d<G.day?" past":"")+(d===G.day?" now "+G.phase:"")+(bi>=0?" boss":"")+(bi>=0 && bi<G.bossesBeaten?" beaten":"");
     const next = bi>=0 && bi===G.bossesBeaten; // the one that is coming: click it to stop waiting
-    h += "<div class='"+cls+(next?" next":"")+"'"+(bi>=0?" title='"+runBoss(bi).name+(next?" — click to skip ahead and face it now":"")+"'":"")+(next?" data-skip='1'":"")+">"
+    h += "<div class='"+cls+(next?" next":"")+"'"+(bi>=0?" title='"+runBoss(bi).name+(next?" — click to call it out and fight it now":"")+"'":"")+(next?" data-skip='1'":"")+">"
       + (bi>=0 ? (look && look.face ? "<img src='"+look.face+"' alt=''>" : "<span>☠</span>") : "<span>"+d+"</span>")
       + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+"</div>";
   }
   $("timeline").innerHTML = h;
   const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
-  $("doom").title = nb ? "click to skip ahead and face "+nb.name+" now" : "";
+  $("doom").title = nb ? "click to call out "+nb.name+" and fight it now" : "";
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
@@ -1345,7 +1345,7 @@ function startDay(){
   mlog("☀️ <b>DAY "+G.day+"</b> dawns over the timeline.", "gold");
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
-  if(bi>=0){
+  if(bi>=0 && bi>=G.bossesBeaten){ // one you already beat early doesn't come
     const b = runBoss(bi);
     G.bossUnlocked = bi;
     mlog("⚠️ <b>"+b.name+" IS COMING.</b> "+b.intro+"<br><i>"+b.mechanic+"</i>", "bad");
@@ -1770,25 +1770,24 @@ function openBossGate(){
   $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, portrait:G.bossLook[G.bossUnlocked].portrait}); };
   $("boss-wait").onclick=()=>closeModal();
 }
-/* Done looting? Clicking the next boss on the timeline jumps straight to the day it arrives and starts the fight.
-   It is as strong as it would be that day; you are only as strong as you are now. */
+/* Don't want to wait for it? Clicking the next boss on the timeline starts the fight now. It fights at the strength
+   it would have on the day it was due. Beat it and it simply never comes: the days until then are still yours. */
+function bossAtArrival(bi){ const was = G.day; G.day = Math.max(G.day, BOSS_DAYS[bi]); try{ return foeInstance(runBoss(bi)); } finally { G.day = was; } }
 function skipToBoss(){
   if(!G || G.over || busy() || !$("screen-map").classList.contains("active")) return;
   const bi = G.bossesBeaten, b = runBoss(bi); if(!b) return;
-  const to = BOSS_DAYS[bi], gap = Math.max(0, to-G.day), was = G.day;
-  G.day = to; // show its numbers, and your odds, as they will be when it arrives
-  try{ bossModal(b, "SKIP TO<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; }
-  $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note bad'>"
-    + (gap ? "time jumps to day "+to+": you give up "+gap+" day"+(gap>1?"s":"")+" of looting, and it arrives at full strength"
-           : "it arrives now: you give up the rest of today")+"</div>");
+  const to = BOSS_DAYS[bi], early = to>G.day, was = G.day;
+  G.day = Math.max(G.day, to); // show its numbers, and your odds, as they will be in the fight
+  try{ bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; }
+  $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note'>"
+    + (early ? "it fights at its day-"+to+" strength. win, and it never comes: you keep every day until then for looting"
+             : "you fight it right here, without walking to the gate")+"</div>");
   $("boss-wait").onclick=()=>closeModal();
   $("boss-fight").onclick=()=>{
     closeModal();
-    G.day = to; G.phase = "night"; G.movesLeft = 0; G.hunters = []; G.bossUnlocked = bi;
-    G.queue = G.queue.filter(f=>f!==endPhase);
-    mlog("⏩ You stop waiting. <b>"+b.name+"</b> is called out on day "+to+".", "bad");
-    showBanner(); renderMap(); quake();
-    startCombat(foeInstance(b), {boss:b, forced:true, portrait:G.bossLook[bi].portrait});
+    mlog("📣 You call out <b>"+b.name+"</b>"+(early ? " "+(to-G.day)+" day"+(to-G.day>1?"s":"")+" early." : "."), "bad");
+    quake();
+    startCombat(bossAtArrival(bi), {boss:b, called:true, portrait:G.bossLook[bi].portrait});
   };
 }
 function bossArrives(){
@@ -2485,7 +2484,7 @@ function startCombat(foeDef, opts={}){
       btn.onclick=()=>{
         clearTimeout(auto); btn.classList.remove("auto");
         show("screen-map");
-        if(boss) onBossDown(boss, opts.forced);
+        if(boss) onBossDown(boss, opts.forced, opts.called);
         else if(rnd() < (opts.elite?0.6:0.25)) openDraft("The fallen drops something.", null, opts.elite?1:0);
         pump();
       };
@@ -2546,7 +2545,7 @@ function richRoll(){ // three relics tilted hard toward the good stuff, with at 
   if(pool.length && pool.every(r=>r.rar==="common")){ const up = rollRelics(40, 0).find(r=>r.rar!=="common"); if(up) pool[0] = up; }
   return pool;
 }
-function onBossDown(boss, forced){
+function onBossDown(boss, forced, called){
   G.bossesBeaten++;
   G.bossUnlocked=-1; // the gate seals again until the next one
   G.maxSlots++;
@@ -2556,7 +2555,7 @@ function onBossDown(boss, forced){
   mlog("👑 <b>"+boss.name+" defeated!</b> +1 relic slot, HP restored.", "gold");
   if(G.bossesBeaten===1) wakeElites();
   if(boss.id==="cancel"){ endRun(true); return; }
-  if(!forced) G.flags.gateBoss = true;
+  if(!forced && !called) G.flags.gateBoss = true; // calling it out from across the map isn't beating it at its gate
   G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll)); // boss tribute always offers at least one relic above common
   if(forced) G.queue.push(()=>{ G.day++; startDay(); });
 }
