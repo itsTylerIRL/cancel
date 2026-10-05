@@ -888,3 +888,5 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 .pick.tribe.on{background:rgba(139,233,253,.12);border-color:var(--neon);box-shadow:0 0 18px rgba(139,233,253,.3);}
 .pick.tribe.on b{color:#fff;}
 @media (max-width:640px){ .tribe-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .tribe-grid .pick.tribe,.tribe-grid .pick.tribe:nth-child(n+4){grid-column:auto;} .tribe-grid .pick.tribe:last-child{grid-column:1 / -1;} .pick.tribe b{font-size:10px;letter-spacing:.04em;} }
+.reroll-note{font-size:11px;margin-top:2px;}
+#draft-reroll .cult-coin{width:16px;height:16px;}

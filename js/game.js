@@ -592,7 +592,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1157,7 +1157,7 @@ function renderMinimap(){
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
-  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
+  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
   [T.FIRE]:"<b>Campfire</b> — heal to full, skip the rest of the day or night. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
@@ -1379,7 +1379,7 @@ function enterTile(t){
     return;
   }
   switch(t){
-    case T.CHEST: clearTile(); openDraft("You crack open a chest.", districtAt(G.px,G.py)===0 ? rollRelics(4) : null); break;
+    case T.CHEST: clearTile(); openDraft("You crack open a chest.", districtAt(G.px,G.py)===0 ? ()=>rollRelics(4) : null); break;
     case T.GRAVE:
       clearTile();
       if(rnd()<0.55) openDraft("You scavenge the grave of a past milady.");
@@ -1401,7 +1401,7 @@ function enterTile(t){
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one. 📌 Pinned.", "bad"); setPin(G.px, G.py, true); break; }
       G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; sfx("fanfare"); burst("🔐💎✨");
       mlog("🔐 The key turns. <b>+100 $CULT</b>, and something better than usual.", "gold");
-      openDraft("The vault opens.", richRoll());
+      openDraft("The vault opens.", richRoll);
       break;
     case T.SHOP: openShop(); break;
     case T.SHRINE: openShrine(); break;
@@ -1538,12 +1538,22 @@ function showBossOdds(pool){ // fills in each draft card after the dialog has dr
     });
   }, 40);
 }
-function openDraft(flavor, pool, luck){
-  pool = pool || rollRelics(3, luck);
+/* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of draft again).
+   A reroll costs $CULT and the price doubles every time you use one in a run. */
+const REROLL_BASE = 30;
+const rerollCost = () => REROLL_BASE * Math.pow(2, G.rerolls||0);
+function openDraft(flavor, pool, luck, gen){
+  if(typeof pool==="function"){ gen = pool; pool = gen(); }
+  const n = pool && pool.length || 3;
+  gen = gen || (()=>rollRelics(n, luck));
+  pool = pool && pool.length ? pool : gen();
   if(!pool.length){ mlog("Nothing new here. You already hold everything.", "bad"); return false; }
+  const cost = rerollCost();
   let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
-  html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button></div>";
+  html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button>"
+    + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost?" disabled":"")+" title='a new set of relics. the price doubles each time'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
+    + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+"</div>";
   openModal(html);
   document.querySelectorAll("#modal-panel .card").forEach(c=>{
     c.onclick = ()=>{
@@ -1551,10 +1561,16 @@ function openDraft(flavor, pool, luck){
       acquireRelic(r, old=>{
         closeModal();
         mlog("Took <b>"+r.name+"</b> — "+r.desc+(old?" <i>(dropped "+old.name+")</i>":""), "good"); renderMap();
-      }, ()=>openDraft(flavor, pool));
+      }, ()=>openDraft(flavor, pool, luck, gen));
     };
   });
   $("draft-skip").onclick=()=>{ closeModal(); renderMap(); };
+  $("draft-reroll").onclick=()=>{
+    if(G.cult<cost) return;
+    G.cult -= cost; G.rerolls = (G.rerolls||0)+1; sfx("coin"); renderHUD();
+    mlog("🎲 Rerolled the draft for "+cost+" $CULT.", "");
+    openDraft(flavor, gen, luck);
+  };
   showBossOdds(pool);
   return true;
 }
@@ -1565,14 +1581,17 @@ function relicRow(r, extra, tail, tier, copy){ // a relic as a row: art, name, t
   return "<div class='shop-row "+r.rar+" "+tierCls(tier)+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult, false, copy)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
+const SHOP_INFLATION = 0.25; // per boss beaten
 function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
-  const cheap = districtAt(G.px,G.py)===2, disc = G.stats.shopDisc * (cheap ? 0.8 : 1);
+  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
+  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * infl;
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
-    + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")+"</div>";
+    + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")
+    + (infl>1 ? "<span class='chip markup' title='shop prices rise "+Math.round(SHOP_INFLATION*100)+"% for every boss you beat'>📈 "+G.bossesBeaten+" boss"+(G.bossesBeaten>1?"es":"")+" down</span>" : "")+"</div>";
   shop.stock.forEach((it,i)=>{
     const r = relicById(it.id), p = Math.round(it.base*disc);
     html += relicRow(r, relicExtras(r, true),
@@ -1845,8 +1864,7 @@ function openFountain(note, cls){
       w.given -= wellNeed(); w.paid++; G.flags.well = true;
       sfx("fanfare"); burst("⛲✨💎");
       mlog("⛲ The fountain overflows. <b>It gives something back.</b>", "gold");
-      const pool = rarePull();
-      if(!openDraft("The fountain gives something back.", pool.length ? pool : null)) openFountain("The water settles.");
+      if(!openDraft("The fountain gives something back.", rarePull)) openFountain("The water settles.");
       return;
     }
     openFountain(choice(["The coins sink without a sound.", "Plink.", "The water takes it.", "Nothing happens. Probably."]), "");
@@ -2512,7 +2530,7 @@ function onBossDown(boss, forced){
   if(G.bossesBeaten===1) wakeElites();
   if(boss.id==="cancel"){ endRun(true); return; }
   if(!forced) G.flags.gateBoss = true;
-  G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll())); // boss tribute always offers at least one relic above common
+  G.queue.unshift(()=>openDraft("The timeline yields tribute.", richRoll)); // boss tribute always offers at least one relic above common
   if(forced) G.queue.push(()=>{ G.day++; startDay(); });
 }
 function buildRow(){

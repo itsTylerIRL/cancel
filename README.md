@@ -21,6 +21,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
 - **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
+- **Rerolls.** Don't like a draft? Pay to roll it again. The price doubles every time, so the third one hurts.
+- **Inflation.** Shops put their prices up 25% for every boss you beat.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.
 - **Nights.** Hunters path toward you. Campfires burn out after one rest.
