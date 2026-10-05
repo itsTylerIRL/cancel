@@ -3,7 +3,7 @@
 
 Usage: python3 build.py
 """
-import base64, json, pathlib
+import base64, hashlib, json, pathlib, re
 
 ROOT = pathlib.Path(__file__).resolve().parent
 MIME = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".gif": "image/gif"}
@@ -40,7 +40,16 @@ script = "\n".join([
     (ROOT / "js/game.js").read_text("utf8"),
 ])
 
-html = (ROOT / "index.html").read_text("utf8")
+# Stamp the page with a version made from the code itself, so a browser never runs an old script against a new
+# page: index.html asks for js/game.js?v=<stamp>, and version.json lets an open tab notice that it has gone stale.
+stamp = hashlib.sha256(b"".join((ROOT / f).read_bytes() for f in ("js/data.js", "js/game.js", "css/style.css"))).hexdigest()[:10]
+page = (ROOT / "index.html").read_text("utf8")
+stamped = re.sub(r'(href="css/style\.css|src="js/data\.js|src="js/game\.js)(\?v=[0-9a-f]+)?"', lambda m: m.group(1) + "?v=" + stamp + '"', page)
+if stamped != page:
+    (ROOT / "index.html").write_text(stamped, "utf8")
+(ROOT / "version.json").write_text(json.dumps({"v": stamp}) + "\n", "utf8")
+
+html = re.sub(r'\?v=[0-9a-f]+"', '"', stamped)
 html = swap(html, '<link rel="stylesheet" href="css/style.css">',
             "<style>\n" + (ROOT / "css/style.css").read_text("utf8") + "</style>")
 html = swap(html, '<script src="js/data.js"></script>\n', "")
@@ -50,4 +59,4 @@ html = swap(html, 'src="%s"' % coin, 'src="%s"' % data_uri(coin))
 html = swap(html, 'href="%s"' % coin, 'href="%s"' % data_uri(coin))
 
 (ROOT / "dist.html").write_text(html, "utf8")
-print("dist.html: %.1f MB, %d inlined assets" % (len(html.encode()) / 1e6, len(files)))
+print("dist.html: %.1f MB, %d inlined assets, version %s" % (len(html.encode()) / 1e6, len(files), stamp))

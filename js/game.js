@@ -3363,6 +3363,24 @@ async function genAvatar(nft){
 }
 
 /* ---------- title / unlocks ---------- */
+/* The page is stamped with the version of the code it loaded (build.py). If the site has moved on since this tab
+   was opened, say so: an old copy can post scores the service no longer understands, and misses every fix. */
+const BUILD = (()=>{ const s = [...document.scripts].find(x=>/js\/game\.js/.test(x.src)); const m = s && /[?&]v=([0-9a-f]+)/.exec(s.src); return m ? m[1] : ""; })();
+let staleAt = 0;
+async function checkVersion(){
+  if(!BUILD || !online() || Date.now()-staleAt < 60000) return;
+  staleAt = Date.now();
+  try{
+    const r = await fetch("version.json?t="+Date.now(), {cache:"no-store"}); if(!r.ok) return;
+    const v = (await r.json()).v;
+    if(v && v!==BUILD && !$("stale-note")){
+      const d = document.createElement("div"); d.id = "stale-note";
+      d.innerHTML = "<span>a new version of the game is out</span><button class='btn small'>refresh</button>";
+      d.querySelector("button").onclick = ()=>location.reload();
+      document.body.appendChild(d);
+    }
+  }catch(e){}
+}
 function renderDailyButton(){ // the daily is the way in: lit up until today's has been played, then it steps back
   const b = $("btn-daily"), s = $("btn-start"); if(!b || !s) return;
   const played = !!(META.dailyAt && META.dailyAt.date===today());
@@ -3372,6 +3390,7 @@ function renderDailyButton(){ // the daily is the way in: lit up until today's h
   s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
 }
 function renderTitle(){
+  checkVersion();
   renderDailyButton();
   $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
   $("meta-best").textContent=META.best?("day "+META.best):"—";

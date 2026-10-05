@@ -1074,3 +1074,5 @@ body.calm .weather::before,body.calm .weather::after,body.calm .hunter-eyes,body
 .cx-row b{color:var(--sc,#fff);font-size:13px;} .cx-row span{color:var(--neon2);line-height:1.45;} .cx-row .dim{color:var(--dim);font-size:11px;} .cx-row i{font-style:normal;color:var(--gold);}
 .cx-row.boss{--sc:#ff5555;} .cx-row.boss i{font-style:italic;color:#ff8b8b;}
 .cx-tiers{display:flex;flex-wrap:wrap;gap:6px 14px;} .cx-tiers i{font-style:normal;font-size:11px;} .cx-tiers .gold{color:#f1fa8c;} .cx-tiers .diamond{color:#9ff3ff;}
+#stale-note{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:400;display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--gold);border-radius:8px;background:rgba(2,6,8,.96);
+  box-shadow:0 0 26px rgba(241,250,140,.3);font-size:12px;color:var(--gold);white-space:nowrap;} #stale-note .btn{margin:0;}
