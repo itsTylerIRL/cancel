@@ -2502,7 +2502,7 @@ function tip(id){ // each rule explains itself once, the first time it actually 
 }
 function nextTip(){ // one at a time, and never over a boss making its entrance
   if(tipUp || !tipQueue.length) return;
-  if($("boss-intro").classList.contains("show") || $("win-seq")){ setTimeout(nextTip, 600); return; }
+  if($("boss-intro").classList.contains("show") || $("win-seq") || !META.tut){ setTimeout(nextTip, 600); return; } // nor on top of the first-run instructions
   const [icon, title, text] = TIPS[tipQueue.shift()], t = document.createElement("div");
   t.className = "toast tip";
   t.innerHTML = "<i>"+icon+"</i><div><em>HOW IT WORKS</em><b>"+title+"</b><span>"+text+"</span></div>";
@@ -3488,16 +3488,34 @@ function openCodex(tab, pick){
   $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openCodex(b.dataset.tab); }; });
   $("modal-panel").querySelectorAll("[data-r]").forEach(b=>{ b.onclick=()=>{ sfx("click"); const y = $("modal-panel").scrollTop; openCodex("relics", b.dataset.r); $("modal-panel").scrollTop = y; navSet($("modal-panel").querySelector(".cx.on")); }; });
 }
-function openTutorial(){
-  openModal("<h2>HOW TO SURVIVE</h2>"
-    + "<div class='shop-row'><div class='heal-ico'>👣</div><div class='sinfo'><b>Find your way through the maze</b><span>Every step burns daylight. Loot hides in dead ends; scroll or drag the map to look around. Hover a tile (or tap a foe once) to scout it first.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
-    + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>🛡️</div><div class='sinfo'><b>Defence hits back</b><span>Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>⚖️</div><div class='sinfo'><b>No one stat wins</b><span>Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day. And once the first boss is down, the timeline pushes back: an elite or boss your build would walk through comes at you stronger, and pays more.</span></div></div>"
-    + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
-    + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
-  $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
+/* The first run gets three lines: enough to take a step. Everything else explains itself once, the first time it
+   happens (the tips), and the whole guide is behind "how to play" on the title. */
+function openTutorial(full){
+  const row = (ico, title, text) => "<div class='shop-row'>"+(ico.startsWith("<") ? ico : "<div class='heal-ico'>"+ico+"</div>")+"<div class='sinfo'><b>"+title+"</b><span>"+text+"</span></div></div>";
+  const night = "<img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'>";
+  if(!full){
+    openModal("<h2>HOW TO SURVIVE</h2>"
+      + row("👣", "Explore and loot", "Walk the maze, open what you find. Your relics do the fighting for you.")
+      + row("⚔️", "Check before you fight", "Hover a foe, or tap it once, to see your odds. Red means walk away.")
+      + row(night, "Night, then a boss", "After dark, find a campfire. A boss comes on days 3, 6 and 9.")
+      + "<div class='note'>the rest explains itself as it happens</div>"
+      + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button><button class='btn small' id='tut-more'>the full guide</button></div>");
+    $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
+    $("tut-more").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); openTutorial(true); };
+    return;
+  }
+  openModal("<h2>HOW TO PLAY</h2>"
+    + row("👣", "Find your way through the maze", "Every step burns daylight. Loot hides in dead ends; scroll or drag the map to look around. Hover a tile (or tap a foe once) to scout it first.")
+    + row("🎁", "Loot relics, wear them", "Fights are automatic. Your build does the fighting, and the odds are shown before you commit. Hold enough relics of one set and its synergy switches on.")
+    + row(night, "Night brings Schizoposters", "Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.")
+    + row("⛩️", "Days 3, 6 and 9: a boss", "Fight it at the gate when you're ready, or it finds you when that night ends. Click the next boss on the timeline to call it out early.")
+    + row("🛡️", "Defence hits back", "Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.")
+    + row("⚖️", "No one stat wins", "Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day.")
+    + row("📈", "The timeline pushes back", "Once the first boss is down, an elite or boss your build would walk through comes at you stronger, and pays more.")
+    + row("📅", "The daily", "One map a day, the same for everyone, and only your first run counts. Beat THE CANCEL and you can challenge the king of the hill.")
+    + "<div class='note'>the codex on the title screen has every relic, enemy, boss and place</div>"
+    + "<div class='row'><button class='btn small' id='tut-ok'>close</button></div>");
+  $("tut-ok").onclick=()=>{ sfx("click"); closeModal(); };
 }
 
 /* ---------- touch: swipe on the map to step that way ---------- */
@@ -3626,7 +3644,7 @@ async function init(){
   $("menu-codex").onclick=()=>{ sfx("click"); openCodex(); };
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
   $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
-  $("menu-help").onclick=()=>{ sfx("click"); openTutorial(); };
+  $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
   let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
   ready.catch(()=>{});
   $("btn-continue").onclick=async()=>{
