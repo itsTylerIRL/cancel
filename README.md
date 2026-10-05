@@ -44,6 +44,10 @@ One seed per day, turning over at midnight Eastern. Same maze for everyone, one 
 
 When a run ends you get a Wordle-style result to paste, and a link whose preview is that run's own card: your character as she finished, relics and all. The leaderboard shows everyone's final look side by side, and the hall of fame keeps each day's winner.
 
+## King of the hill
+
+Beat THE CANCEL and you get one shot at the day's king: your final build against theirs, 1v1. Win and the hill is yours until someone takes it, or until midnight Eastern, when it empties and the first winner of the new day walks up unopposed. The title screen shows who's up there and how long they have left.
+
 ## Controls
 
 Arrow keys do everything, including menus. Enter picks, Esc backs out, `B` opens your build. Mouse and touch work too: click a tile to walk there, swipe to step on a phone.

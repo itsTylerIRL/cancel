@@ -9,6 +9,8 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
                     each entry carries the run's "id", its "share" link and its card "image"
   GET  /api/token   ?kind=milady|remilio&id=N   a token's traits, fetched once from maker.remilia.org and cached
   GET  /api/stats   how runs end, in aggregate (for balancing)
+  GET  /api/king    today's king of the hill, and when the hill (and the daily) next resets
+  POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
   GET  /api/hall    the best run of every daily map
   GET  /api/auth/login?return=URL   start "Sign in with RemiliaNET" (OIDC Authorization Code + PKCE)
@@ -85,6 +87,10 @@ CREATE TABLE IF NOT EXISTS attempts (
   date TEXT NOT NULL, player TEXT NOT NULL, run TEXT NOT NULL, created INTEGER NOT NULL,
   PRIMARY KEY(date, player)
 );
+CREATE TABLE IF NOT EXISTS hill (
+  date TEXT PRIMARY KEY, card TEXT NOT NULL, player TEXT NOT NULL, since INTEGER NOT NULL, defences INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS duels (card TEXT PRIMARY KEY, created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
   PRIMARY KEY(kind, id)
@@ -514,6 +520,56 @@ def hall(limit):
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
 
 
+# King of the hill. Anyone who beats THE CANCEL may fight the day's king: the king's final build, as a stat block.
+# The fight runs in the challenger's browser like everything else, so the result is taken on trust, within limits:
+# one challenge per winning run, made soon after that run was posted, by the player who posted it.
+KING_LIMITS = {"hp": (10, 600), "atk": (1, 300), "arm": (0, 80), "spd": (1, 40), "crit": (0, 100), "dodge": (0, 65)}
+
+
+def next_reset():
+    """When the daily and the hill next turn over: the coming midnight Eastern, as epoch seconds."""
+    now = daily_now()
+    return int((now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).timestamp())
+
+
+def king_public(con):
+    row = con.execute("SELECT * FROM hill WHERE date=?", (utc_today().isoformat(),)).fetchone()
+    if not row:
+        return None, None
+    c = con.execute("SELECT data FROM cards WHERE id=?", (row["card"],)).fetchone()
+    if not c:
+        return None, None
+    d = json.loads(c[0])
+    st = d.get("stats") or {}
+    stats = {k: max(lo, min(hi, int(st.get(k, lo)))) for k, (lo, hi) in KING_LIMITS.items()}
+    return {"name": d["name"], "handle": d.get("handle"), "look": d.get("look"), "relics": d["relics"], "tribe": d["tribe"],
+            "score": d["score"], "stats": stats, "since": row["since"], "defences": row["defences"], "id": row["card"],
+            "image": "%s/api/card/%s.png" % (PUBLIC, row["card"])}, row["player"]
+
+
+def king_challenge(card, player, won, now):
+    """Returns (status code, body)."""
+    with db() as con:
+        c = con.execute("SELECT created, data FROM cards WHERE id=?", (card,)).fetchone()
+        d = json.loads(c["data"]) if c else None
+        if not d or not d.get("win") or d.get("player") != player or not d.get("stats"):
+            return 400, {"error": "only a run that just beat THE CANCEL can climb the hill"}
+        if now - c["created"] > 3 * 3600:
+            return 400, {"error": "that win is too old: the hill is for today's runs"}
+        king, king_player = king_public(con)
+        if king_player == player:
+            return 200, {"ok": True, "king": king, "you": True, "result": "already"}
+        if con.execute("SELECT 1 FROM duels WHERE card=?", (card,)).fetchone():
+            return 400, {"error": "this run has already had its challenge"}
+        con.execute("INSERT INTO duels (card, created) VALUES (?,?)", (card, now))
+        if king and not won:
+            con.execute("UPDATE hill SET defences=defences+1 WHERE date=?", (utc_today().isoformat(),))
+            return 200, {"ok": True, "king": king_public(con)[0], "you": False, "result": "lost"}
+        con.execute("INSERT OR REPLACE INTO hill (date, card, player, since, defences) VALUES (?,?,?,?,0)",
+                    (utc_today().isoformat(), card, player, now))
+        return 200, {"ok": True, "king": king_public(con)[0], "you": True, "result": "took" if king else "claimed"}
+
+
 def daily_attempt(con, date, player, run, now):
     """True if `run` is this player's one daily run for `date`. The first run started (or, failing that, the first
     one posted) claims the day; a player already on that day's board from before this rule has used theirs."""
@@ -714,6 +770,12 @@ class Handler(BaseHTTPRequestHandler):
             except (urllib.error.URLError, ValueError, KeyError, TimeoutError) as e:
                 print("auth failed: %s" % type(e).__name__, getattr(e, "code", ""), flush=True)
                 return self.redirect(back + "#rn_error=failed")
+        if u.path == "/api/king":
+            player = one("player") if RE_PLAYER.match(one("player")) else None
+            with db() as con:
+                king, king_player = king_public(con)
+            return self.send(200, {"date": utc_today().isoformat(), "resets": next_reset(), "king": king,
+                                   "you": bool(player and king_player == player)})
         if u.path == "/api/pulse":
             return self.send(200, pulse())
         if u.path == "/api/hall":
@@ -773,7 +835,31 @@ class Handler(BaseHTTPRequestHandler):
             first = daily_attempt(con, daily, player, run, int(time.time()))
         self.send(200, {"ok": True, "first": first})
 
+    def king_post(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = json.loads(self.rfile.read(length)) if 0 < length <= MAX_BODY else None
+        except (ValueError, UnicodeDecodeError):
+            d = None
+        if not isinstance(d, dict):
+            return self.send(400, {"error": "bad json"})
+        player, card = d.get("player"), d.get("card")
+        handle = read_session(d.get("session"))
+        if handle:
+            player = verified_player(handle)
+        if not (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith("rn"))
+                and isinstance(card, str) and RE_CARD.match(card)):
+            return self.send(400, {"error": "bad challenge"})
+        if not rate_ok("king:" + self.client_key(), 30):
+            return self.send(429, {"error": "slow down"})
+        code, body = king_challenge(card, player, d.get("won") is True, int(time.time()))
+        self.send(code, body)
+
     def do_POST(self):
+        if urlparse(self.path).path == "/api/king/challenge":
+            if not self.allowed_origin():
+                return self.send(403, {"error": "origin not allowed"})
+            return self.king_post()
         if urlparse(self.path).path == "/api/daily/start":
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})
@@ -836,7 +922,9 @@ class Handler(BaseHTTPRequestHandler):
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
                 "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"],
                 "collection": row["collection"], "token": row["token"],
-                "killedBy": row["killed_by"]}, separators=(",", ":"))))
+                "killedBy": row["killed_by"],
+                "player": row["player"], "stats": json.loads(row["stats"]) if row["stats"] else None},  # for king of the hill; never sent out
+                separators=(",", ":"))))
             if secrets.randbelow(50) == 0:
                 forget_old_cards(con, now)
         self.send(200, {"ok": True, "boards": ranks, "share": PUBLIC + "/r/" + share})

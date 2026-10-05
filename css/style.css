@@ -887,3 +887,22 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 #timeline .day.boss.next,#doom{cursor:pointer;}
 #timeline .day.boss.next:hover{box-shadow:0 0 16px rgba(255,85,85,.7);filter:brightness(1.25);}
 #doom:hover b{text-decoration:underline;}
+/* king of the hill */
+.king-box{margin:6px auto 12px;max-width:560px;}
+.king-card{display:flex;align-items:center;gap:12px;border:1px solid rgba(241,250,140,.45);border-radius:6px;background:rgba(241,250,140,.05);padding:10px 12px;text-align:left;}
+.king-card>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.king-card b{color:var(--gold);font-size:14px;} .king-card span{font-size:11px;color:var(--neon2);} .king-card .dim{color:var(--dim);} .king-card .good{color:var(--acid);}
+.king-card .bpfp.big{flex:none;border-color:var(--gold);}
+.king-clock{flex:none !important;align-items:center;text-align:center;border-left:1px solid var(--line);padding-left:12px;}
+.king-clock u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.14em;font-size:9px;color:var(--dim);}
+.king-clock b{font-size:16px;color:var(--neon);font-variant-numeric:tabular-nums;white-space:nowrap;} .king-clock span{font-size:9px;color:var(--dim);}
+.end-king{margin:10px 0 4px;} .king-line{font-size:12px;margin-bottom:6px;color:var(--neon2);} .king-line b{color:var(--gold);}
+.duel{display:flex;align-items:flex-start;justify-content:center;gap:12px;margin:10px 0;}
+.duel>div{flex:1;max-width:190px;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:center;}
+.duel canvas{width:100%;aspect-ratio:4/5;object-fit:cover;border:1px solid var(--line);border-radius:10px;background:var(--stage);opacity:1;height:auto;}
+.duel #duel-king{aspect-ratio:1;border-color:var(--gold);box-shadow:0 0 18px rgba(241,250,140,.3);}
+.duel b{font-size:12px;color:#fff;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .duel .vs{flex:none;align-self:center;color:var(--neon);font-size:18px;}
+.duel .hpbar{width:100%;}
+.duel-log{height:150px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.5);padding:8px 10px;font-size:11px;line-height:1.5;text-align:left;}
+.duel-log .good{color:var(--acid);} .duel-log .bad{color:#ff8b8b;} .duel-log .crit{color:var(--gold);}
+@media (max-width:520px){ .king-card{flex-wrap:wrap;} .king-clock{border-left:0;padding-left:0;flex-basis:100% !important;flex-direction:row !important;justify-content:center;gap:8px !important;} }

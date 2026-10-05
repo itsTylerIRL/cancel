@@ -2126,7 +2126,7 @@ function fightEngine(foeDef, opts, io){
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
     // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
-    let dmg = Math.max(!isYou && def===you ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1)));
+    let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armour has the same limit
     let crit = false;
     if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
     if(isYou) you.sure = false;
@@ -2165,7 +2165,13 @@ function fightEngine(foeDef, opts, io){
       const th = thornsOf(you.arm);
       if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
+    if(isYou && foe.dodge && rnd()*100 < foe.dodge){ // a king dodges like a player does, and answers back
+      const d = Math.max(1, Math.round(foe.atk/2) - (you.arm||0));
+      you.hp -= d; F.took += d; io.log("💨 "+foe.name+" slips it and counters for "+d+".", "bad"); io.float("foe","dodge","psn"); io.hit("you", d, false);
+      return;
+    }
     let {dmg,crit}=dmgCalc(att,def,isYou);
+    if(isYou && foe.thorns){ you.hp -= foe.thorns; F.took += foe.thorns; io.log("🛡️ "+foe.name+"'s armour bites back for "+foe.thorns+".", "bad"); }
     if(!isYou && you.shield>0){
       const soak = Math.min(you.shield, dmg); you.shield-=soak; dmg-=soak;
       if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
@@ -2259,7 +2265,7 @@ function fightEngine(foeDef, opts, io){
       if(act("remilio_friend") && you.compTick%3===0) companion(tv("remilio_friend",5), "🧸 Remilio Friend strikes");
       if(act("tails") && rnd()<0.3) companion(tv("tails",4), "🦊 Tails spins in");
       if(act("dino") && you.compTick%2===0) companion(tv("dino",3), "🦖 Dino bites");
-      if(act("amogus") && !boss && foe.hp>0 && rnd()<0.2){
+      if(act("amogus") && !boss && !foe.king && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
     }
@@ -2574,7 +2580,7 @@ function endRun(win){
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
   html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
-    + "<div id='end-rank' class='end-rank'></div>"
+    + "<div id='end-rank' class='end-rank'></div>"+(win ? "<div id='end-king' class='end-king'></div>" : "")
     + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
   openModal(html);
   const run = G; let txt = resultText(run, win, d);
@@ -2585,6 +2591,7 @@ function endRun(win){
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
     $("end-rank").innerHTML = rankHtml;
+    if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
     $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
@@ -2611,6 +2618,7 @@ function endRun(win){
       if($("end-text")) $("end-text").textContent = txt;
     }
     rankHtml = res ? rankLines(res) : online() ? "<div class='dim'>leaderboard unavailable — your score wasn't posted</div>" : "";
+    if(res && res.share){ run.cardId = res.share.split("/").pop(); if(win && $("end-king")) kingPanel(run, ()=>{ openModal(html); wireEnd(false); }); }
     if($("end-rank")) $("end-rank").innerHTML = rankHtml;
   });
 }
@@ -2655,6 +2663,81 @@ function memeCanvas(run, top, bottom, fried){
   cx.font = "bold 22px 'Courier New', monospace"; cx.textAlign="right"; cx.fillStyle="rgba(255,255,255,.75)"; cx.strokeStyle="rgba(0,0,0,.7)"; cx.lineWidth=4;
   cx.strokeText("THE CANCEL IS COMING", 1064, 30); cx.fillText("THE CANCEL IS COMING", 1064, 30);
   return cv;
+}
+/* ---------- king of the hill ----------
+   Beat THE CANCEL and you may fight the day's king, 1v1: your final build against theirs. The king fights as the
+   numbers their build added up to (with a player's dodge, thorns and heft), not relic by relic. Win and the hill
+   is yours until someone takes it or the day resets. One challenge per winning run. */
+function kingFoe(k){
+  const s = k.stats;
+  return { id:"king", king:true, name:k.name, cfg:"Milady", hp:s.hp, maxhp:s.hp, atk:s.atk + heftOf(s.hp), arm:s.arm, spd:s.spd,
+           lck:clamp((s.crit-5)*2, 0, 190), dodge:s.dodge, thorns:thornsOf(s.arm), cult:[0,0] };
+}
+const untilReset = at => { const t = Math.max(0, at - Math.floor(Date.now()/1000)), h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60;
+  return (h ? h+"h " : "")+String(m).padStart(h?2:1,"0")+"m "+String(s).padStart(2,"0")+"s"; };
+async function kingPanel(run, back){
+  const el = $("end-king"); if(!el || !online()) return;
+  if(!run.cardId){ el.innerHTML = "<div class='dim'>👑 king of the hill: waiting for your run to post…</div>"; return; }
+  if(run.kingDone){ el.innerHTML = run.kingDone; return; }
+  const r = await api("/api/king?player="+playerId());
+  if(!$("end-king") || !r) return;
+  const k = r.king, box = $("end-king");
+  if(r.you){ box.innerHTML = run.kingDone = "<div class='king-line'>👑 <b>you hold the hill.</b> "+(k.defences ? k.defences+" challenger"+(k.defences>1?"s":"")+" turned away. " : "")+"<span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"; return; }
+  box.innerHTML = "<div class='king-line'>👑 <b>KING OF THE HILL</b> <span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"
+    + (k ? "<div class='king-card'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"% · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span></div>"
+           + "<button class='btn' id='king-go'>CHALLENGE</button></div>"
+         : "<div class='king-card'><div><b>the hill is empty</b><span>you beat THE CANCEL. it's yours if you want it.</span></div><button class='btn' id='king-go'>CLAIM IT</button></div>");
+  if(k) drawLook(box.querySelector("canvas"), k.look, k.relics).catch(()=>{});
+  $("king-go").onclick = ()=>{ sfx("click"); k ? kingDuel(run, k, back) : kingReport(run, true, null, back); };
+}
+async function kingReport(run, won, k, back){
+  const r = await api("/api/king/challenge", { player:playerId(), card:run.cardId, won, session: rnUser() ? rnUser().token : undefined });
+  const res = r && r.result;
+  run.kingDone = "<div class='king-line'>👑 "+(res==="claimed" ? "<b>the hill is yours.</b> hold it until midnight Eastern, if you can"
+    : res==="took" ? "<b>you took the hill from "+esc(k.name)+".</b> long live the king"
+    : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+r.king.defences+" defence"+(r.king.defences===1?"":"s")+" now"
+    : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
+  if(res==="claimed" || res==="took"){ sfx("fanfare"); burst("👑✨🌸"); }
+  if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
+}
+function kingDuel(run, k, back){
+  const keep = SEED; SEED = null; // the run is over: this fight is its own luck
+  G.stats.hp = G.stats.maxhp;
+  let ended = false;
+  const lines = [], io = { log:(m,c)=>lines.push("<div class='"+(c||"")+"'>"+m+"</div>"), hit(){}, float(){}, strip(){} };
+  const F = fightEngine(kingFoe(k), {}, io), you = F.you, foe = F.foe;
+  openModal("<h2>KING OF THE HILL</h2><div class='duel'><div><canvas id='duel-you' width='4' height='5'></canvas><b>"+esc(run.name)+"</b><div class='hpbar'><div id='duel-hp-you'></div><span id='duel-t-you'></span></div></div>"
+    + "<b class='vs'>VS</b><div><canvas id='duel-king' class='bpfp' width='4' height='4'></canvas><b>👑 "+esc(k.name)+"</b><div class='hpbar foe'><div id='duel-hp-king'></div><span id='duel-t-king'></span></div></div></div>"
+    + "<div id='duel-log' class='duel-log'></div><div class='row'><button class='btn small' id='duel-skip'>skip ⏩</button></div>");
+  paint($("duel-you"), run.avatar); drawLook($("duel-king"), k.look, k.relics).catch(()=>{});
+  const bars = ()=>{ if(!$("duel-log")) return;
+    $("duel-hp-you").style.width = clamp(100*you.hp/you.maxhp,0,100)+"%"; $("duel-t-you").textContent = Math.max(0,Math.round(you.hp))+" / "+you.maxhp;
+    $("duel-hp-king").style.width = clamp(100*foe.hp/foe.maxhp,0,100)+"%"; $("duel-t-king").textContent = Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+    const lg = $("duel-log"); lg.innerHTML = lines.slice(-40).join(""); lg.scrollTop = lg.scrollHeight; };
+  const finish = ()=>{ if(ended) return; ended = true; SEED = keep; bars();
+    if($("duel-skip")){ $("duel-skip").textContent = F.win ? "TAKE THE HILL 👑" : "walk back down"; $("duel-skip").classList.add("big"); $("duel-skip").onclick = ()=>{ sfx("click"); kingReport(run, F.win, k, back); }; navSet($("duel-skip")); }
+    sfx(F.win ? "win" : "lose"); };
+  const tick = ()=>{ if(ended || !$("duel-log")) return; F.step(); bars(); if(F.over || F.tick>400) return finish(); setTimeout(tick, META.calm ? 420 : 300); };
+  $("duel-skip").onclick = ()=>{ for(let n=0; !F.over && n<3000; n++) F.step(); finish(); };
+  bars(); setTimeout(tick, 600);
+}
+/* the title screen's king panel, with the clock to the next reset (the daily turns over then too) */
+let kingClock = 0;
+async function loadKing(){
+  const el = $("king-box"); if(!el || !online()) return;
+  const r = await api("/api/king?player="+playerId());
+  if(!r){ el.classList.add("hidden"); return; }
+  const k = r.king;
+  el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
+    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " <span class='dim'>✓ @"+esc(k.handle)+"</span>" : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
+           + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
+         : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL today takes it</span></div>")
+    + "<div class='king-clock'><u>resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>midnight Eastern</span></div></div>";
+  el.classList.remove("hidden");
+  if(k) drawLook(el.querySelector("canvas"), k.look, k.relics).catch(()=>{});
+  clearInterval(kingClock);
+  kingClock = setInterval(()=>{ const c = $("king-left"); if(!c || !$("screen-title").classList.contains("active")) return;
+    c.textContent = untilReset(r.resets); if(r.resets <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
 }
 function openMeme(run, win, back){
   const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;
@@ -2972,7 +3055,7 @@ async function genAvatar(nft){
 
 /* ---------- title / unlocks ---------- */
 function renderTitle(){
-  $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse();
+  $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
   $("meta-best").textContent=META.best?("day "+META.best):"—";
   const shop=$("unlock-shop"); shop.innerHTML="<div class='kicker'>drip unlocks</div>";
   for(const u of UNLOCKS){
