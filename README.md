@@ -19,6 +19,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and returns one random relic a grade higher. One trade each, and neither lets you pick.
 - **Scearpo.** Scorched earth policy. Hand him a relic and he flips a coin: it comes back a tier higher, or it burns.
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
+- **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.

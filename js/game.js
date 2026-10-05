@@ -739,6 +739,7 @@ function computeStats(relics){
     for(const k of ["atk","maxhp","arm","spd","crit","dodge"]){ const d = base[k]-without[k]; if(d>0) s[k] += Math.round(d*(m-1)); }
     if(flatTier(relicById(id))){ s.atk += 2*(m-1); s.maxhp += 6*(m-1); } // nothing numeric to scale: a flat bonus per extra copy's worth instead
   }
+  s.dodge = Math.min(DODGE_CAP, s.dodge); // past this, nothing would ever land
   return s;
 }
 function rawStats(relics, setsAs){
@@ -755,35 +756,36 @@ function rawStats(relics, setsAs){
   if(R("golden_axe")) s.atk+=6;
   if(R("knife")){ s.atk+=3; s.spd+=2; }
   if(R("chrome_hearts")) s.atk+=1;
-  if(R("yakuza_suit")){ s.atk+=3; s.arm+=3; }
+  if(R("yakuza_suit")){ s.atk+=3; s.arm+=4; }
   if(R("wwe_belt")) s.atk += 4*(sets.armed||0);
   if(R("drip_score")) s.atk += 2*relics.length;
   if(R("post_authorship")) s.atk += Math.min(10, G.kills);
   if(R("cancelversary")) s.atk += 4*G.bossesBeaten;
   if(S("armed",2)) s.atk+=4;
   if(R("ss_drip")) s.atk *= 1.5;
-  if(R("diamond_stud")) s.maxhp+=25;
-  if(R("frog_costume")){ s.maxhp+=30; s.spd-=1; }
+  if(R("diamond_stud")) s.maxhp+=30;
+  if(R("frog_costume")){ s.maxhp+=40; s.spd-=1; }
   if(R("harajuku")){ s.maxhp+=10; s.spd+=1; }
   if(R("mexican_coke")){ s.maxhp+=10; s.spd+=2; }
   if(R("desert_eagle")) s.atk+=4;
   if(R("bugatti")) s.spd+=2;
   if(R("shark_suit")){ s.atk+=4; s.maxhp+=10; }
-  if(R("blockhead")){ s.arm+=2; s.maxhp+=8; }
+  if(R("blockhead")){ s.arm+=3; s.maxhp+=12; }
   if(R("mape_hoodie")) s.maxhp+=12;
   if(R("strawberry")) s.maxhp+=8;
   if(R("custom")){ s.atk+=3; s.arm+=2; s.spd+=1; s.maxhp+=10; }
   if(S("kawaii",2)) s.maxhp+=12;
   if(R("hat_911")) s.spd+=3;
-  if(R("bulletproof")) s.arm+=6;
-  if(R("moteiga")) s.arm+=4;
-  if(R("hypebeast")) s.arm+=4;
+  if(R("bulletproof")) s.arm+=8;
+  if(R("moteiga")) s.arm+=5;
+  if(R("hypebeast")) s.arm+=6;
   if(S("bonkler",2)) s.arm+=3;
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
     + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
-  s.dodge = (R("cobain_glasses")?12:0) + (R("lain")?25:0) + (R("moteiga")?10:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0);
+  s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0);
+  s.dodgeRaw = s.dodge;
   s.shopDisc = (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
   return s;
 }
@@ -1413,10 +1415,12 @@ function enterTile(t){
 /* Foes grow every day, and faster late: +10% HP and ATK per day plus a little more each day after that (about
    +22% on day 3, +65% on day 6, x2.2 on day 9), a point of ARM every three days, and they pay out more $CULT to
    match. Bosses grow +8.5% per day. */
+let BOSS_ATK_PER_DAY = 0.085;
 function foeInstance(def){
   const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
   const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
-  const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1)), atx = lvl * (boss && G.heat>=4 ? 1.2 : 1);
+  const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
+  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
     atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
     cult:def.cult.map(c=>Math.round(c*lvl)) };
@@ -1506,7 +1510,7 @@ function oddsVsBoss(relics, tiers, i){
     G.stats = computeStats(relics); G.stats.hp = G.stats.maxhp;
     const foe = foeInstance(b);
     SEED = null; // trial fights must not use up the run's own luck
-    for(let i=0;i<N;i++){ const F = fightEngine(foe, {boss:b}, NOIO); for(let n=0; !F.over && n<3000; n++) F.step(); if(F.win) wins++; }
+    for(let i=0;i<N;i++) if(trialFight(foe, {boss:b}).win) wins++;
   } finally { G.relics = keep.relics; G.tiers = keep.tiers; G.stats = keep.stats; G.day = keep.day; SEED = keep.seed; }
   return wins/N;
 }
@@ -1757,6 +1761,9 @@ function openBuild(){
     + cell("HP", s.hp+" / "+s.maxhp)+cell("ATK", s.atk)+cell("ARM", s.arm)+cell("SPD", s.spd)
     + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
     + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
+    + (thornsOf(G.stats.arm) ? "<span class='chip' title='every enemy swing that reaches you costs it a quarter of your ARM'>🛡️ thorns "+thornsOf(G.stats.arm)+"</span>" : "")
+    + (heftOf(G.stats.maxhp) ? "<span class='chip' title='every 12 max HP above 50 adds 1 to your hits'>💪 heft +"+heftOf(G.stats.maxhp)+"</span>" : "")
+    + (G.stats.dodge ? "<span class='chip' title='every dodge hits back for half your ATK'>💨 "+Math.round(G.stats.dodge)+"% dodge"+(G.stats.dodge>=DODGE_CAP?" (max)":"")+" · counters for "+Math.max(1,Math.round(G.stats.atk/2))+"</span>" : "")
     + (G.heat ? "<span class='chip markup'>🔥 heat "+G.heat+"</span>" : "")+(G.daily ? "<span class='chip'>📅 "+G.daily+"</span>" : "")
     + (G.bonus.atk||G.bonus.maxhp||G.bonus.spd ? "<span class='chip sale'>events: "+[G.bonus.atk&&"+"+G.bonus.atk+" ATK", G.bonus.maxhp&&"+"+G.bonus.maxhp+" HP", G.bonus.spd&&"+"+G.bonus.spd+" SPD"].filter(Boolean).join(", ")+"</span>" : "")+"</div>";
   G.relics.forEach((id,i)=>{ const r = relicById(id); html += relicRow(r, G.relics.indexOf(id)!==i ? "<div class='delta'><i class='up'>a copy: stacks with the other, fuse the pair to free a slot</i></div>" : setChips(r, false), "", tierAt(i), G.relics.indexOf(id)!==i); });
@@ -2094,7 +2101,7 @@ function fightEngine(foeDef, opts, io){
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
   const tv = (id, n) => Math.round(n*tm(id)); // a relic's number at its tier
-  you.shield = (act("network_spirituality")?tv("network_spirituality",12):0) + (act("jesus_tank")?tv("jesus_tank",8):0) + (set("cult",2)?8:0);
+  you.shield = (act("network_spirituality")?tv("network_spirituality",16):0) + (act("jesus_tank")?tv("jesus_tank",12):0) + (set("cult",2)?8:0);
   if(you.shield) io.log("🕯️ You start shielded for "+you.shield+".", "good");
   if(act("cookie") && you.hp<you.maxhp){ heal(tv("cookie",10)); io.log("🍪 Cookie. You feel better.", "good"); }
   if(act("vibe_shift")){ foe.stun=1; io.log("🌀 Vibe shift. "+foe.name+" is caught off guard.", "good"); }
@@ -2104,18 +2111,19 @@ function fightEngine(foeDef, opts, io){
     if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += tv("blood_splatter",5);
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
-    if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0);
+    if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0) + heftOf(you.maxhp);
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
-    let dmg = Math.max(1, Math.round(atk - arm + randi(-1,1)));
+    // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
+    let dmg = Math.max(!isYou && def===you ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1)));
     let crit = false;
     if(rnd()*100 < critC || (isYou && you.sure)){ dmg *= isYou && set("hype",4) ? 3 : 2; crit=true; }
     if(isYou) you.sure = false;
     if(isYou && crit && act("cigarette")) dmg += tv("cigarette",4);
     if(isYou && act("bugatti") && foe.chill>=chillMax()) dmg = Math.round(dmg*1.3);
-    if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-tv("fbi_cap",2));
+    if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-tv("fbi_cap",3));
     if(!isYou && def===you && you.hp < you.maxhp/2 && act("hodl")) dmg = Math.max(1, Math.round(dmg*0.7));
     if(isYou && you.blunt && act("blunt")){ dmg*=3; you.blunt=false; crit=true; }
     return {dmg, crit};
@@ -2141,7 +2149,12 @@ function fightEngine(foeDef, opts, io){
       if(act("cat_ears")) heal(tv("cat_ears",3));
       if(act("matrix")) you.sure = true;
       if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
+      else { const d = counterDmg(you, foe); foe.hp-=d; credit("💨 counters", d); io.log("💨 You slip it and counter for "+d+".", "good"); io.hit("foe",d,false); } // every dodge answers back
       return;
+    }
+    if(!isYou){ // armour bites back: a swing that reaches you costs the attacker a quarter of your ARM
+      const th = thornsOf(you.arm);
+      if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
     if(!isYou && you.shield>0){
@@ -2166,7 +2179,7 @@ function fightEngine(foeDef, opts, io){
     }
     if(isYou && crit && act("trucker")) heal(tv("trucker",5));
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
-    if(!isYou && act("evil_eye")){ const e = tv("evil_eye",2); foe.hp-=e; credit("🧿 Evil Eye", e); io.log("🧿 Evil Eye reflects "+e+".", "good"); }
+    if(!isYou && act("evil_eye")){ const e = tv("evil_eye",3); foe.hp-=e; credit("🧿 Evil Eye", e); io.log("🧿 Evil Eye reflects "+e+".", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
     // stun
     if(isYou && act("balenciaga_bat") && rnd()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
@@ -2260,6 +2273,29 @@ function fightEngine(foeDef, opts, io){
   };
   return F;
 }
+/* One silent fight, start to finish. A boss fight stops at half health and asks for a call, so the trial makes
+   the call a careful player would: clap back when it can be paid for, otherwise heal when hurt, otherwise push. */
+function trialFight(foe, opts){
+  const F = fightEngine(foe, opts, NOIO), you = F.you, f = F.foe;
+  let asked = !opts.boss;
+  for(let n=0; !F.over && n<3000; n++){
+    F.step();
+    if(!asked && !F.over && f.hp<=f.maxhp/2){
+      asked = true;
+      if(F.st.cult>=50){ F.st.cult-=50; f.hp = Math.max(1, f.hp-22); }
+      else if(you.hp < you.maxhp*0.5){ you.hp = Math.min(you.maxhp, you.hp+18); f.atk += 2; }
+      else { you.hard += 3; you.hp = Math.max(1, you.hp-6); }
+    }
+  }
+  return F;
+}
+/* Defence that fights back, so armour, dodge and health are builds of their own and not just a slower death:
+   thorns: every enemy swing that reaches you costs it a quarter of your ARM. counter: every dodge hits back for half your ATK.
+   heft: every 12 max HP above 50 adds 1 to your hits. Armour never stops more than about two thirds of a hit. */
+const heftOf = maxhp => Math.max(0, Math.floor(((maxhp||0)-50)/12));
+const DODGE_CAP = 65;
+const thornsOf = arm => Math.max(0, Math.floor((arm||0)/4));
+const counterDmg = (you, foe) => Math.max(1, Math.round(you.atk/2) - (foe.arm||0));
 /* win chance and typical HP left against a foe, from silent trial fights with the current build */
 let oddsCache = {};
 function fightOdds(def, opts={}){
@@ -2270,8 +2306,7 @@ function fightOdds(def, opts={}){
   let wins=0, hp=0;
   const keep = SEED; SEED = null; // trial fights must not use up the run's own luck
   for(let i=0;i<N;i++){
-    const F = fightEngine(foe, opts, NOIO);
-    for(let n=0; !F.over && n<3000; n++) F.step();
+    const F = trialFight(foe, opts);
     if(F.win){ wins++; hp+=Math.max(1,F.you.hp); }
   }
   SEED = keep;
@@ -2853,9 +2888,11 @@ const cleanName = v => v.replace(/[<>&"'`\\]/g, "").replace(/\s+/g, " ").trim().
 const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen is setting up
 const today = () => new Date().toISOString().slice(0,10);
 function renderPicks(){
-  if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[0].id;
+  if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favourite yet: don't always hand out the first one
   PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
-  $("tribes").innerHTML = TRIBES.map(t=>"<button class='pick"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'>"+t.icon+" "+t.name+"</button>").join("");
+  $("tribes").innerHTML = TRIBES.map(t=>{ const tr = relicById(t.relic);
+    return "<button class='pick tribe"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'><i>"+t.icon+"</i><b>"+t.name+"</b><span>"+t.desc+"</span>"
+      + "<em><img class='relic-ico' src='"+(ICONS[tr.id]||"")+"' alt=''>"+tr.name+"</em></button>"; }).join("");
   const kit = (AVA && AVA.picks.kit) || {};
   const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(kit.relic || t.relic);
   $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span>"
@@ -2951,6 +2988,7 @@ function openTutorial(){
     + "<div class='shop-row'><div class='heal-ico'>👣</div><div class='sinfo'><b>Find your way through the maze</b><span>Every step burns daylight. Loot hides in dead ends; scroll or drag the map to look around. Hover a tile (or tap a foe once) to scout it first.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>🎁</div><div class='sinfo'><b>Loot relics, wear them</b><span>Fights are automatic. Your build does the fighting — the odds are shown before you commit.</span></div></div>"
     + "<div class='shop-row'><img class='heal-ico poster' alt='' src='"+NFT.schizo.src(16)+"'><div class='sinfo'><b>Night brings Schizoposters</b><span>Campfires heal you and skip to the next dawn or dusk.</span></div></div>"
+    + "<div class='shop-row'><div class='heal-ico'>🛡️</div><div class='sinfo'><b>Defence hits back</b><span>Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.</span></div></div>"
     + "<div class='shop-row'><div class='heal-ico'>⛩️</div><div class='sinfo'><b>Days 3, 6 and 9: a boss</b><span>Fight it at the gate when you're ready, or it finds you when that night ends.</span></div></div>"
     + "<div class='row'><button class='btn big' id='tut-ok'>GOT IT</button></div>");
   $("tut-ok").onclick=()=>{ META.tut=true; saveMeta(); sfx("click"); closeModal(); };
