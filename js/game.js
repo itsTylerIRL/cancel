@@ -2839,12 +2839,16 @@ function winSequence(then){ // THE CANCEL is down: a few seconds that belong to 
   const auto = setTimeout(go, 4600);
   setTimeout(()=>{ el.onclick = go; document.addEventListener("keydown", function k(e){ if(e.key==="Enter"||e.key===" "||e.key==="Escape"){ document.removeEventListener("keydown", k); go(); } }); }, 700); // not skippable by the click that ended the fight
 }
+/* Money counts toward the score, but it can't carry it: 1 DRIP per 25 $CULT for the first 1,000, then 1 per 100,
+   and never more than 100 in all. A clean win is worth about 700 before this. */
+const CULT_DRIP_MAX = 100;
+const cultDrip = c => Math.min(CULT_DRIP_MAX, Math.floor(Math.min(c, 1000)/25) + Math.floor(Math.max(0, c-1000)/100));
 function endRun(win){
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
   if(win) achieve("win");
   document.body.classList.remove("danger"); setDoom();
-  const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked", Math.floor(G.cult/25)]];
+  const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)]];
   if(win) parts.push(["timeline saved", 300]);
   const objDone = (G.objectives||[]).filter(o=>o.state==="done").length;
   if(objDone) parts.push([objDone+" objective"+(objDone>1?"s":""), objDone*25]);

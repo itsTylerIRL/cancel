@@ -51,7 +51,7 @@ SESSION_DAYS = 30
 RE_HANDLE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
 
 MAX_BODY = 6000
-MAX_SCORE = 6000          # day, boss, kill and $CULT points with the top heat bonus stay well under this
+MAX_SCORE = 3000          # day, boss, kill, objective and (capped) $CULT points with the top heat bonus stay under this
 POSTS_PER_HOUR = 30       # per client address
 TRIBES = {"hypebeast", "gyaru", "lolita", "harajuku", "prep"}
 COLLECTIONS = {"milady", "remilio"}
@@ -281,6 +281,11 @@ class Bad(Exception):
     pass
 
 
+def cult_points(cult):
+    """$CULT's share of a score: 1 per 25 for the first 1,000, then 1 per 100, never more than 100."""
+    return min(100, min(cult, 1000) // 25 + max(0, cult - 1000) // 100)
+
+
 def b64u(raw):
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
@@ -426,6 +431,11 @@ def parse_run(d):
 
     cult = d.get("cult")  # an older copy of the game doesn't send it: leave it off the card rather than print 0
     cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
+    # The score is the game's own sum, so the most it can honestly be follows from the run: every objective done,
+    # and $CULT counted the capped way. Anything above that (an old copy of the game still counting $CULT in full,
+    # or a made-up number) is brought down to it.
+    base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 if win else 0) + 75
+    score = min(score, base + int(base * 0.25 * heat + 0.5))
     run = d.get("run")
     run = run if isinstance(run, str) and RE_RUN.match(run) else None
     st = d.get("stats")
