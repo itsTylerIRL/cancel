@@ -676,6 +676,11 @@ const FIGHT_RX = { network_spirituality:/(an? )(\d+)( HP shield)/, jesus_tank:/(
   silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/ };
 const hasStatText = r => r.id!=="blood_splatter" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
 const flatTier = r => !hasStatText(r) && !TIER_IN_FIGHT.includes(r.id); // nothing numeric to scale: +2 ATK, +6 max HP per extra copy's worth
+/* A relic that has been used up shows it. The MiladyStation Memory Card loads its save once a run; after that the
+   card you are holding is corrupted, and looks it, so nobody counts on it twice. */
+const isSpent = id => id==="memcard" && !!(G && G.memUsed);
+const shown = r => r && isSpent(r.id) ? { ...r, name:"Corrupted Memory Card", desc:"SAVE DATA CORRUPTED. It loaded once this run and won't load again." } : r;
+const spentCls = id => isSpent(id) ? " corrupt" : "";
 function relicText(r, m, plain, copy){ // copy: a second item of a relic you already hold, whose effect can't happen twice
   m = m||1; const flat = flatTier(r) ? m-1+(copy?1:0) : 0;
   if(m<=1 && !flat) return r.desc;
@@ -1033,8 +1038,8 @@ function renderHUD(){
   $("relic-count").textContent = G.relics.length+" / "+G.maxSlots;
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
-    const rel = G.relics[i] && relicById(G.relics[i]);
-    rb += rel ? "<div class='relic' title='"+rel.name+" — "+textAt(rel,i,true).replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
+    const rel = G.relics[i] && shown(relicById(G.relics[i]));
+    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' title='"+rel.name+" — "+textAt(rel,i,true).replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1552,8 +1557,9 @@ function relicExtras(r, preview){ // what taking r would do: stat changes and se
   return (preview ? "<div class='delta'>"+statDelta(r)+"</div>" : "")+setChips(r, preview);
 }
 function relicCard(r, attr, delta, tier){ // tier: when the card stands for a relic you hold, that item's tier
+  const spent = tier && !delta && /data-j=/.test(attr) && isSpent(r.id); if(spent) r = shown(r); // only the copy in your slots, not one being offered
   const rar = rarity(r);
-  return "<div class='card "+rar+" "+tierCls(tier)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"
+  return "<div class='card "+rar+" "+tierCls(tier)+(spent?" corrupt":"")+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"
     + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>stacks</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
@@ -1674,8 +1680,9 @@ function openDraft(flavor, pool, luck, gen){
 
 /* ---------- shop ---------- */
 const coinSrc = () => document.querySelector(".cult-coin").src;
-function relicRow(r, extra, tail, tier, copy){ // a relic as a row: art, name, text, then whatever goes on the right
-  return "<div class='shop-row "+r.rar+" "+tierCls(tier)+"'><img src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
+function relicRow(r, extra, tail, tier, copy){
+  const spent = tier && isSpent(r.id); if(spent) r = shown(r); // a relic as a row: art, name, text, then whatever goes on the right
+  return "<div class='shop-row "+r.rar+" "+tierCls(tier)+(spent?" corrupt":"")+"'><img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult, false, copy)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 const SHOP_INFLATION = 0.25; // per boss beaten
@@ -2414,8 +2421,8 @@ function fightEngine(foeDef, opts, io){
     }
     if(act("memcard") && !st.memUsed){
       st.memUsed = true; you.hp = Math.ceil(you.maxhp/2);
-      io.log("💾 <b>MEMORY CARD.</b> Save state loaded. That was your only one.", "good");
-      io.float("you","reloaded!","heal");
+      io.log("💾 <b>MEMORY CARD.</b> Save state loaded. That was your only one: the card is corrupted now.", "good");
+      io.float("you","reloaded!","heal"); io.strip(F);
       return false;
     }
     if(act("reserve")){
@@ -2691,7 +2698,7 @@ function startCombat(foeDef, opts={}){
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
       $("combat-relics").innerHTML = f.st.relics.map((id,n)=>{ const r=relicById(id);
-        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true, f.st.relics.indexOf(id)!==n).replace(/'/g,"&#39;")+"'>"; }).join("");
+        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+(id==="memcard" && f.st.memUsed ? " corrupt" : "")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true, f.st.relics.indexOf(id)!==n).replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
