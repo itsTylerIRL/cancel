@@ -1889,7 +1889,6 @@ function skipToBoss(){
   $("boss-fight").onclick=()=>{
     closeModal();
     mlog("📣 You call out <b>"+b.name+"</b>"+(early ? " "+(to-G.day)+" day"+(to-G.day>1?"s":"")+" early." : "."), "bad");
-    quake();
     startCombat(bossAtArrival(bi), {boss:b, called:true, portrait:G.bossLook[bi].portrait});
   };
 }
@@ -2655,7 +2654,7 @@ const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss
   drain:       { cls:"drain",  ms:2400, warn:"🏦 WITHDRAWAL PENDING", rain:["🪙","💸","🪙"], line:"the treasury is being moved somewhere safer" },
   shift:       { cls:"shift",  ms:2500, warn:"🌀 THE VIBE IS SHIFTING", line:"what worked a minute ago doesn't any more" },
   bonkler911:  { cls:"bonk",   ms:2400, warn:"🔨 NEVER FORGET", rain:["🔨","💥","🧱"], line:"the reserve cannot save you" },
-  cancel:      { cls:"cancel", ms:3400, warn:"📵 YOU ARE ABOUT TO BE", title:"CANCELLED", line:"everyone you know has seen the post", sfx:"boss" },
+  cancel:      { cls:"cancel", ms:3400, warn:"📵 YOU ARE ABOUT TO BE", title:"CANCELLED", line:"everyone you know has seen the post" },
 };
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
@@ -2918,7 +2917,8 @@ function endRun(win){
       run.shareUrl = res.share; txt = resultText(run, win, d);
       if($("end-text")) $("end-text").textContent = txt;
     }
-    rankHtml = res ? rankLines(res) : online() ? "<div class='dim'>leaderboard unavailable — your score wasn't posted</div>" : "";
+    rankHtml = res && res.refused ? "<div class='dim'>the leaderboard didn't accept this run ("+esc(res.refused)+")</div>"
+      : res ? rankLines(res) : online() ? "<div class='dim'>the leaderboard can't be reached right now. this run is saved and will be sent when it's back</div>" : "";
     if(res && res.share){ run.cardId = res.share.split("/").pop(); if(win && $("end-king")) kingPanel(run, ()=>{ openModal(html); wireEnd(false); }); }
     if($("end-rank")) $("end-rank").innerHTML = rankHtml;
   });
@@ -3206,9 +3206,24 @@ function markPractice(run){
   run.practice = true;
   mlog("📅 You've already played today's daily. <b>This run is practice</b>: it won't change your place on the daily board.", "");
 }
+/* A finished run that couldn't be delivered (the service was down, the connection dropped) is kept and sent again
+   the next time the title screen shows. One the service refused outright is not: sending it again won't help. */
+async function postScore(body){
+  if(!online()) return null;
+  const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), 8000);
+  try{
+    const r = await fetch(apiBase()+"/api/score", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), signal:ctl.signal });
+    if(r.ok){ if(META.pending && META.pending.run===body.run){ delete META.pending; saveMeta(); } return await r.json(); }
+    if(r.status>=500 || r.status===429){ META.pending = body; saveMeta(); }
+    else { const e = await r.json().catch(()=>({})); return { refused: e.error || "refused" }; }
+  }catch(e){ META.pending = body; saveMeta(); }
+  finally{ clearTimeout(t); }
+  return null;
+}
+function retryPending(){ if(META.pending && META.pending.run) postScore({...META.pending, session: rnUser() ? rnUser().token : META.pending.session}); }
 function submitRun(run, win, drip){
   const nft = run.base.nft;
-  return api("/api/score", {
+  return postScore({
     run: run.runId,
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
@@ -3424,7 +3439,7 @@ function renderDailyButton(){ // the daily is the way in: lit up until today's h
   s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
 }
 function renderTitle(){
-  checkVersion();
+  checkVersion(); retryPending();
   renderDailyButton();
   $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
   $("meta-best").textContent=META.best?("day "+META.best):"—";

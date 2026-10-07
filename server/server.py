@@ -383,10 +383,9 @@ def parse_run(d):
     kills = as_int(d.get("kills"), 0, 500, "kills")
     heat = as_int(d.get("heat", 0), 0, 5, "heat")
     win = bool(d.get("win"))
-    if win and (bosses != 3 or day != 9):
+    # A boss can be called out early, so bosses beaten no longer follow from the day: a run can win on day 4.
+    if win and bosses != 3:
         raise Bad("inconsistent win")
-    if bosses > (day // 3):
-        raise Bad("inconsistent bosses")
     tribe = d.get("tribe")
     if tribe not in TRIBES:
         raise Bad("bad tribe")
@@ -893,6 +892,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             boards, row = parse_run(json.loads(self.rfile.read(length)))
         except Bad as e:
+            print("score refused: %s" % e, flush=True)  # so a run that didn't post can be explained afterwards
             return self.send(400, {"error": str(e)})
         except (ValueError, UnicodeDecodeError):
             return self.send(400, {"error": "bad json"})
