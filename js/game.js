@@ -3210,7 +3210,14 @@ function startDaily(run){
   if(!mine){ META.dailyAt = {date:run.daily, run:run.runId}; saveMeta(); }
   else if(META.dailyAt.run!==run.runId) markPractice(run);
   api("/api/daily/start", { player:playerId(), run:run.runId, daily:run.daily, session: rnUser() ? rnUser().token : undefined })
-    .then(r=>{ if(r && r.first===false && G===run) markPractice(run); });
+    .then(r=>{
+      if(!r || G!==run) return;
+      if(r.first===false) markPractice(run);
+      else if(r.first===true && run.practice){ // the service says this one counts after all (an earlier attempt never landed): it has the last word
+        run.practice = false; META.dailyAt = {date:run.daily, run:run.runId}; saveMeta();
+        mlog("📅 Correction: <b>this run counts</b> for today's daily board.", "good");
+      }
+    });
 }
 function markPractice(run){
   if(run.practice) return;
