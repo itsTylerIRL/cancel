@@ -1232,7 +1232,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
-  [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier, get one random relic of the next tier up. One trade.",
+  [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
   [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. One bargain.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
 function foeLine(def, elite, opts){
@@ -2007,7 +2007,7 @@ function openFang(note, picked){
   const here = G.px+","+G.py, done = G.traded===here; picked = picked || [];
   const tier = picked.length ? tierAt(picked[0]) : 0, next = TIERS[tier+1];
   let html = "<h2>CHARLOTTE FANG</h2><img class='npc-face' src='"+localFile(NPC_ART[T.FANG])+"' alt=''>"
-    + "<div class='note'><i>\"Two of the same grade. Any two. I'll return one, a grade higher. Which one is not up to you.\"</i><br>two normal → one 🥇 GOLD · two GOLD → one 💎 DIAMOND · one trade</div>";
+    + "<div class='note'><i>\"Two of the same grade. Any two. One of them comes back a grade higher. Which one is not up to you.\"</i><br>you get back one of the pair, upgraded: two normal → one 🥇 GOLD · two GOLD → one 💎 DIAMOND · one trade</div>";
   if(note) html += "<div class='note good'>"+note+"</div>";
   if(!done) G.relics.forEach((id,i)=>{ const r = relicById(id), t = tierAt(i), on = picked.includes(i);
     const ok = !!TIERS[t+1] && (on || picked.length<2) && (!picked.length || t===tier);
@@ -2020,11 +2020,12 @@ function openFang(note, picked){
   $("modal-panel").querySelectorAll("[data-pick]").forEach(b=>{ b.onclick=()=>{ sfx("click");
     const i = +b.dataset.pick; openFang("", picked.includes(i) ? picked.filter(x=>x!==i) : picked.concat(i)); };});
   if($("fang-go")) $("fang-go").onclick=()=>{
-    const [a, b] = [...picked].sort((x,y)=>x-y), gave = [relicById(G.relics[a]), relicById(G.relics[b])], got = randomRelic(gave.map(r=>r.id));
+    const [a, b] = [...picked].sort((x,y)=>x-y), gave = [relicById(G.relics[a]), relicById(G.relics[b])], got = gave[rnd()<0.5 ? 0 : 1]; // one of the two you handed over comes back a tier higher; which one is her call
     if(!got) return;
     G.relics[a] = got.id; G.tiers[a] = tier+1; dropRelicAt(b); recalcStats(); G.traded = here; G.flags.fused = true; // two become one: a slot comes free
     sfx("fanfare"); burst("✨💎🥇"); gotRelic(got);
-    mlog("✨ Charlotte Fang took <b>"+gave[0].name+"</b> and <b>"+gave[1].name+"</b> and returned "+next.icon+" <b>"+next.name+" "+got.name+"</b> — "+relicText(got, next.mult), "gold");
+    const kept = gave[0]===got ? gave[1] : gave[0];
+    mlog("✨ Charlotte Fang took <b>"+gave[0].name+"</b> and <b>"+gave[1].name+"</b>. She kept "+(gave[0].id===gave[1].id ? "one" : "the "+kept.name)+" and returned "+next.icon+" <b>"+next.name+" "+got.name+"</b> — "+relicText(got, next.mult), "gold");
     renderMap(); openFang("She returns a "+next.icon+" "+next.name+" <b>"+got.name+"</b>: "+relicText(got, next.mult)+" A slot is free.");
   };
   $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Charlotte Fang is already somewhere else.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
