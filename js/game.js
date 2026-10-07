@@ -1582,13 +1582,36 @@ function flyRelic(id){ // the relic leaps from the middle of the screen onto you
   a.onfinish = ()=>{ im.remove(); const h = $("hud-avatar"); h.classList.remove("equip"); void h.offsetWidth; h.classList.add("equip"); };
 }
 /* Equip r, asking which relic to drop when slots are full. onDone(dropped) / onBack(). */
+/* What swapping the relic in slot j for r would do: the change to each stat, and any synergies it switches off or on. */
+function swapEffect(r, j){
+  const was = G.stats, relics = G.relics.slice(), tiers = G.tiers.slice(), on = l => setRows(l).filter(x=>x.on.length);
+  const before = on(G.relics).map(x=>[x.t.id, x.on.length]);
+  G.relics[j] = r.id; G.tiers[j] = 1;
+  const now = computeStats(G.relics), after = on(G.relics).map(x=>[x.t.id, x.on.length]);
+  G.relics = relics; G.tiers = tiers;
+  const lvl = (l, id) => (l.find(x=>x[0]===id)||[0,0])[1], name = id => { const t = SETS.find(x=>x.id===id); return t.icon+" "+t.name; };
+  const delta = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
+    const d = Math.round(now[k]-was[k]);
+    return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
+  }).join("");
+  return { delta, lost: before.filter(([id,n])=>lvl(after,id)<n).map(([id])=>name(id)), gained: after.filter(([id,n])=>lvl(before,id)<n).map(([id])=>name(id)) };
+}
 function acquireRelic(r, onDone, onBack){
   if(G.relics.length < G.maxSlots){ addRelic(r.id); recalcStats(); gotRelic(r); return onDone(null); }
-  let h = "<h2>SLOTS FULL — DROP ONE</h2><div class='stat-line'><span>to make room for</span><b>"+r.name+"</b></div><div class='draft-cards'>";
-  G.relics.forEach((id,j)=>{ h += relicCard(relicById(id), "data-j='"+j+"'", false, tierAt(j)); });
+  // the relic coming in, then every relic you hold with what dropping it for the new one would do to the build
+  let h = "<h2>SLOTS FULL — DROP ONE</h2><div class='incoming'><u>to make room for</u>"+relicCard(r, "", false, 1)+"</div>"
+    + "<div class='note'>each relic below shows what your build gains or loses if you swap it for "+r.name+"</div><div class='draft-cards drop-cards'>";
+  G.relics.forEach((id,j)=>{
+    const e = swapEffect(r, j);
+    const held = relicById(id);
+    h += relicCard(held, "data-j='"+j+"'", false, tierAt(j)).replace(setChips(held, false), setChips(held, true)).replace(/<\/div>$/, "") // with how far along each of its sets is
+      + "<div class='delta swap-if'><small>if dropped</small>"+(e.delta || "<i>no stat change</i>")+"</div>"
+      + (e.lost.length ? "<div class='swap-warn bad'>switches off "+e.lost.join(", ")+"</div>" : "")
+      + (e.gained.length ? "<div class='swap-warn good'>switches on "+e.gained.join(", ")+"</div>" : "")+"</div>";
+  });
   h += "</div><div class='row'><button class='btn small' id='drop-back'>← back</button></div>";
   openModal(h);
-  document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick=()=>{ sfx("click"); confirmSwap(r, +c.dataset.j, onDone, ()=>acquireRelic(r, onDone, onBack)); };});
+  document.querySelectorAll("#modal-panel .card[data-j]").forEach(c=>{ c.onclick=()=>{ sfx("click"); confirmSwap(r, +c.dataset.j, onDone, ()=>acquireRelic(r, onDone, onBack)); };});
   $("drop-back").onclick = onBack;
 }
 /* "are you sure": a dropped relic is gone for good, so show exactly what leaves, what arrives and what it does to the build */
@@ -3557,7 +3580,7 @@ function navScope(){ // whichever dialog or screen the keys currently belong to;
   return null;
 }
 function navItems(scope){
-  return [...scope.querySelectorAll(".card, .choice, button, input, select")].filter(el=>!el.disabled && el.offsetParent!==null && !el.closest(".swap")); // the two cards on the "are you sure" screen are only for looking at
+  return [...scope.querySelectorAll(".card, .choice, button, input, select")].filter(el=>!el.disabled && el.offsetParent!==null && !el.closest(".swap, .incoming")); // the two cards on the "are you sure" screen are only for looking at
 }
 function navKey(scope){ const h = scope.querySelector("h2"); return scope.id+"|"+(h ? h.textContent : ""); }
 function navSet(el, scroll){

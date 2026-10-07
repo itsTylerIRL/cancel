@@ -1081,3 +1081,10 @@ body.calm .weather::before,body.calm .weather::after,body.calm .hunter-eyes,body
 .hunter-tok.nt2{box-shadow:0 0 22px 5px rgba(255,30,30,.95);border-color:#ff1010;transform:scale(1.12);z-index:4;}
 .hunter-tok.nt1 img{animation-duration:.5s;} .hunter-tok.nt2 img{animation-duration:.32s;filter:saturate(1.6) contrast(1.2);}
 .hunter-eyes.nt1 i{width:17%;} .hunter-eyes.nt2 i{width:21%;box-shadow:0 0 12px 4px #ff2020,0 0 28px 8px rgba(255,32,32,.7);} .hunter-eyes.nt2{animation-duration:1.6s;}
+/* drop one: the relic coming in, and what each swap would do */
+.incoming{display:flex;flex-direction:column;align-items:center;gap:4px;margin:6px 0 2px;}
+.incoming u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.16em;font-size:10px;color:var(--acid);}
+.incoming .card{pointer-events:none;cursor:default;max-width:300px;width:100%;border-color:var(--acid);box-shadow:0 0 16px rgba(80,250,123,.2);}
+.swap-if{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:3px;justify-content:center;align-items:center;}
+.swap-if small{flex-basis:100%;text-align:center;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;}
+.swap-warn{font-size:10px;margin-top:4px;text-align:center;} .swap-warn.good{color:var(--acid);}
