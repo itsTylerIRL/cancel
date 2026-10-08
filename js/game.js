@@ -3171,8 +3171,8 @@ async function renderRn(msg){
   const u = rnUser();
   if(!u && rnOn===null){ const h = await api("/api/health"); rnOn = !!(h && h.rn); }
   if(!u && !rnOn){ el.innerHTML = ""; return; }
-  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as <a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>@"+esc(u.handle)+"</a> · scores are saved to your RemiliaNET account</span><button class='btn small' id='rn-out'>sign out</button>"
-    : "<button class='btn small' id='rn-in'>connect RemiliaNET</button><span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
+  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as <a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>@"+esc(u.handle)+"</a></span><button class='btn small' id='rn-out'>sign out</button>"
+    : "<button class='btn' id='rn-in'><img src='"+coinSrc()+"' alt=''>Remilia SSO</button><span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
   else $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+encodeURIComponent(location.origin+location.pathname+location.search)); };
 }

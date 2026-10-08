@@ -1099,3 +1099,9 @@ img.corrupt,.relic-ico.corrupt{filter:grayscale(1) contrast(1.6) brightness(.8);
 body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 .brow em{white-space:nowrap;} .brow em i{font-style:normal;font-size:15px;margin-left:2px;filter:drop-shadow(0 0 6px rgba(241,250,140,.7));}
 .brow em:not(.won){padding-right:23px;} /* scores line up whether or not there is a crown */
+/* Remilia SSO: the one button on the title in Remilia's own yellow */
+#rn-in{display:inline-flex;align-items:center;gap:8px;margin:0;padding:9px 18px;font-size:13px;letter-spacing:.08em;text-transform:none;
+  color:#ffde17;border:1px solid #ffde17;background:rgba(255,222,23,.10);box-shadow:0 0 18px rgba(255,222,23,.28);}
+#rn-in img{width:20px;height:20px;border-radius:50%;}
+#rn-in:hover,#rn-in.ksel{background:#ffde17;color:#000;box-shadow:0 0 30px rgba(255,222,23,.55);}
+.rn-row:has(#rn-in){flex-direction:column;gap:6px;}
