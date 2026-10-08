@@ -3668,7 +3668,8 @@ async function openBoard(tab, back, seed){
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b><span>"+(tr?tr.icon+" ":"")
         + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "") : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
-        + "<div class='brel'>"+relics+"</div><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em></div>";
+        + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
+        + (e.cult!=null ? "<span title='$CULT banked'>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span title='enemies beaten'>"+e.kills+" kill"+(e.kills===1?"":"s")+"</span></div></div>";
     }).join("")+"</div>"
     + "<div class='note'>👑 saved timelines rank first, then score</div>"
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";

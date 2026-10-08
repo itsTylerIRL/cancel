@@ -517,7 +517,11 @@ def read_board(board, limit, player):
         rows = con.execute("SELECT * FROM scores WHERE board=? ORDER BY " + BOARD_ORDER + " LIMIT ?", (board, limit)).fetchall()
         total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
         you = rank_of(con, board, player) if player else None
-    return {"board": board, "total": total, "top": [public(r, i + 1) for i, r in enumerate(rows)], "you": you}
+        cult = {}  # $CULT banked isn't kept on the row; the run's card has it
+        ids = [r["card"] for r in rows if r["card"]]
+        for cid, data in con.execute("SELECT id, data FROM cards WHERE id IN (%s)" % ",".join("?" * len(ids)), ids) if ids else []:
+            cult[cid] = json.loads(data).get("cult")
+    return {"board": board, "total": total, "top": [dict(public(r, i + 1), cult=cult.get(r["card"])) for i, r in enumerate(rows)], "you": you}
 
 
 def run_stats():
