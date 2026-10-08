@@ -472,7 +472,7 @@ def parse_run(d):
     # The score is the game's own sum, so the most it can honestly be follows from the run: every objective done,
     # and $CULT counted the capped way. Anything above that (an old copy of the game still counting $CULT in full,
     # or a made-up number) is brought down to it.
-    base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 if win else 0) + 75
+    base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 + max(0, 9 - day) * 80 if win else 0) + 75  # a win is worth more for each day it came early
     score = min(score, base + int(base * 0.25 * heat + 0.5))
     run = d.get("run")
     run = run if isinstance(run, str) and RE_RUN.match(run) else None

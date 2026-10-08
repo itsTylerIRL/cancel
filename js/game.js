@@ -3020,6 +3020,7 @@ function winSequence(then){ // THE CANCEL is down: a few seconds that belong to 
 /* Money counts toward the score, but it can't carry it: 1 DRIP per 25 $CULT for the first 1,000, then 1 per 100,
    and never more than 100 in all. A clean win is worth about 700 before this. */
 const CULT_DRIP_MAX = 100;
+const EARLY_WIN = 80; // points for each day THE CANCEL was beaten ahead of day 9: more than a day of looting would have added
 const cultDrip = c => Math.min(CULT_DRIP_MAX, Math.floor(Math.min(c, 1000)/25) + Math.floor(Math.max(0, c-1000)/100));
 function endRun(win){
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
@@ -3028,6 +3029,7 @@ function endRun(win){
   document.body.classList.remove("danger"); setDoom();
   const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)]];
   if(win) parts.push(["timeline saved", 300]);
+  if(win && G.day<9) parts.push(["saved "+(9-G.day)+" day"+(9-G.day>1?"s":"")+" early", (9-G.day)*EARLY_WIN]); // calling THE CANCEL out and winning beats waiting for it
   const objDone = (G.objectives||[]).filter(o=>o.state==="done").length;
   if(objDone) parts.push([objDone+" objective"+(objDone>1?"s":""), objDone*25]);
   if(G.heat) parts.push(["heat "+G.heat+" bonus", Math.round(parts.reduce((a,p)=>a+p[1],0)*0.25*G.heat)]);
