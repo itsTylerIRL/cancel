@@ -1285,7 +1285,7 @@ function tileInfo(x,y){
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
-  document.body.classList.toggle("on-title", id==="screen-title"); // the Return Home card only belongs on the title screen
+  document.body.classList.toggle("on-title", id==="screen-title");
   setTimeout(setDoom, 0);
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
   window.scrollTo(0,0);
@@ -3720,7 +3720,6 @@ function onKey(ev){
 async function init(){
   loadMeta(); renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
   document.body.classList.add("on-title");
-  if(!/^https?:/.test(location.protocol)) $("floating-home").remove(); // opened as a file: there is no site to go home to
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
   $("menu-codex").onclick=()=>{ sfx("click"); openCodex(); };
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
