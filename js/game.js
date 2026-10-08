@@ -2874,7 +2874,7 @@ function endRun(win){
   const best = !win && G.day>META.best && META.runs>0;
   META.drip+=d; META.runs++;
   if(win){ META.wins++; META.best=9; } else META.best=Math.max(META.best,G.day);
-  saveMeta();
+  saveMeta(); syncProfile(true);
   const next = UNLOCKS.filter(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req])).sort((a,b)=>a.cost-b.cost)[0];
   let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
     + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
@@ -3242,7 +3242,7 @@ function resultText(run, win, drip){
   const url = runLink(run);
   return [
     "THE CANCEL IS COMING "+(run.daily ? "📅 "+run.daily : "🎲 "+(run.seedCode||""))+(run.heat ? " 🔥"+run.heat : ""),
-    run.name+" · "+tribe.icon+" "+tribe.name,
+    run.name+" · "+tribe.icon+" "+tribe.name+(run.daily && !run.practice && run.daily===(META.streak||{}).last && META.streak.n>1 ? " · "+streakTag(META.streak.n) : ""),
     bosses+" "+(win ? "👑 TIMELINE SAVED" : "💀 cancelled by "+(run.killedBy||"the timeline")+", day "+run.day),
     days+" "+(sets ? sets+" · " : "")+run.relics.length+" relics · "+drip+" DRIP",
   ].concat(url ? ["same map: "+url] : []).join("\n");
@@ -3296,7 +3296,7 @@ async function renderRn(msg){
     : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+localFile(REMILIA_LOGO)+"' alt=''>Remilia SSO</button>" : "")
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
         + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
-      + "<span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
+      + "<span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your progress on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
   if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
   if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
@@ -3327,12 +3327,56 @@ async function drawLook(cv, look, relics){ // paint a board entry's face onto a 
   cv.getContext("2d").drawImage(full, w*0.1, w*0.14, w*0.8, w*0.8, 0, 0, 144, 144);
   cv.classList.add("ready");
 }
+/* The daily streak: days in a row with a daily played. It survives until a whole day goes by without one. */
+const dayBefore = d => new Date(Date.parse(d+"T12:00:00Z")-86400e3).toISOString().slice(0,10);
+function streakNow(){
+  const s = META.streak, t = today();
+  return s && s.last && (s.last===t || s.last===dayBefore(t)) ? s.n : 0;
+}
+function bumpStreak(date){
+  const s = META.streak || {n:0, last:"", best:0};
+  if(s.last===date) return;
+  s.n = s.last===dayBefore(date) ? s.n+1 : 1; s.last = date; s.best = Math.max(s.best||0, s.n);
+  META.streak = s; saveMeta();
+}
+const streakTag = n => "⚡ "+n+" day streak";
+/* Progress follows the account. Signed in, what you have unlocked, found and earned is merged with what the account
+   holds, so a second device picks up where the first left off. Each device sends what it had at its last sync, and
+   the service adds only what changed since. */
+const profileOf = () => ({ runs:META.runs||0, wins:META.wins||0, drip:META.drip||0, best:META.best||0, heat:META.heat||0,
+  unlocks:META.unlocks||{}, seen:META.seen||{}, ach:META.ach||{}, tips:META.tips||{}, tut:!!META.tut,
+  streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "" });
+let syncing = false, syncAt = 0, syncAgain = false;
+async function syncProfile(force){
+  const u = rnUser(); if(!u || !online()) return;
+  if(syncing){ syncAgain = syncAgain || !!force; return; }
+  if(!force && Date.now()-syncAt < 60000) return;
+  syncing = true; syncAt = Date.now();
+  const sent = profileOf(), base = META.sync && META.sync.p===u.player ? META.sync : null;
+  const r = await api("/api/profile", { session:u.token, data:sent, base:base||undefined });
+  syncing = false;
+  const now = rnUser();
+  if(r && r.data && now && now.player===r.player){
+    const d = r.data, keys = a => Object.fromEntries((a||[]).map(k=>[k,1]));
+    for(const k of ["runs","wins","drip"]) META[k] = Math.max(0, d[k] + ((META[k]||0) - sent[k])); // anything earned while the request was out is kept
+    META.best = Math.max(META.best||0, d.best||0); META.heat = Math.max(META.heat||0, d.heat||0);
+    for(const k of ["unlocks","seen","ach","tips"]) META[k] = {...(META[k]||{}), ...keys(d[k])};
+    META.tut = META.tut || !!d.tut;
+    const a = META.streak || {n:0, last:"", best:0}, b = d.streak || a;
+    META.streak = (b.last > a.last || (b.last===a.last && b.n > a.n)) ? {n:b.n, last:b.last, best:Math.max(a.best||0, b.best||0)} : {...a, best:Math.max(a.best||0, b.best||0)};
+    if(d.daily===today() && !(META.dailyAt && META.dailyAt.date===d.daily)) META.dailyAt = {date:d.daily, run:"elsewhere"}; // played on another device
+    META.sync = {p:now.player, runs:d.runs, wins:d.wins, drip:d.drip};
+    saveMeta();
+    if($("screen-title").classList.contains("active")){ renderMenu(); renderDailyButton(); }
+  }
+  if(syncAgain){ syncAgain = false; syncProfile(true); }
+}
 /* The daily board takes one run per player per day: the first one started. The service is told when a daily
    begins, so quitting a bad run doesn't buy another go; later runs that day are practice. */
 function startDaily(run){
   if(!run.daily) return;
   const mine = META.dailyAt && META.dailyAt.date===run.daily;
-  if(!mine){ META.dailyAt = {date:run.daily, run:run.runId}; saveMeta(); }
+  if(!mine){ META.dailyAt = {date:run.daily, run:run.runId}; saveMeta(); if(run.daily===today()) bumpStreak(run.daily); }
   else if(META.dailyAt.run!==run.runId) markPractice(run);
   api("/api/daily/start", { player:playerId(), run:run.runId, daily:run.daily, session: rnUser() ? rnUser().token : undefined })
     .then(r=>{
@@ -3406,15 +3450,23 @@ async function openBoard(tab, back, seed){
   if(tab==="hall"){ // every daily map's champion, as a wall of faces
     const h = await api("/api/hall");
     if($("modal").classList.contains("hidden") || !$("board-close")) return;
-    const days = h ? h.days : [];
+    // each day's champion, and in gold whoever held the hill as each week ended, newest first
+    const mon = d => new Date(Date.parse(d+"T12:00:00Z")).toLocaleDateString("en-US", {month:"short", day:"numeric", timeZone:"UTC"});
+    const items = !h ? [] : h.days.map(e=>({...e, at:e.date}))
+      .concat((h.kings||[]).map(k=>({...k, king:true, at:new Date(Date.parse(k.week+"T12:00:00Z")+6*86400e3).toISOString().slice(0,10)+"~"})))
+      .sort((x,y)=> x.at<y.at ? 1 : -1);
+    const mark = e => e.handle ? " <i class='vmark"+(isShip(e.handle)?" ur":"")+"' title='"+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"'>✓</i>" : "";
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
-      : !days.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
-      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+(e.handle ? " <i class='vmark"+(isShip(e.handle)?" ur":"")+"' title='"+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"'>✓</i>" : "")+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
-          + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
-        + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight Eastern.</div>")); wire();
+      : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
+      : "<div class='hall'>"+items.map((e,i)=> e.king
+          ? "<div class='hcard king' title='held the hill when the week ended'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>week of "+esc(mon(e.week))+"</u><b>"+esc(e.name)+mark(e)+"</b><em>👑 king of the hill</em><span>"
+            + (e.defences ? e.defences+" defence"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
+          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+mark(e)+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+            + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
+        + "<div class='note'>the best run on each day's map"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
       if(!cv.isConnected) return;
-      try{ await drawLook(cv, days[+cv.dataset.n].look, days[+cv.dataset.n].relics); }catch(err){}
+      try{ await drawLook(cv, items[+cv.dataset.n].look, items[+cv.dataset.n].relics); }catch(err){}
     }
     return;
   }
@@ -3592,14 +3644,24 @@ function renderDailyButton(){
   const b = $("btn-daily"), s = $("btn-start"); if(!b || !s) return;
   const played = !!(META.dailyAt && META.dailyAt.date===today());
   b.classList.toggle("funnel", !played); b.classList.toggle("big", !played); b.classList.toggle("small", played); b.classList.toggle("played", played);
-  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>resets in <i id='daily-left'>"+untilReset(dailyResetAt())+"</i></span>"
-                       : "<b>📅 play today's daily</b><span>one attempt · the same map for everyone</span>";
+  const run = streakNow();
+  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>"+(run>1 ? streakTag(run)+" · " : "")+"resets in <i id='daily-left'>"+untilReset(dailyResetAt())+"</i></span>"
+                       : "<b>📅 play today's daily</b><span>"+(run ? streakTag(run)+" · play today to keep it" : "one attempt · the same map for everyone")+"</span>";
   s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
 }
 function renderTitle(){
-  checkVersion(); retryPending();
+  checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
   loadPulse(); loadKing();
+  renderMenu();
+  const save = loadRun(), c = $("btn-continue");
+  c.classList.toggle("hidden", !save);
+  if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
+  $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
+  $("btn-start").className = save ? "btn small" : "btn big";
+  renderDailyButton(); // after the line above, which resets the start button's classes
+}
+function renderMenu(){
   { const w = META.wins||0, l = Math.max(0, (META.runs||0)-w); // your record, at a glance; the button opens the rest
     $("menu-record").innerHTML = "📈 record <small>"+(w+l ? w+"W · "+l+"L · "+Math.round(100*w/(w+l))+"%" : "no runs yet")+"</small>"; }
   // the collections live behind three buttons; each says how far along you are
@@ -3609,12 +3671,6 @@ function renderTitle(){
   $("menu-ach").innerHTML = "🏆 achievements <small>"+done+" / "+ACHIEVEMENTS.length+"</small>";
   $("menu-unlocks").innerHTML = "✨ unlocks <small>"+META.drip+" drip</small>";
   $("menu-unlocks").classList.toggle("ready", afford); // something is affordable
-  const save = loadRun(), c = $("btn-continue");
-  c.classList.toggle("hidden", !save);
-  if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
-  $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
-  $("btn-start").className = save ? "btn small" : "btn big";
-  renderDailyButton(); // after the line above, which resets the start button's classes
 }
 const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
 const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
@@ -3629,7 +3685,7 @@ function openUnlocks(){
   openModal(html+"</div>"+backRow); wireClose();
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
     const u = UNLOCKS[+b.dataset.u]; if(META.drip<u.cost || META.unlocks[u.id]) return;
-    META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); sfx("fanfare"); openUnlocks();
+    META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks();
   };});
 }
 /* ---------- your record ---------- */
@@ -3644,7 +3700,10 @@ function openRecord(){
     + line("relics discovered", pool.filter(r=>META.seen[r.id]).length+" / "+pool.length)
     + line("achievements", ACHIEVEMENTS.filter(a=>META.ach[a.id]).length+" / "+ACHIEVEMENTS.length)
     + line("DRIP to spend", META.drip)
-    + "<div class='note'>kept in this browser. an abandoned run counts as cancelled</div>"+backRow);
+    + line("daily streak", streakNow() ? streakTag(streakNow()).replace(" streak","s").replace("1 days","1 day") : "—")
+    + line("longest daily streak", (META.streak||{}).best ? META.streak.best+" day"+(META.streak.best===1?"":"s") : "—")
+    + "<div class='note'>"+(rnUser() ? "saved to your account: sign in on another device and it's all there"
+        : "kept in this browser. sign in to carry it to your other devices")+". an abandoned run counts as cancelled</div>"+backRow);
   wireClose();
 }
 /* ---------- achievements ---------- */
@@ -3860,7 +3919,9 @@ function onKey(ev){
 
 /* ---------- init ---------- */
 async function init(){
-  loadMeta(); renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
+  loadMeta();
+  if(!META.streak && META.dailyAt) META.streak = {n:1, last:META.dailyAt.date, best:1}; // dailies played before streaks were kept
+  renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
   document.body.classList.add("on-title");
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
   $("menu-codex").onclick=()=>{ sfx("click"); openCodex(); };
@@ -3888,7 +3949,7 @@ async function init(){
     b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; $("btn-start").click(); };
     $("link-note").textContent = "someone sent you this map — same maze, same bosses, same loot spots";
   }
-  renderRn(rnReturn());
+  renderRn(rnReturn()); syncProfile(true);
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
     if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run

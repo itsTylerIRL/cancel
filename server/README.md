@@ -13,7 +13,8 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE` or `?all=1`. Each entry has the run's `id`, its `share` link and its card `image` |
 | `GET /api/king` | this week's king of the hill, their relics, and when the hill (Sunday night, Eastern) and the daily next reset |
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
-| `GET /api/hall` | the best run of every daily map |
+| `GET /api/hall` | the best run of every daily map, and whoever held the hill as each past week ended |
+| `POST /api/profile` | a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account already holds |
 | `GET /api/pulse` | games and wins today, this week, ever |
 | `GET /api/stats` | how runs end, in aggregate. Useful for balancing |
 | `GET /api/token` | a Milady or Remilio token's traits, fetched once and cached |
@@ -88,3 +89,14 @@ Settings: `CANCEL_UR_ON=1`, `CANCEL_UR_PUBLIC` (the ship's web address), `CANCEL
 | `CANCEL_DEV=1` | also accept localhost origins, for testing |
 
 Point the game at your service with `API_DEFAULT` in `js/game.js`.
+
+## Backups
+
+`backup.py` takes a safe copy of the database while the service runs, gzips it into `backups/` beside the database and keeps the newest 14. `cancel-backup.service` and `cancel-backup.timer` run it nightly:
+
+```sh
+cp cancel-backup.service cancel-backup.timer /etc/systemd/system/
+systemctl enable --now cancel-backup.timer
+```
+
+Those copies live on the same machine, so they cover a bad edit, not a dead disk. To send each one somewhere else, set `CANCEL_BACKUP_COPY` in `/etc/cancel-api.env` to a command; `{}` becomes the file's path, for example `rclone copy {} remote:cancel-backups`.

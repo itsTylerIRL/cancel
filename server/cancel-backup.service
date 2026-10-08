@@ -1,0 +1,14 @@
+[Unit]
+Description=THE CANCEL IS COMING: nightly leaderboard backup
+
+[Service]
+Type=oneshot
+User=cancel
+Group=cancel
+EnvironmentFile=/etc/cancel-api.env
+ExecStart=/usr/bin/python3 /opt/cancel-api/backup.py
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/cancel-api

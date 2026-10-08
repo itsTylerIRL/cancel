@@ -48,9 +48,15 @@ One seed per day, turning over at midnight Eastern. Same maze for everyone, one 
 
 When a run ends you get a Wordle-style result to paste, and a link whose preview is that run's own card: your character as she finished, relics and all. The leaderboard shows everyone's final look side by side, and the hall of fame keeps each day's winner.
 
+Play the daily on consecutive days and the title screen starts counting. Miss one and it stops.
+
 ## King of the hill
 
-Beat THE CANCEL and you get one shot at the king: your final build against theirs, 1v1, every relic on both sides doing its thing. Win and the hill is yours until someone takes it, or until Sunday night (Eastern), when it empties and the first winner of the new week walks up unopposed. The title screen shows who's up there, what they're carrying, and how long they have left.
+Beat THE CANCEL and you get one shot at the king: your final build against theirs, 1v1, every relic on both sides doing its thing. Win and the hill is yours until someone takes it, or until Sunday night (Eastern), when it empties and the first winner of the new week walks up unopposed. The title screen shows who's up there, what they're carrying, and how long they have left. Whoever is still standing when the week ends goes into the hall of fame in gold.
+
+## Signing in
+
+Optional. Sign in with RemiliaNET or an Urbit ID and your name on the boards is verified. Your unlocks, achievements, codex, record and streak also move to the account, so a second device picks up where the first left off.
 
 ## Controls
 

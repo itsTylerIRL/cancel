@@ -1,0 +1,10 @@
+[Unit]
+Description=THE CANCEL IS COMING: nightly leaderboard backup
+
+[Timer]
+OnCalendar=*-*-* 09:20:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

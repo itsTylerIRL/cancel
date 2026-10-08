@@ -12,7 +12,8 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   GET  /api/king    this week's king of the hill, and when the hill and the daily next reset
   POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
-  GET  /api/hall    the best run of every daily map
+  GET  /api/hall    the best run of every daily map, and whoever held the hill as each past week ended
+  POST /api/profile  a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account holds
   GET  /api/auth/urbit/login?return=URL   start "Sign in with Urbit": log in to the owner's ship as your own (eauth)
   GET  /api/auth/urbit/callback     arrives through the ship's address; the ship says who you are
   GET  /api/auth/login?return=URL   start "Sign in with RemiliaNET" (OIDC Authorization Code + PKCE)
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS hill (
   date TEXT PRIMARY KEY, card TEXT NOT NULL, player TEXT NOT NULL, since INTEGER NOT NULL, defences INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS duels (card TEXT PRIMARY KEY, created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS profiles (player TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
   PRIMARY KEY(kind, id)
@@ -562,7 +564,14 @@ def hall(limit):
             """SELECT s.*, (SELECT COUNT(*) FROM scores c WHERE c.board=s.board) AS players FROM scores s
                WHERE s.board LIKE 'daily:%' AND s.id=(SELECT t.id FROM scores t WHERE t.board=s.board ORDER BY t.win DESC, t.score DESC, t.created ASC LIMIT 1)
                ORDER BY s.board DESC LIMIT ?""", (limit,)).fetchall()
-    return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows]}
+        kings = []  # whoever held the hill as each past week ended
+        for k in con.execute("""SELECT h.date, h.defences, c.data FROM hill h JOIN cards c ON c.id=h.card
+                                WHERE h.date<? ORDER BY h.date DESC LIMIT 52""", (hill_week(),)):
+            d = json.loads(k["data"])
+            kings.append({"week": k["date"], "name": d["name"], "handle": d.get("handle"), "look": d.get("look"), "relics": d["relics"],
+                          "score": d["score"], "tribe": d["tribe"], "defences": k["defences"]})
+    return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows],
+            "kings": kings}
 
 
 # King of the hill. Anyone who beats THE CANCEL may fight the week's king, build against build.
@@ -628,6 +637,67 @@ def king_challenge(card, player, won, now):
         return 200, {"ok": True, "king": king_public(con)[0], "you": True, "result": "took" if king else "claimed"}
 
 
+# A signed-in player's progress follows the account: what they have unlocked, found and earned, and their record.
+# Nothing here is trusted for the boards; it is the player's own save, merged so that no device ever loses anything.
+RE_PKEY = re.compile(r"^[a-z0-9_]{1,32}$")
+PROFILE_COUNTS = {"runs": 100000, "wins": 100000, "drip": 10000000}  # these add up across devices
+PROFILE_BEST = {"best": 9, "heat": 20}                                # these only ever go up
+PROFILE_SETS = ("unlocks", "seen", "ach", "tips")
+MAX_PROFILE = 24000
+
+
+def clean_profile(d):
+    def num(src, k, hi):
+        v = src.get(k) if isinstance(src, dict) else None
+        return max(0, min(hi, int(v))) if isinstance(v, (int, float)) and v == v else 0
+
+    def day(v):
+        return v if isinstance(v, str) and RE_DATE.match(v) else ""
+
+    out = {k: num(d, k, hi) for k, hi in {**PROFILE_COUNTS, **PROFILE_BEST}.items()}
+    for k in PROFILE_SETS:
+        v = d.get(k)
+        v = [x for x in v if v[x]] if isinstance(v, dict) else v if isinstance(v, list) else []  # the game sends {id: 1}; kept as a list
+        out[k] = sorted({x for x in v if isinstance(x, str) and RE_PKEY.match(x)})[:400]
+    out["tut"] = bool(d.get("tut"))
+    st = d.get("streak") if isinstance(d.get("streak"), dict) else {}
+    out["streak"] = {"n": num(st, "n", 100000), "best": num(st, "best", 100000), "last": day(st.get("last"))}
+    out["daily"] = day(d.get("daily"))  # the last day this player's daily was played, on any device
+    return out
+
+
+def merge_profile(old, new, base):
+    """`old` is what the account holds, `new` what this device has, `base` what this device had when it last synced.
+    With a base, the device's changes since then are applied on top. Without one (a device joining an account that
+    already has progress) the larger of each number is kept, so nothing is counted twice."""
+    if old is None:
+        return new
+    out = {}
+    for k, hi in PROFILE_COUNTS.items():
+        out[k] = max(0, min(hi, old[k] + new[k] - base[k])) if base else max(old[k], new[k])
+    for k in PROFILE_BEST:
+        out[k] = max(old[k], new[k])
+    for k in PROFILE_SETS:
+        out[k] = sorted(set(old[k]) | set(new[k]))[:400]
+    out["tut"] = old["tut"] or new["tut"]
+    a, b = old["streak"], new["streak"]
+    lead = b if (b["last"], b["n"]) > (a["last"], a["n"]) else a
+    out["streak"] = {"n": lead["n"], "last": lead["last"], "best": max(a["best"], b["best"], lead["n"])}
+    out["daily"] = max(old["daily"], new["daily"])
+    return out
+
+
+def profile_sync(player, data, base, now):
+    new = clean_profile(data)
+    with db() as con:
+        row = con.execute("SELECT data FROM profiles WHERE player=?", (player,)).fetchone()
+        old = clean_profile(json.loads(row[0])) if row else None
+        merged = merge_profile(old, new, clean_profile(base) if isinstance(base, dict) and old is not None else None)
+        con.execute("INSERT OR REPLACE INTO profiles (player, data, at) VALUES (?,?,?)",
+                    (player, json.dumps(merged, separators=(",", ":")), now))
+    return merged
+
+
 def daily_attempt(con, date, player, run, now):
     """True if `run` is this player's one daily run for `date`. The first run started (or, failing that, the first
     one posted) claims the day; a player already on that day's board from before this rule has used theirs."""
@@ -641,8 +711,9 @@ def daily_attempt(con, date, player, run, now):
 
 
 def forget_old_cards(con, now):
-    # a card that a leaderboard row still points at is kept for as long as that row stands
-    old = [r[0] for r in con.execute("SELECT id FROM cards WHERE created<? AND id NOT IN (SELECT card FROM scores WHERE card IS NOT NULL)",
+    # a card that a leaderboard row still points at is kept for as long as that row stands; a king's is kept for good
+    old = [r[0] for r in con.execute("SELECT id FROM cards WHERE created<? AND id NOT IN (SELECT card FROM scores WHERE card IS NOT NULL)"
+                                     " AND id NOT IN (SELECT card FROM hill)",
                                      (now - CARD_DAYS * 86400,))]
     con.executemany("DELETE FROM cards WHERE id=?", [(i,) for i in old])
     for cid in old:
@@ -914,6 +985,22 @@ class Handler(BaseHTTPRequestHandler):
             first = daily_attempt(con, daily, player, run, int(time.time()))
         self.send(200, {"ok": True, "first": first})
 
+    def profile_post(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = json.loads(self.rfile.read(length)) if 0 < length <= MAX_PROFILE else None
+        except (ValueError, UnicodeDecodeError):
+            d = None
+        if not isinstance(d, dict) or not isinstance(d.get("data"), dict):
+            return self.send(400, {"error": "bad json"})
+        handle = read_session(d.get("session"))
+        if not handle:
+            return self.send(401, {"error": "sign in to keep your progress on your account"})
+        if not rate_ok("profile:" + self.client_key(), 240):
+            return self.send(429, {"error": "slow down"})
+        player = verified_player(handle)
+        self.send(200, {"ok": True, "player": player, "data": profile_sync(player, d["data"], d.get("base"), int(time.time()))})
+
     def king_post(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -939,6 +1026,10 @@ class Handler(BaseHTTPRequestHandler):
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})
             return self.king_post()
+        if urlparse(self.path).path == "/api/profile":
+            if not self.allowed_origin():
+                return self.send(403, {"error": "origin not allowed"})
+            return self.profile_post()
         if urlparse(self.path).path == "/api/daily/start":
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})

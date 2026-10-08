@@ -1144,3 +1144,9 @@ body.calm .odds.doom{animation:none;}
 .meme-busy.on{opacity:1;}
 .meme-levels .pick.on{border-color:#ff8a3c;color:#ffb347;background:rgba(255,120,0,.14);box-shadow:0 0 14px rgba(255,120,0,.3);}
 #modal-panel:has(.meme-stage){max-width:520px;}
+
+/* hall of fame: a week's king of the hill, in gold */
+.hcard.king{border-color:rgba(255,209,102,.75);background:linear-gradient(160deg,rgba(255,209,102,.2),rgba(255,160,40,.05) 55%,rgba(255,209,102,.14));box-shadow:0 0 14px rgba(255,209,102,.16),inset 0 0 0 1px rgba(255,235,170,.12);}
+.hcard.king .bpfp{box-shadow:0 0 0 2px rgba(255,209,102,.7);}
+.hcard.king u,.hcard.king em{color:var(--gold);}
+.hcard.king em{font-size:10px;letter-spacing:.02em;}
