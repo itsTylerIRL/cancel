@@ -1121,6 +1121,18 @@ body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 #ur-in:hover,#ur-in.ksel{background:var(--urbit);color:#000;box-shadow:0 0 30px rgba(95,168,255,.55);}
 #ur-in svg{flex:none;}
 .rn-row:has(.sso){flex-direction:column;gap:6px;}
-.title-board{display:flex;justify-content:center;margin:12px 0 2px;} .title-board .btn{margin:0;min-width:200px;}
+.title-board{display:flex;justify-content:center;margin:14px 0 4px;}
+/* the leaderboard button: gold, with a light that sweeps across it now and then */
+#btn-board{position:relative;overflow:hidden;margin:0;min-width:260px;padding:11px 26px;font-size:14px;letter-spacing:.14em;
+  color:var(--gold);border:1px solid var(--gold);background:linear-gradient(180deg,rgba(241,250,140,.14),rgba(241,250,140,.05));
+  box-shadow:0 0 20px rgba(241,250,140,.25);animation:boardglow 3.2s ease-in-out infinite;}
+#btn-board i{font-style:normal;display:inline-block;margin-right:6px;animation:trophy 3.2s ease-in-out infinite;}
+#btn-board::after{content:"";position:absolute;top:-20%;bottom:-20%;left:-40%;width:28%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:boardsweep 3.2s ease-in-out infinite;}
+#btn-board:hover,#btn-board.ksel{background:var(--gold);color:#000;box-shadow:0 0 34px rgba(241,250,140,.6);}
+@keyframes boardglow{50%{box-shadow:0 0 32px rgba(241,250,140,.5);}}
+@keyframes boardsweep{0%,55%{left:-40%;}85%,100%{left:120%;}}
+@keyframes trophy{0%,60%,100%{transform:none;}70%{transform:translateY(-3px) rotate(-10deg);}82%{transform:translateY(0) rotate(8deg);}}
+body.calm #btn-board,body.calm #btn-board i,body.calm #btn-board::after{animation:none;} body.calm #btn-board::after{display:none;}
 .odds.doom{color:#ff3030;letter-spacing:.08em;text-shadow:0 0 10px rgba(255,48,48,.7);animation:blink 1s steps(2) infinite;}
 body.calm .odds.doom{animation:none;}
