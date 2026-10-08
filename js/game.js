@@ -851,6 +851,7 @@ const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinat
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
 const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18 };
+const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
 const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
 const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" };
@@ -1100,7 +1101,7 @@ function renderMap(){
         d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
       } else {
         d.classList.add("poi", "t"+t);
-        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+coin+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
+        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+localFile(REMILIA_LOGO)+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
         d.title = T_NAME[t];
         if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
       }
@@ -1934,7 +1935,7 @@ function openBuild(){
 /* ---------- Remilia Jackson: fuses copies of a relic into its next tier ----------
    He only fuses. Copies have to be found (drafts, shops, drops); he never sells them. */
 function openForge(note){
-  let html = "<h2>REMILIA JACKSON</h2><img class='npc-face' src='"+coinSrc()+"' alt=''>"
+  let html = "<h2>REMILIA JACKSON</h2><img class='npc-face jackson' src='"+localFile(REMILIA_LOGO)+"' alt=''>"
     + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>copies already stack. fusing two puts both in one slot: 🥇 GOLD is worth two, 💎 DIAMOND (two GOLD) is worth four"
     + "<br>he doesn't sell copies, and he moves on once he has fused for you</div>";
   const used = new Set(); let pairs = 0;
@@ -3182,7 +3183,7 @@ async function renderRn(msg){
   const back = encodeURIComponent(location.origin+location.pathname+location.search);
   el.innerHTML = u ? "<span class='rn-on'>✓ signed in as "+(isShip(u.handle) ? "<b class='ur'>"+esc(u.handle)+"</b>"
         : "<a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>~"+esc(u.handle)+"</a>")+"</span><button class='btn small' id='rn-out'>sign out</button>"
-    : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+coinSrc()+"' alt=''>Remilia SSO</button>" : "")
+    : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+localFile(REMILIA_LOGO)+"' alt=''>Remilia SSO</button>" : "")
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
         + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
       + "<span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";

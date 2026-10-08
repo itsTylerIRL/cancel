@@ -1129,3 +1129,7 @@ body.calm #btn-board,body.calm #btn-board i,body.calm #btn-board::after{animatio
 .odds.doom{color:#ff3030;letter-spacing:.08em;text-shadow:0 0 10px rgba(255,48,48,.7);animation:blink 1s steps(2) infinite;}
 body.calm .odds.doom{animation:none;}
 .foot a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;} .foot a:hover{color:var(--neon);}
+/* the Remilia smiley has its own outline: no extra ring or backing needed */
+.tile.poi.t11 .npc{width:100%;height:100%;border-radius:50%;object-fit:contain;} .tile.poi.t11 span{background:none;border-color:transparent;}
+.npc-face.jackson{border-color:transparent;background:none;object-fit:contain;box-shadow:0 0 26px rgba(255,222,23,.45);}
+#rn-in img{border-radius:0;object-fit:contain;}
