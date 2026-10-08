@@ -2656,7 +2656,7 @@ function fightEngine(foeDef, opts, io){
     for(const isYou of order){
       const att = isYou?you:foe, def = isYou?foe:you;
       F.fxDelay = isYou===order[0] ? 0 : 270; // the second striker's visuals land a beat later
-      if(att.stun>0){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned.", ""); continue; }
+      if(att.stun>0 && !(!isYou && foe.puppet)){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned.", ""); continue; } // a duel's stand-in keeps its stun for the fighter it stands for
       if(!isYou && foe.puppet && !(foe.nextDmg>0)) continue; // nothing to land this round
       strike(att,def,isYou);
       if(foe.hp<=0) return done(true);
@@ -3281,12 +3281,22 @@ function makeDuel(run, k, log){
   let fromKing = 0, fromYou = 0;
   // the faster build moves first each round and its damage lands that same round; a tie in speed is a coin toss
   const youFirst = A.you.spd!==B.you.spd ? A.you.spd > B.you.spd : Math.random()<0.5;
-  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); fromYou = Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; };
-  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); fromKing = Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; };
+  /* A stun lands on the stand-in, but it is the real fighter on the other side who has to lose the turn. Left on the
+     stand-in it threw away everything that fighter had dealt that round (a king who stunned on every hit never lost
+     a point of health). So it is carried across; and nobody is stunned two rounds running, or a duel could be locked. */
+  let round = 0; const stunAt = new Map();
+  const carryStun = (from, to) => {
+    if(!(from.foe.stun>0)) return;
+    from.foe.stun = 0;
+    if(round - (stunAt.has(to) ? stunAt.get(to) : -9) > 1){ to.you.stun = 1; stunAt.set(to, round); }
+  };
+  carryStun(A, B); carryStun(B, A); // anything that stuns as the fight opens
+  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); fromYou += Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; carryStun(A, B); };
+  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); fromKing += Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; carryStun(B, A); };
   const D = { A, B, you:A.you, king:B.you, kg, rounds:0, over:false, win:false, youFirst,
     step(){
       if(D.over) return;
-      D.rounds++;
+      D.rounds++; round = D.rounds;
       for(const turn of (youFirst ? [yours, theirs] : [theirs, yours])){
         turn();
         if(A.over){ D.over = true; D.win = false; return; } // you fell
