@@ -3035,7 +3035,7 @@ async function kingPanel(run, back){
   const k = r.king, box = $("end-king");
   if(r.you){ box.innerHTML = run.kingDone = "<div class='king-line'>👑 <b>you hold the hill.</b> "+(k.defences ? k.defences+" challenger"+(k.defences>1?"s":"")+" turned away. " : "")+"<span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"; return; }
   box.innerHTML = "<div class='king-line'>👑 <b>KING OF THE HILL</b> <span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"
-    + (k ? "<div class='king-card'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"% · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span></div>"
+    + (k ? "<div class='king-card'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"%</span><span class='dim'>"+beaten(k.defences)+"</span></div>"
            + "<button class='btn' id='king-go'>CHALLENGE</button></div>"
          : "<div class='king-card'><div><b>the hill is empty</b><span>you beat THE CANCEL. it's yours if you want it.</span></div><button class='btn' id='king-go'>CLAIM IT</button></div>");
   if(k) drawLook(box.querySelector("canvas"), k.look, k.relics).catch(()=>{});
@@ -3046,11 +3046,12 @@ async function kingReport(run, won, k, back){
   const res = r && r.result;
   run.kingDone = "<div class='king-line'>👑 "+(res==="claimed" ? "<b>the hill is yours.</b> hold it until Sunday night, if you can"
     : res==="took" ? "<b>you took the hill from "+esc(k.name)+".</b> long live the king"
-    : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+r.king.defences+" defence"+(r.king.defences===1?"":"s")+" now"
+    : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+beaten(r.king.defences)+" now"
     : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
   if(res==="claimed" || res==="took"){ sfx("fanfare"); burst("👑✨🌸"); }
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
+const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armour)
 const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
 function kingDuel(run, k, back){
   const keep = SEED; SEED = null; // the run is over: this fight is its own luck
@@ -3081,7 +3082,7 @@ async function loadKing(){
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " <span class='dim'>✓ ~"+esc(k.handle)+"</span>" : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
-           + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
+           + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
     + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>"

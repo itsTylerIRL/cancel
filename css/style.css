@@ -1110,3 +1110,4 @@ body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 .king-relics u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.14em;font-size:9px;color:var(--dim);}
 .king-box .king-relics .duel-relics{justify-content:flex-end;margin:0;gap:3px;} .king-box .king-relics .relic-ico{width:26px;height:26px;}
 @media (max-width:520px){ .king-box .king-card .king-relics{flex-basis:100%;max-width:none;align-items:center;order:3;} .king-box .king-relics .duel-relics{justify-content:center;} .king-clock{order:4;} }
+.king-card .king-rec{color:var(--gold);font-size:11px;}
