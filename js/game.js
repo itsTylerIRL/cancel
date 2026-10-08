@@ -1671,10 +1671,10 @@ function enterTile(t){
 let BOSS_ATK_PER_DAY = 0.085;
 /* The timeline pushes back. When a build would beat an elite, a hunter or a boss nearly every time, it meets a
    tougher version: the game finds how much stronger the foe would need to be for the fight to be in doubt, and
-   raises it by half of that (so a better build still has clearly better odds, just never a free pass). There is a limit
-   (+30% on an elite or hunter, +25% on a boss), it only applies to builds that win with half their health to spare,
+   raises it by 60% of that (so a better build still has clearly better odds, just never a free pass). There is a limit
+   (+55% on an elite or hunter, +40% on a boss), it only applies to builds that win with health to spare,
    ordinary monsters are left alone, nothing is raised before the first boss falls, and a raised foe pays more. */
-const ADAPT = { step:0.1, foe:0.6, boss:0.5, share:0.5, win:0.9, hpLeft:0.5, trials:14, pay:0.5 };
+const ADAPT = { step:0.1, foe:0.9, boss:0.7, share:0.6, win:0.9, hpLeft:0.42, trials:14, pay:0.5 };
 let adaptCache = {};
 function adaptLevel(def){
   if(!G || !G.stats) return 0;
@@ -3048,6 +3048,7 @@ function endRun(win){
   let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
     + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
     + "<canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
+    + (win ? "<div id='end-king' class='end-king'></div>" : "") // straight under the character: the one thing left to do
     + dailyNote
     + (G.heatUp ? "<div class='note good'>🔥 HEAT "+META.heat+" unlocked — "+HEAT[META.heat-1]+"</div>" : "")
     + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
@@ -3062,7 +3063,7 @@ function endRun(win){
   }
   if(!win) html += deathRecap(G.death);
   html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
-    + "<div id='end-rank' class='end-rank'></div>"+(win ? "<div id='end-king' class='end-king'></div>" : "")
+    + "<div id='end-rank' class='end-rank'></div>"
     + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
   openModal(html);
   const run = G; let txt = resultText(run, win, d);
@@ -3305,10 +3306,13 @@ async function kingPanel(run, back){
   if(!$("end-king") || !r) return;
   const k = r.king, box = $("end-king");
   if(r.you){ box.innerHTML = run.kingDone = "<div class='king-line'>👑 <b>you hold the hill.</b> "+(k.defences ? k.defences+" challenger"+(k.defences>1?"s":"")+" turned away. " : "")+"<span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"; return; }
-  box.innerHTML = "<div class='king-line'>👑 <b>KING OF THE HILL</b> <span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"
-    + (k ? "<div class='king-card'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"%</span><span class='dim'>"+beaten(k.defences)+"</span></div>"
-           + "<button class='btn' id='king-go'>CHALLENGE</button></div>"
-         : "<div class='king-card'><div><b>the hill is empty</b><span>you beat THE CANCEL. it's yours if you want it.</span></div><button class='btn' id='king-go'>CLAIM IT</button></div>");
+  // a win earns one shot at the hill: this is the loudest thing on the page until it is used
+  box.innerHTML = "<div class='king-call'><div class='king-shout'>"+(k ? "⚔️ YOU'VE EARNED A SHOT AT THE KING" : "👑 THE HILL IS EMPTY")+"</div>"
+    + (k ? "<div class='king-vs'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"%</span><span class='dim'>"+beaten(k.defences)+"</span></div></div>"
+         : "<div class='king-vs'><div><span>you beat THE CANCEL. nobody is up there. walk up and it's yours.</span></div></div>")
+    + "<button class='btn big' id='king-go'>"+(k ? "⚔️ CHALLENGE THE KING" : "👑 CLAIM THE HILL")+"</button>"
+    + "<div class='dim king-terms'>"+(k ? "your build against theirs · one shot · " : "")+"hill resets in "+untilReset(r.resets)+"</div></div>";
+  if(!run.kingSeen){ run.kingSeen = true; sfx("fanfare"); box.scrollIntoView({block:"center", behavior:"smooth"}); }
   if(k) drawLook(box.querySelector("canvas"), k.look, k.relics).catch(()=>{});
   $("king-go").onclick = ()=>{ sfx("click"); k ? kingDuel(run, k, back) : kingReport(run, true, null, back); };
 }
