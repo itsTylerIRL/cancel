@@ -3474,8 +3474,9 @@ function renderDailyButton(){ // the daily is the way in: lit up until today's h
 function renderTitle(){
   checkVersion(); retryPending();
   renderDailyButton();
-  $("meta-drip").textContent=META.drip; $("meta-wins").textContent=META.wins; loadPulse(); loadKing();
-  $("meta-best").textContent=META.best?("day "+META.best):"—";
+  loadPulse(); loadKing();
+  { const w = META.wins||0, l = Math.max(0, (META.runs||0)-w); // your record, at a glance; the button opens the rest
+    $("menu-record").innerHTML = "📈 record <small>"+(w+l ? w+"W · "+l+"L · "+Math.round(100*w/(w+l))+"%" : "no runs yet")+"</small>"; }
   // the collections live behind three buttons; each says how far along you are
   const pool = codexPool(), have = pool.filter(r=>META.seen[r.id]).length, done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
   const afford = UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
@@ -3505,6 +3506,21 @@ function openUnlocks(){
     const u = UNLOCKS[+b.dataset.u]; if(META.drip<u.cost || META.unlocks[u.id]) return;
     META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); sfx("fanfare"); openUnlocks();
   };});
+}
+/* ---------- your record ---------- */
+function openRecord(){
+  const w = META.wins||0, runs = META.runs||0, l = Math.max(0, runs-w), pool = codexPool();
+  const line = (k, v) => "<div class='stat-line'><span>"+k+"</span><b>"+v+"</b></div>";
+  openModal("<h2>YOUR RECORD</h2>"
+    + "<div class='record-big'><div><b class='good'>"+w+"</b><u>timelines saved</u></div><div><b class='bad'>"+l+"</b><u>cancelled</u></div><div><b>"+(runs ? Math.round(100*w/runs)+"%" : "—")+"</b><u>win rate</u></div></div>"
+    + line("runs played", runs)
+    + line("furthest", w ? "beat THE CANCEL" : META.best ? "day "+META.best : "—")
+    + line("highest heat unlocked", META.heat ? "🔥 "+META.heat : "none yet")
+    + line("relics discovered", pool.filter(r=>META.seen[r.id]).length+" / "+pool.length)
+    + line("achievements", ACHIEVEMENTS.filter(a=>META.ach[a.id]).length+" / "+ACHIEVEMENTS.length)
+    + line("DRIP to spend", META.drip)
+    + "<div class='note'>kept in this browser. an abandoned run counts as cancelled</div>"+backRow);
+  wireClose();
 }
 /* ---------- achievements ---------- */
 function openAchievements(){
@@ -3726,6 +3742,7 @@ async function init(){
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
   $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
   $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
+  $("menu-record").onclick=()=>{ sfx("click"); openRecord(); };
   let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
   ready.catch(()=>{});
   $("btn-continue").onclick=async()=>{
