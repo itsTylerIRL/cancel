@@ -1150,3 +1150,56 @@ body.calm .odds.doom{animation:none;}
 .hcard.king .bpfp{box-shadow:0 0 0 2px rgba(255,209,102,.7);}
 .hcard.king u,.hcard.king em{color:var(--gold);}
 .hcard.king em{font-size:10px;letter-spacing:.02em;}
+
+/* ---------- the map, second pass: one painted ground, a light you carry, drawn icons ---------- */
+#map-inner{--w:41;background:#020506 radial-gradient(circle,rgba(139,233,253,.085) 0 1px,transparent 1.7px) 0 0/calc(100% / var(--w)) calc(100% / var(--w));} /* what you haven't seen: uncharted paper */
+#map-ground{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block;}
+#map{position:relative;z-index:1;gap:0;background:none;border-radius:0;}
+#map .tile{background:none;border:0;border-radius:0;transition:none;}
+#map.night .tile{background:none;}
+#map .unfog{z-index:3;pointer-events:none;background:#020506;animation:unfog2 .5s ease-out forwards;} @keyframes unfog2{from{opacity:1;}to{opacity:0;}}
+/* where you can step: a soft mark on the ground, not a box */
+#map .tile.moveable{box-shadow:none;background:radial-gradient(circle,rgba(139,233,253,.34),rgba(139,233,253,.1) 45%,transparent 68%);animation:stepglow 2.2s ease-in-out infinite;}
+#map .tile.moveable:hover{transform:none;background:radial-gradient(circle,rgba(139,233,253,.42),rgba(139,233,253,.14) 50%,transparent 72%);}
+#map .tile:not(.moveable):hover{background:radial-gradient(circle,rgba(255,255,255,.1),transparent 62%);}
+@keyframes stepglow{50%{opacity:.55;}}
+#map .tile.path{box-shadow:none;background:radial-gradient(circle,rgba(80,250,123,.95) 0 8%,rgba(80,250,123,.28) 9% 21%,transparent 22%);}
+#map .tile.sel{border-radius:14%;}
+#map .tile.pinned{outline:0;}
+#map .tile.dig{box-shadow:none;animation:none;} #map .tile.dig .pico{width:62%;height:62%;animation:bob 1.6s ease-in-out infinite;filter:drop-shadow(0 0 6px rgba(255,85,85,.8));}
+/* things: the drawing stands on the floor with a shadow under it and its own colour around it */
+.pico{display:block;width:100%;height:100%;overflow:visible;}
+#map .tile.poi.ico{background:radial-gradient(ellipse 36% 11% at 50% 87%,rgba(0,0,0,.7),transparent 100%),radial-gradient(circle at 50% 55%,color-mix(in srgb,var(--pc) 26%,transparent),transparent 64%);}
+#map .tile.poi.ico span{width:74%;height:74%;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible;filter:drop-shadow(0 2px 0 rgba(0,0,0,.55)) drop-shadow(0 0 5px color-mix(in srgb,var(--pc) 55%,transparent));}
+#map .tile.poi.ico.moveable,#map .tile.poi.ico:hover{background:radial-gradient(ellipse 36% 11% at 50% 87%,rgba(0,0,0,.7),transparent 100%),radial-gradient(circle at 50% 55%,color-mix(in srgb,var(--pc) 46%,transparent),transparent 68%);animation:none;}
+#map .tile.poi.t8.ico span{width:86%;height:86%;}
+#map .tile.gate-open{box-shadow:none;animation:none;} #map .tile.gate-open span{animation:gatecall 1.1s ease-in-out infinite;} @keyframes gatecall{50%{filter:drop-shadow(0 0 12px #ff5555) brightness(1.3);}}
+#map.night .tile.poi.t7 span{box-shadow:none;}
+/* people and monsters stand on the floor too */
+#map .tile.poi:not(.ico),#map .tile.foe{background:radial-gradient(ellipse 38% 12% at 50% 91%,rgba(0,0,0,.75),transparent 100%);}
+#map .tile.poi:not(.ico) span{width:80%;height:80%;}
+#map .tile.foe .tok{width:80%;height:80%;border-width:2px;box-shadow:0 0 0 1px rgba(0,0,0,.8),0 0 10px rgba(255,85,85,.45);animation:idle 3.2s ease-in-out infinite;}
+#map .tile.foe.elite .tok{box-shadow:0 0 0 1px rgba(0,0,0,.8),0 0 14px rgba(241,250,140,.7);}
+#map .tile.foe.d-deadly .tok{animation:blink 1s steps(2) infinite;}
+@keyframes idle{50%{transform:translateY(-5%);}}
+#map .tile.foe.moveable{background:radial-gradient(ellipse 38% 12% at 50% 91%,rgba(0,0,0,.75),transparent 100%),radial-gradient(circle,rgba(255,85,85,.3),transparent 66%);animation:none;}
+/* you */
+#you-tok,#map.night ~ #you-tok{z-index:6;background:none;box-shadow:none;border-radius:0;}
+#you-tok::before{content:"";position:absolute;left:14%;right:14%;bottom:-2%;height:18%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.8),transparent);}
+#you-tok img{position:relative;width:86%;height:86%;margin:5% 7% 9%;border-radius:24%;box-shadow:0 0 0 2px var(--acid),0 0 0 3px rgba(0,0,0,.7),0 0 16px rgba(80,250,123,.6);}
+#map.night ~ #you-tok img{box-shadow:0 0 0 2px var(--lilac),0 0 0 3px rgba(0,0,0,.7),0 0 18px rgba(189,147,249,.75);}
+.hunter-tok{z-index:5;scale:.86;} .hunter-eyes{z-index:5;} .map-float{z-index:8;}
+/* the light you carry */
+#map-light{position:absolute;z-index:4;pointer-events:none;aspect-ratio:1;border-radius:50%;translate:-50% -50%;width:calc(100% / var(--w) * 12.5);--dark:rgba(1,4,6,.5);
+  background:radial-gradient(closest-side,transparent 46%,var(--dark) 100%);box-shadow:0 0 0 300vmax var(--dark);
+  transition:left .16s cubic-bezier(.3,.9,.4,1),top .16s cubic-bezier(.3,.9,.4,1),width 1.4s ease-in-out;}
+#map-light.night{width:calc(100% / var(--w) * 8.5);--dark:rgba(6,4,26,.66);}
+#map-light.snap{transition:none;}
+.fire-glow{position:absolute;z-index:5;pointer-events:none;width:calc(100% / var(--w) * 3.4);aspect-ratio:1;translate:-50% -50%;border-radius:50%;mix-blend-mode:screen;opacity:.45;
+  background:radial-gradient(closest-side,rgba(255,170,70,.55),rgba(255,120,30,.2) 48%,transparent);animation:fireglow 2.3s ease-in-out infinite;}
+#map.night ~ .fire-glow{opacity:1;width:calc(100% / var(--w) * 4.6);}
+@keyframes fireglow{0%,100%{transform:scale(1);}35%{transform:scale(1.08);}60%{transform:scale(.95);}}
+.weather.night{box-shadow:inset 0 0 70px 18px rgba(4,2,16,.8);}
+.legend span{display:inline-flex;align-items:center;gap:4px;} .legend .pico{width:13px;height:13px;flex:none;}
+.lg-npc::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #50fa7b;}
+body.calm #map .tile.moveable,body.calm #map .tile.foe .tok,body.calm .fire-glow,body.calm #map .tile.gate-open span,body.calm #map .tile.dig .pico{animation:none!important;}

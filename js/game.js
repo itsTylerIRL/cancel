@@ -593,7 +593,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1067,6 +1067,154 @@ function renderTimeline(){
   $("doom").title = nb ? "click to call out "+nb.name+" and fight it now" : "";
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
 }
+/* ---------- the ground ----------
+   Floors, walls and their shadows are painted on one canvas that sits under the tiles. A wall is a raised block: a lit
+   top, and a front face wherever there is floor to the south of it. Each district has its own floor. The canvas is
+   only repainted when something new has been seen, not on every step. */
+const hash2 = (x,y,k) => { const s = Math.sin(x*127.1+y*311.7+(k||0)*74.7)*43758.5453; return s-Math.floor(s); };
+const hexRgb = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mixHex = (a,b,k) => { const x = hexRgb(a), y = hexRgb(b); return "rgb("+x.map((v,i)=>Math.round(v*k+y[i]*(1-k))).join(",")+")"; };
+const rgbaHex = (h,a) => "rgba("+hexRgb(h).join(",")+","+a+")";
+const GROUND = DISTRICTS.map(d=>({ a:mixHex(d.color,"#121f26",.15), b:mixHex(d.color,"#121f26",.24), ink:rgbaHex(d.color,.26),
+  top:mixHex(d.color,"#06090c",.07), top2:mixHex(d.color,"#0b1115",.13), rim:rgbaHex(d.color,.9), rimSoft:rgbaHex(d.color,.34),
+  face1:mixHex(d.color,"#17232c",.34), face0:mixHex(d.color,"#04070a",.10) }));
+let groundSig = "", fogMask = null, fogSoft = null;
+function drawGround(){
+  const cv = $("map-ground"), css = $("map-inner").clientWidth/W;
+  if(!cv || !css) return;
+  const ts = clamp(Math.round(css*Math.min(2, window.devicePixelRatio||1)), 24, 64);
+  let seen = 0; for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(!G.fog[y][x]) seen++;
+  const sig = [G.runId||G.seedCode, seen, Object.keys(G.marks||{}).length, ts].join("|");
+  if(sig===groundSig) return;
+  groundSig = sig;
+  if(cv.width!==W*ts){ cv.width = W*ts; cv.height = H*ts; }
+  const c = cv.getContext("2d"), lw = Math.max(1, Math.round(ts/24)), fh = Math.round(ts*0.36), th = ts-fh;
+  c.setTransform(1,0,0,1,0,0); c.globalCompositeOperation = "source-over"; c.clearRect(0,0,cv.width,cv.height);
+  const wall = (x,y) => x<0 || y<0 || x>=W || y>=H || G.map[y][x]===T.WALL;
+  const fade = (x0,y0,x1,y1,a) => { const g = c.createLinearGradient(x0,y0,x1,y1); g.addColorStop(0,"rgba(0,0,0,"+a+")"); g.addColorStop(1,"rgba(0,0,0,0)"); return g; };
+  // made once and reused on every tile: the tile is drawn in its own coordinates
+  const shN = fade(0,0,0,ts*.55,.6), shW = fade(0,0,ts*.34,0,.34), shE = fade(ts,0,ts*.84,0,.24), shS = fade(0,ts,0,ts*.86,.2);
+  const faces = GROUND.map(p=>{ const g = c.createLinearGradient(0,th,0,ts); g.addColorStop(0,p.face1); g.addColorStop(1,p.face0); return g; });
+  const scorch = c.createRadialGradient(ts/2,ts/2,0,ts/2,ts/2,ts*.42); scorch.addColorStop(0,"rgba(0,0,0,.55)"); scorch.addColorStop(1,"rgba(0,0,0,0)");
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    if(G.fog[y][x]) continue;
+    const d = districtAt(x,y), p = GROUND[d], r = hash2(x,y);
+    c.setTransform(1,0,0,1,x*ts,y*ts);
+    if(wall(x,y)){
+      const face = !wall(x,y+1), h = face ? th : ts;
+      c.fillStyle = p.top; c.fillRect(0,0,ts,h);
+      if(r<.55){ c.fillStyle = p.top2; c.fillRect(ts*(.12+.5*hash2(x,y,6)), h*(.14+.5*hash2(x,y,7)), ts*.26, Math.max(lw, h*.1)); } // a worn patch
+      c.fillStyle = "rgba(255,255,255,.05)"; c.fillRect(0,0,ts,lw); // light from above
+      c.fillStyle = p.rimSoft; // an edge wherever the block stands over floor
+      if(!wall(x,y-1)) c.fillRect(0,0,ts,lw);
+      if(!wall(x-1,y)) c.fillRect(0,0,lw,h);
+      if(!wall(x+1,y)) c.fillRect(ts-lw,0,lw,h);
+      if(face){
+        c.fillStyle = faces[d]; c.fillRect(0,th,ts,fh);
+        c.fillStyle = "rgba(0,0,0,.4)"; // courses of block
+        c.fillRect(0,th+Math.round(fh/2),ts,lw);
+        c.fillRect(Math.round(ts*(x%2 ? .3 : .68)),th,lw,Math.round(fh/2)); c.fillRect(Math.round(ts*(x%2 ? .7 : .22)),th+Math.round(fh/2),lw,fh);
+        c.fillStyle = p.rimSoft; c.fillRect(0,th,ts,lw*3);
+        c.fillStyle = p.rim; c.fillRect(0,th-lw,ts,lw*2); // the lip, lit in the district's colour
+      }
+      continue;
+    }
+    if(d===0){ // Milady Maker: soft checks, the odd flower
+      c.fillStyle = (x+y)%2 ? p.a : p.b; c.fillRect(0,0,ts,ts);
+      if(r<.16){ c.fillStyle = p.ink; const fx = ts*(.3+.4*hash2(x,y,1)), fy = ts*(.3+.4*hash2(x,y,2)), q = ts*.06;
+        for(const [dx,dy] of DIRS4){ c.beginPath(); c.arc(fx+dx*q,fy+dy*q,q*.8,0,7); c.fill(); } }
+    } else if(d===1){ // Remilio: a circuit board
+      c.fillStyle = p.a; c.fillRect(0,0,ts,ts);
+      c.fillStyle = p.ink; c.fillRect(0,0,ts,lw); c.fillRect(0,0,lw,ts); c.fillRect(-lw,-lw,lw*3,lw*3);
+      if(r<.26){ const m = Math.round(ts/2), v = hash2(x,y,1)<.5;
+        c.fillRect(v ? m : 0, v ? 0 : m, v ? lw : m, v ? m : lw);
+        c.beginPath(); c.arc(m+lw/2,m+lw/2,lw*2.2,0,7); c.fill(); }
+    } else if(d===2){ // Bonkler: chunky blocks
+      c.fillStyle = "#060c0a"; c.fillRect(0,0,ts,ts);
+      for(let j=0;j<2;j++) for(let i=0;i<2;i++){ c.fillStyle = hash2(x*2+i,y*2+j,3)<.5 ? p.a : p.b; c.fillRect(i*ts/2+lw/2,j*ts/2+lw/2,ts/2-lw,ts/2-lw); }
+    } else { // Cult: flagstones, the odd sign cut into one
+      c.fillStyle = r<.3 ? p.b : p.a; c.fillRect(0,0,ts,ts);
+      c.fillStyle = "rgba(0,0,0,.38)"; c.fillRect(0,0,ts,lw); c.fillRect(0,Math.round(ts/2),ts,lw);
+      c.fillRect(Math.round(ts*(y%2 ? .28 : .62)),0,lw,ts/2); c.fillRect(Math.round(ts*(y%2 ? .7 : .2)),ts/2,lw,ts/2);
+      if(r>.9){ c.strokeStyle = p.ink; c.lineWidth = lw; c.beginPath(); c.moveTo(ts*.5,ts*.3); c.lineTo(ts*.68,ts*.66); c.lineTo(ts*.32,ts*.66); c.closePath(); c.stroke(); }
+    }
+    const mark = (G.marks||{})[x+","+y];
+    if(mark && G.map[y][x]===T.EMPTY){ // what happened here
+      const m = ts/2;
+      if(mark===T.MON || mark===T.ELITE){ // a fight: scorched ground, three claw lines
+        c.fillStyle = scorch; c.fillRect(0,0,ts,ts);
+        c.strokeStyle = mark===T.ELITE ? "rgba(241,250,140,.3)" : "rgba(255,85,85,.3)"; c.lineWidth = lw*1.5; c.lineCap = "round"; c.beginPath();
+        for(let i=-1;i<=1;i++){ c.moveTo(m+i*ts*.12+ts*.07, m-ts*.17); c.lineTo(m+i*ts*.12-ts*.07, m+ts*.17); }
+        c.stroke();
+      } else if(mark===T.FIRE){ // a dead fire: ash and a ring of stones
+        c.fillStyle = scorch; c.fillRect(0,0,ts,ts);
+        c.fillStyle = "rgba(170,170,170,.3)";
+        for(let i=0;i<7;i++){ c.beginPath(); c.arc(m+Math.cos(i*.9)*ts*.2, m+Math.sin(i*.9)*ts*.2, ts*.045, 0, 7); c.fill(); }
+      } else if(mark===T.CHEST || mark===T.VAULT || mark===T.GRAVE || mark===T.KEY){ // emptied
+        c.strokeStyle = "rgba(255,255,255,.16)"; c.lineWidth = lw; c.strokeRect(m-ts*.17, m-ts*.06, ts*.34, ts*.2);
+        c.beginPath(); c.moveTo(m-ts*.17, m-ts*.06); c.lineTo(m-ts*.1, m-ts*.18); c.lineTo(m+ts*.24, m-ts*.18); c.stroke();
+      } else { // someone was here, and left
+        c.strokeStyle = "rgba(255,255,255,.12)"; c.lineWidth = lw; c.setLineDash([ts*.08, ts*.06]); c.beginPath(); c.arc(m,m,ts*.2,0,7); c.stroke(); c.setLineDash([]);
+      }
+    }
+    // walls throw shadow onto the floor beside them: deepest under the one to the north
+    if(wall(x,y-1)){ c.fillStyle = shN; c.fillRect(0,0,ts,ts*.55); }
+    if(wall(x-1,y)){ c.fillStyle = shW; c.fillRect(0,0,ts*.34,ts); }
+    if(wall(x+1,y)){ c.fillStyle = shE; c.fillRect(ts*.84,0,ts*.16,ts); }
+    if(wall(x,y+1)){ c.fillStyle = shS; c.fillRect(0,ts*.86,ts,ts*.14); }
+  }
+  // the edge of what you have seen fades out instead of stopping at a line
+  if(!fogMask){ fogMask = document.createElement("canvas"); fogSoft = document.createElement("canvas"); }
+  fogMask.width = W; fogMask.height = H; fogSoft.width = W*8; fogSoft.height = H*8;
+  const mc = fogMask.getContext("2d"), sc = fogSoft.getContext("2d");
+  mc.fillStyle = "#fff"; for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(!G.fog[y][x]) mc.fillRect(x,y,1,1);
+  sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = "high";
+  sc.drawImage(fogMask,0,0,W*8,H*8); sc.globalCompositeOperation = "lighter"; sc.globalAlpha = .7; sc.drawImage(fogMask,0,0,W*8,H*8);
+  c.setTransform(1,0,0,1,0,0); c.globalCompositeOperation = "destination-in"; c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+  c.drawImage(fogSoft,0,0,cv.width,cv.height);
+  c.globalCompositeOperation = "source-over";
+}
+/* What stands on a tile, drawn rather than typed: emoji look different on every device, and none of them like the dark. */
+const svgIco = b => "<svg class='pico' viewBox='0 0 32 32' aria-hidden='true'>"+b+"</svg>";
+const TORII = "<path d='M3 8 Q16 4.5 29 8 L28 11.2 Q16 8 4 11.2 Z' fill='#ff5555' stroke='#3a0707' stroke-width='1.3' stroke-linejoin='round'/>"
+  + "<rect x='8' y='10.5' width='3.4' height='17.5' fill='#ff5555' stroke='#3a0707' stroke-width='1.2'/><rect x='20.6' y='10.5' width='3.4' height='17.5' fill='#ff5555' stroke='#3a0707' stroke-width='1.2'/>"
+  + "<rect x='5.5' y='13.6' width='21' height='2.8' fill='#ff5555' stroke='#3a0707' stroke-width='1.2'/>";
+const POI_SVG = {
+  [T.CHEST]: svgIco("<path d='M5 14 A11 8 0 0 1 27 14 Z' fill='#ff79c6' stroke='#3a0f2a' stroke-width='1.5' stroke-linejoin='round'/><rect x='5' y='14' width='22' height='11.5' rx='1.5' fill='#c2418f' stroke='#3a0f2a' stroke-width='1.5'/>"
+    + "<rect x='14' y='6.4' width='4' height='19' fill='#f1fa8c'/><rect x='12.8' y='12.4' width='6.4' height='5.4' rx='1' fill='#f1fa8c' stroke='#3a0f2a' stroke-width='1.2'/><circle cx='16' cy='15.1' r='1.1' fill='#3a0f2a'/>"),
+  [T.GRAVE]: svgIco("<path d='M5 27 h22' stroke='#3f4d46' stroke-width='2.6' stroke-linecap='round'/><path d='M9 27 V13 a7 7 0 0 1 14 0 V27 Z' fill='#8d98a0' stroke='#20282d' stroke-width='1.5' stroke-linejoin='round'/>"
+    + "<path d='M16 11 v8.5 M12.8 14 h6.4' stroke='#20282d' stroke-width='1.9' stroke-linecap='round'/>"),
+  [T.SHOP]: svgIco("<rect x='6' y='13.5' width='20' height='13.5' rx='1' fill='#12323c' stroke='#062028' stroke-width='1.5'/><rect x='9' y='18' width='6' height='9' fill='#8be9fd' opacity='.6'/><rect x='17.2' y='18' width='6' height='5' fill='#f1fa8c' opacity='.85'/>"
+    + "<path d='M3.8 14 L6.5 6 H25.5 L28.2 14 Z' fill='#8be9fd' stroke='#062028' stroke-width='1.5' stroke-linejoin='round'/><path d='M10.6 6.6 L9.4 13.4 M16 6.6 V13.4 M21.4 6.6 L22.6 13.4' stroke='#fff' stroke-width='2.3' opacity='.8'/>"),
+  [T.SHRINE]: svgIco("<path d='M24 17 h3.2 V9.5' stroke='#cfd6da' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='27.2' cy='8' r='2.3' fill='#ff5555' stroke='#2a1d02' stroke-width='1'/>"
+    + "<rect x='5' y='5' width='19' height='22' rx='3' fill='#c9981f' stroke='#2a1d02' stroke-width='1.5'/><rect x='7.5' y='9.5' width='14' height='8.5' rx='1' fill='#fff8d6' stroke='#2a1d02' stroke-width='1.2'/>"
+    + "<path d='M12.2 9.5 v8.5 M16.8 9.5 v8.5' stroke='#2a1d02' stroke-width='1'/><circle cx='9.9' cy='13.8' r='1.5' fill='#ff5555'/><circle cx='14.5' cy='13.8' r='1.5' fill='#ff5555'/><circle cx='19.1' cy='13.8' r='1.5' fill='#ff5555'/>"
+    + "<rect x='10' y='21' width='9' height='2.6' rx='1' fill='#2a1d02'/>"),
+  [T.FIRE]: svgIco("<path d='M7 26.5 L25 22.5 M7 22.5 L25 26.5' stroke='#7a4a22' stroke-width='3.2' stroke-linecap='round'/>"
+    + "<path d='M16 3.5 C18 8.5 23 11 22 17 C21.4 21 18.6 23.4 16 23.4 C13.4 23.4 10.6 21 10 17 C9.6 13.6 12 12.6 12.5 9.6 C14 11 14.5 12 14.8 13.2 C15.5 10 15 7 16 3.5 Z' fill='#ff8a2a' stroke='#5a1e00' stroke-width='1.2' stroke-linejoin='round'/>"
+    + "<path d='M16 12.2 C17.5 15 19 16.2 18.6 18.8 C18.3 20.8 17.2 21.8 16 21.8 C14.8 21.8 13.6 20.8 13.4 19 C13.2 17.2 14.6 16 16 12.2 Z' fill='#ffe07a'/>"),
+  [T.EVENT]: svgIco("<path d='M16 3 L29 16 L16 29 L3 16 Z' fill='#2a1848' stroke='#bd93f9' stroke-width='1.8' stroke-linejoin='round'/>"
+    + "<path d='M12.2 12.6 a3.9 3.9 0 1 1 5.6 3.5 c-1.3 .7 -1.8 1.3 -1.8 2.8' fill='none' stroke='#efe6ff' stroke-width='2.4' stroke-linecap='round'/><circle cx='16' cy='22.8' r='1.5' fill='#efe6ff'/>"),
+  [T.KEY]: svgIco(["#3d3a00' stroke-width='5.6", "#f1fa8c' stroke-width='3"].map(k=>"<g fill='none' stroke='"+k+"' stroke-linecap='round'><circle cx='10.5' cy='11.5' r='5.2'/><path d='M14.4 15.4 L26 27 M20.6 21.6 l3 -3 M24 25 l2.6 -2.6'/></g>").join("")),
+  [T.VAULT]: svgIco("<rect x='7' y='26' width='4' height='3' fill='#1f1203'/><rect x='21' y='26' width='4' height='3' fill='#1f1203'/><rect x='4.5' y='4.5' width='23' height='22.5' rx='3' fill='#5a3a16' stroke='#1f1203' stroke-width='1.5'/>"
+    + "<rect x='7.5' y='7.5' width='17' height='16.5' rx='2' fill='#ffb86c' stroke='#1f1203' stroke-width='1.2'/><circle cx='16' cy='15.8' r='4.8' fill='#3a2208' stroke='#1f1203' stroke-width='1.2'/>"
+    + "<path d='M16 11.2 v9.2 M11.4 15.8 h9.2 M12.7 12.5 l6.6 6.6 M19.3 12.5 l-6.6 6.6' stroke='#ffb86c' stroke-width='1.3' stroke-linecap='round'/><circle cx='16' cy='15.8' r='1.6' fill='#ffb86c'/>"),
+  [T.FOUNTAIN]: svgIco("<path d='M16 11 C16 5.5 10.6 5.5 9.8 10 M16 11 C16 5.5 21.4 5.5 22.2 10 M16 10 V4.5' fill='none' stroke='#8be9fd' stroke-width='1.9' stroke-linecap='round'/><circle cx='9.6' cy='12.6' r='1' fill='#8be9fd'/><circle cx='22.4' cy='12.6' r='1' fill='#8be9fd'/>"
+    + "<rect x='14.5' y='11' width='3' height='9' fill='#6b8f9c' stroke='#0b222b' stroke-width='1'/><path d='M5 20 h22 l-2.6 7.4 h-16.8 Z' fill='#557784' stroke='#0b222b' stroke-width='1.5' stroke-linejoin='round'/>"
+    + "<ellipse cx='16' cy='20' rx='11' ry='2.7' fill='#8be9fd' stroke='#0b222b' stroke-width='1.2'/>"),
+  [T.ALTAR]: svgIco("<path d='M5 27.5 h22 v-4.2 h-22 Z' fill='#3b2a5c' stroke='#12091f' stroke-width='1.5' stroke-linejoin='round'/><path d='M8 23.3 h16 v-3.3 h-16 Z' fill='#52397d' stroke='#12091f' stroke-width='1.5' stroke-linejoin='round'/>"
+    + "<rect x='14.3' y='11' width='3.4' height='9' fill='#efe6ff' stroke='#12091f' stroke-width='1.1'/><rect x='9.3' y='14.6' width='2.7' height='5.4' fill='#efe6ff' stroke='#12091f' stroke-width='1'/><rect x='20' y='14.6' width='2.7' height='5.4' fill='#efe6ff' stroke='#12091f' stroke-width='1'/>"
+    + "<path d='M16 3.4 c2 2.5 2.4 4 2.4 5 a2.4 2.4 0 0 1 -4.8 0 c0 -1 .4 -2.5 2.4 -5 Z' fill='#bd93f9'/><path d='M10.65 9.4 c1.2 1.6 1.5 2.4 1.5 3 a1.5 1.5 0 0 1 -3 0 c0 -.6 .3 -1.4 1.5 -3 Z M21.35 9.4 c1.2 1.6 1.5 2.4 1.5 3 a1.5 1.5 0 0 1 -3 0 c0 -.6 .3 -1.4 1.5 -3 Z' fill='#bd93f9'/>"),
+  [T.GATE]: svgIco(TORII),
+  locked: svgIco("<g opacity='.55'>"+TORII+"</g><path d='M13.2 19 v-2.4 a2.8 2.8 0 0 1 5.6 0 V19' fill='none' stroke='#f1fa8c' stroke-width='1.9'/><rect x='11.3' y='18.6' width='9.4' height='8' rx='1.5' fill='#f1fa8c' stroke='#2a2a00' stroke-width='1.2'/><circle cx='16' cy='22.4' r='1.2' fill='#2a2a00'/>"),
+  dig: svgIco("<path d='M8 8 L24 24 M24 8 L8 24' stroke='#3a0707' stroke-width='5.4' stroke-linecap='round'/><path d='M8 8 L24 24 M24 8 L8 24' stroke='#ff5555' stroke-width='3' stroke-linecap='round'/>"),
+};
+function renderLegend(){ // the key under the map uses the same drawings as the tiles
+  const el = document.querySelector(".legend"); if(!el) return;
+  const it = (t, label) => "<span>"+POI_SVG[t]+label+"</span>";
+  el.innerHTML = it(T.CHEST,"loot")+it(T.GRAVE,"grave")+it(T.SHOP,"shop")+it(T.SHRINE,"shrine")+it(T.FIRE,"rest")+it(T.EVENT,"event")+it(T.FOUNTAIN,"fountain")+it(T.ALTAR,"cursed altar")
+    + it(T.KEY,"key")+it(T.VAULT,"vault")+it(T.GATE,"boss gate")+"<span class='lg-npc'>someone to trade with</span><span class='lg-foe'>foe</span><span class='lg-elite'>elite</span>";
+}
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
 let hoverTile = null, pinHold = 0, pinHeld = false;
 function renderMap(){
@@ -1077,17 +1225,23 @@ function renderMap(){
   { const w = $("weather"); if(w) w.className = "weather w"+districtAt(G.px,G.py)+(G.phase==="night" ? " night" : ""); }
   setDoom();
   m.innerHTML = ""; tileEl = {};
+  $("map-inner").style.setProperty("--w", W);
+  drawGround();
+  $("map-inner").querySelectorAll(".fire-glow").forEach(el=>el.remove());
   const coin = coinSrc();
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(G.fog[y][x]) continue; // unexplored tiles are not drawn at all: the map's own background is the fog
     const d = document.createElement("div"), key = x+","+y, t = G.map[y][x];
+    if(!G.lit[key]){ // seen for the first time: the fog lifts off it
+      G.lit[key]=1;
+      const f = document.createElement("i"); f.className = "unfog"; f.style.gridColumn = x+1; f.style.gridRow = y+1; m.appendChild(f);
+    }
+    if(t===T.WALL) continue; // walls and floors are painted on the ground canvas; only what you can step on is an element
     d.className = "tile";
     d.style.gridColumn = x+1; d.style.gridRow = y+1;
     d.style.setProperty("--dc", DISTRICTS[districtAt(x,y)].color);
-    if(!G.lit[key]){ G.lit[key]=1; d.classList.add("reveal"); }
     if(G.sel===key) d.classList.add("sel");
     if((G.pins||{})[key]) d.classList.add("pinned");
-    if(t===T.WALL){ d.classList.add("wall"); m.appendChild(d); continue; }
     tileEl[key] = d;
     if(x===G.px && y===G.py){
       d.classList.add("you"); // the token itself is #you-tok, which slides between tiles
@@ -1100,13 +1254,20 @@ function renderMap(){
         d.innerHTML = foe.face ? "<img class='tok' src='"+foe.face+"' alt=''>" : "<i class='tok ph'></i>"; // its portrait is still being put together
         d.classList.add("d-"+fightOdds(foe.def, {elite:t===T.ELITE}).tag);
       } else {
-        d.classList.add("poi", "t"+t);
-        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+localFile(REMILIA_LOGO)+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : (t===T.GATE && G.bossUnlocked<0) ? "🔒" : T_EMOJI[t])+"</span>";
+        const person = t===T.FORGE || NPC_ART[t], ico = t===T.GATE && G.bossUnlocked<0 ? POI_SVG.locked : POI_SVG[t];
+        d.classList.add("poi", "t"+t); if(!person && ico) d.classList.add("ico");
+        d.style.setProperty("--pc", MINI[t]||"#8be9fd");
+        d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+localFile(REMILIA_LOGO)+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : ico || T_EMOJI[t])+"</span>";
         d.title = T_NAME[t];
         if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
+        if(t===T.FIRE){ // a campfire lights the ground around it, and at night it is the thing you look for
+          const g = document.createElement("div"); g.className = "fire-glow";
+          g.style.left = "calc("+(x+0.5)+" * 100% / "+W+")"; g.style.top = "calc("+(y+0.5)+" * 100% / "+W+")";
+          $("map-inner").appendChild(g);
+        }
       }
     }
-    if(G.seedKnown && !G.seedDug && G.seed && x===G.seed[0] && y===G.seed[1] && !(x===G.px && y===G.py)){ d.classList.add("dig"); d.textContent="⛏️"; }
+    if(G.seedKnown && !G.seedDug && G.seed && x===G.seed[0] && y===G.seed[1] && !(x===G.px && y===G.py)){ d.classList.add("dig"); d.innerHTML=POI_SVG.dig; }
     if(Math.abs(x-G.px)+Math.abs(y-G.py)===1) d.classList.add("moveable");
     d.onmouseenter = ()=>{
       let info = tileInfo(x,y);
@@ -1145,7 +1306,7 @@ function renderMap(){
 /* keep the player in the middle of the window; you can still scroll or drag away to look around */
 function clearPath(){ document.querySelectorAll("#map .tile.path").forEach(t=>t.classList.remove("path")); }
 let camSnap = true;
-const GAP = 3; // px between tiles, as in the stylesheet
+const GAP = 0; // px between tiles, as in the stylesheet: the ground is one continuous surface
 function placeYou(){
   const t = $("you-tok"), img = $("you-img"), cell = "((100% - "+(W-1)*GAP+"px) / "+W+" + "+GAP+"px)";
   if(img.getAttribute("src")!==G.face) img.src = G.face;
@@ -1154,6 +1315,9 @@ function placeYou(){
   const moved = t.dataset.at !== G.px+","+G.py;
   t.style.left = "calc("+G.px+" * "+cell+")"; t.style.top = "calc("+G.py+" * "+cell+")";
   t.dataset.at = G.px+","+G.py;
+  { const l = $("map-light"); // the light you carry: the maze is dimmer away from you, and at night it closes in
+    l.classList.toggle("snap", camSnap); l.classList.toggle("night", G.phase==="night");
+    l.style.left = "calc("+(G.px+0.5)+" * "+cell+")"; l.style.top = "calc("+(G.py+0.5)+" * "+cell+")"; }
   if(moved && !camSnap){ img.classList.remove("hop"); void img.offsetWidth; img.classList.add("hop"); }
 }
 function placeHunters(){ // one sliding token per demon you can see
@@ -1452,7 +1616,11 @@ function startNight(){
   for(const k of spots.slice(0, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
-function clearTile(){ G.map[G.py][G.px]=T.EMPTY; }
+function clearTile(){ // what was here leaves a mark on the ground
+  const t = G.map[G.py][G.px];
+  if(t!==T.EMPTY){ G.marks = G.marks||{}; G.marks[G.px+","+G.py] = t; }
+  G.map[G.py][G.px]=T.EMPTY;
+}
 
 /* ---------- encounters ---------- */
 function enterTile(t){
@@ -3921,6 +4089,7 @@ function onKey(ev){
 async function init(){
   loadMeta();
   if(!META.streak && META.dailyAt) META.streak = {n:1, last:META.dailyAt.date, best:1}; // dailies played before streaks were kept
+  renderLegend();
   renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
   document.body.classList.add("on-title");
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
