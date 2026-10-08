@@ -3187,14 +3187,13 @@ async function loadKing(){
            + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
-    + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>"
-    + "<div class='note daily-clock'>📅 the daily map resets in <b id='daily-left'>"+untilReset(r.dailyResets)+"</b></div>";
+    + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>";
   el.classList.remove("hidden");
   if(k) drawLook(el.querySelector("canvas"), k.look, k.relics).catch(()=>{});
   clearInterval(kingClock);
   kingClock = setInterval(()=>{ const c = $("king-left"); if(!c || !$("screen-title").classList.contains("active")) return;
-    c.textContent = untilReset(r.resets); if($("daily-left")) $("daily-left").textContent = untilReset(r.dailyResets);
-    if(Math.min(r.resets, r.dailyResets) <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
+    c.textContent = untilReset(r.resets);
+    if(r.resets <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
 }
 function openMeme(run, win, back){
   const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;
@@ -3574,11 +3573,26 @@ async function checkVersion(){
     }
   }catch(e){}
 }
-function renderDailyButton(){ // the daily is the way in: lit up until today's has been played, then it steps back
+/* When the daily next turns over: the coming midnight Eastern, as seconds since 1970. */
+function dailyResetAt(){
+  try{
+    const p = new Intl.DateTimeFormat("en-GB", {timeZone:DAILY_TZ, hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(new Date()).split(":").map(Number);
+    return Math.floor(Date.now()/1000) + 86400 - (p[0]%24*3600 + p[1]*60 + p[2]);
+  }catch(e){ return Math.floor(Date.now()/1000) + 86400; }
+}
+let dailyClock = 0;
+function renderDailyButton(){
+  clearInterval(dailyClock);
+  dailyClock = setInterval(()=>{ // the countdown on a played daily; when it runs out the button lights up again
+    if(!$("screen-title").classList.contains("active")) return;
+    const el = $("daily-left"), at = dailyResetAt();
+    if(el) el.textContent = untilReset(at);
+    if(el && !(META.dailyAt && META.dailyAt.date===today())) renderDailyButton();
+  }, 1000); // the daily is the way in: lit up until today's has been played, then it steps back
   const b = $("btn-daily"), s = $("btn-start"); if(!b || !s) return;
   const played = !!(META.dailyAt && META.dailyAt.date===today());
   b.classList.toggle("funnel", !played); b.classList.toggle("big", !played); b.classList.toggle("small", played); b.classList.toggle("played", played);
-  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>play it again for practice</span>"
+  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>resets in <i id='daily-left'>"+untilReset(dailyResetAt())+"</i></span>"
                        : "<b>📅 play today's daily</b><span>one attempt · the same map for everyone</span>";
   s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
 }
