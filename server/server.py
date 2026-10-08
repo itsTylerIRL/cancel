@@ -13,6 +13,8 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
   GET  /api/hall    the best run of every daily map
+  GET  /api/auth/urbit/login?return=URL   start "Sign in with Urbit": log in to the owner's ship as your own (eauth)
+  GET  /api/auth/urbit/callback     arrives through the ship's address; the ship says who you are
   GET  /api/auth/login?return=URL   start "Sign in with RemiliaNET" (OIDC Authorization Code + PKCE)
   GET  /api/auth/callback           RemiliaNET sends the player back here; they return to the game signed in
   GET  /r/ID        a run's share link: link previews get that run's card, people are forwarded to the same map
@@ -48,7 +50,17 @@ CARD_DAYS = 90
 RE_CARD = re.compile(r"^[a-z0-9]{8}$")
 RN_ON = os.environ.get("CANCEL_RN_ON") == "1"  # the game only offers sign-in once RemiliaNET has approved the client
 SESSION_DAYS = 30
-RE_HANDLE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
+RE_HANDLE = re.compile(r"^(?:[A-Za-z0-9_.-]{1,40}|~(?:[a-z]{3}|[a-z]{6}(?:-[a-z]{6}){0,3}))$")  # a RemiliaNET handle, or an Urbit ship
+# Sign in with Urbit. The owner's ship vouches for the visitor (Eyre's eauth): the visitor logs in to it as their own
+# ship, the ship is asked who they are, and that name is the identity. The callback lives on the ship's own web
+# address (nginx hands that one path to this service), because that is where the login cookie is.
+UR_ON = os.environ.get("CANCEL_UR_ON") == "1"
+UR_PUBLIC = os.environ.get("CANCEL_UR_PUBLIC", "https://urbit.tylerirl.com")   # the ship, as visitors reach it
+UR_LOCAL = os.environ.get("CANCEL_UR_LOCAL", "http://127.0.0.1:8080")           # the same ship, from this machine
+UR_PATH = os.environ.get("CANCEL_UR_PATH", "/cancel-auth")                      # the path on the ship's address that comes here
+# Galaxies, stars, planets and moons. Not comets: anyone can make one for free, and a visitor who hasn't logged in
+# at all is given a comet-shaped guest name by the ship, so this is also what tells a real login from none.
+RE_PATP = re.compile(r"^~(?:[a-z]{3}|[a-z]{6}(?:-[a-z]{6}){0,3})$")
 
 MAX_BODY = 6000
 MAX_SCORE = 3000          # day, boss, kill, objective and (capped) $CULT points with the top heat bonus stay under this
@@ -295,9 +307,10 @@ def sign(body):
 
 
 def verified_player(handle):
-    """One leaderboard identity per RemiliaNET account, whatever device it plays from. Anonymous ids are hex,
-    so they can never start with "rn"."""
-    return "rn" + hashlib.sha256((SALT + "|rn|" + handle.lower()).encode()).hexdigest()[:22]
+    """One leaderboard identity per signed-in account, whatever device it plays from. Anonymous ids are hex,
+    so they can never start with "rn" or "ur"."""
+    kind = "ur" if handle.startswith("~") else "rn"  # an Urbit ship or a RemiliaNET account: separate people, separate rows
+    return kind + hashlib.sha256((SALT + "|" + kind + "|" + handle.lower()).encode()).hexdigest()[:22]
 
 
 def make_session(handle, name):
@@ -341,6 +354,29 @@ def auth_begin(back):
     return RN_ISSUER + "/protocol/openid-connect/auth?" + q
 
 
+def urbit_begin(back):
+    state = secrets.token_urlsafe(16)
+    now = time.time()
+    with _pending_lock:
+        for k in [k for k, v in _pending.items() if now - v[2] > 900]:
+            _pending.pop(k, None)
+        if len(_pending) > 5000:
+            return None
+        _pending[state] = ("urbit", back, now)
+    return UR_PUBLIC + "/~/login?eauth&redirect=" + urllib.parse.quote(UR_PATH + "?state=" + state, safe="")
+
+
+def urbit_who(cookie_header):
+    """Ask the ship who is holding these login cookies. Only the ship's own cookies are passed on."""
+    mine = "; ".join(c.strip() for c in (cookie_header or "").split(";") if c.strip().startswith("urbauth-"))
+    if not mine:
+        return None
+    req = urllib.request.Request(UR_LOCAL + "/~/name", headers={"Cookie": mine, "User-Agent": "cancel-api"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        name = r.read(200).decode("ascii", "replace").strip()
+    return name if RE_PATP.match(name) else None
+
+
 def auth_finish(code, verifier):
     """Trade the code for a token, ask RemiliaNET who it belongs to, and return our own session. The RemiliaNET
     token is used once and thrown away: the game needs to know who the player is, nothing more."""
@@ -377,7 +413,7 @@ def parse_run(d):
     handle = read_session(d.get("session"))
     if handle:
         player = verified_player(handle)  # the account's one row per board, from any device
-    elif player.startswith("rn"):
+    elif player.startswith(("rn", "ur")):
         raise Bad("sign in again")  # an expired or forged session must not write to a verified player's row
     name = clean_text(d.get("name"), 18)
     if not name:
@@ -690,7 +726,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):  # one short line per request, no addresses, no sign-in codes
-        print("%s %s" % (self.command, re.sub(r"(/api/auth/\w+)\?\S*", r"\1?…", fmt % args)), flush=True)
+        print("%s %s" % (self.command, re.sub(r"(/api/auth/[\w/]+)\?\S*", r"\1?…", fmt % args)), flush=True)
 
     def raw(self, code, ctype, data, cache):
         self.send_response(code)
@@ -754,7 +790,7 @@ class Handler(BaseHTTPRequestHandler):
         q = parse_qs(u.query)
         one = lambda k: (q.get(k) or [""])[0]
         if u.path == "/api/health":
-            return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON})
+            return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON, "ur": UR_ON})
         if u.path == "/api/stats":
             return self.send(200, run_stats())
         if u.path.startswith("/r/"):
@@ -772,6 +808,27 @@ class Handler(BaseHTTPRequestHandler):
             if not png:
                 return self.send(404, {"error": "no such card"})
             return self.raw(200, "image/png", png, "public, max-age=86400")
+        if u.path == "/api/auth/urbit/login":
+            back = one("return").split("#")[0]
+            if not UR_ON:
+                return self.send(404, {"error": "sign-in is not switched on"})
+            if not self.allowed_return(back) or not rate_ok("auth:" + self.client_key(), 40):
+                return self.send(400, {"error": "bad return"})
+            url = urbit_begin(back)
+            return self.redirect(url) if url else self.send(503, {"error": "busy"})
+        if u.path == "/api/auth/urbit/callback":  # reached through the ship's own address, so the ship's login cookie comes with it
+            with _pending_lock:
+                kind, back, _started = _pending.pop(one("state"), (None, None, 0))
+            if not back or kind != "urbit":
+                return self.send(400, {"error": "this sign-in link has expired, start again from the game"})
+            try:
+                ship = urbit_who(self.headers.get("Cookie"))
+            except (urllib.error.URLError, ValueError, TimeoutError) as e:
+                print("urbit auth failed: %s" % type(e).__name__, flush=True)
+                return self.redirect(back + "#rn_error=" + urllib.parse.quote("the ship didn't answer"))
+            if not ship:
+                return self.redirect(back + "#rn_error=" + urllib.parse.quote("log in with a planet, star, galaxy or moon"))
+            return self.redirect(back + "#rn=" + make_session(ship, ship))
         if u.path == "/api/auth/login":
             back = one("return").split("#")[0]
             if not RN_ON:
@@ -783,7 +840,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/auth/callback":
             with _pending_lock:
                 verifier, back, _started = _pending.pop(one("state"), (None, None, 0))
-            if not back:
+            if not back or verifier == "urbit":
                 return self.send(400, {"error": "this sign-in link has expired, start again from the game"})
             if not one("code"):
                 return self.redirect(back + "#rn_error=" + urllib.parse.quote(clean_text(one("error") or "cancelled", 40)))
@@ -842,7 +899,7 @@ class Handler(BaseHTTPRequestHandler):
         handle = read_session(d.get("session"))
         if handle:
             player = verified_player(handle)
-        ok = (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith("rn"))
+        ok = (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith(("rn", "ur")))
               and isinstance(run, str) and RE_RUN.match(run) and isinstance(daily, str) and RE_DATE.match(daily))
         if ok:
             try:
@@ -869,7 +926,7 @@ class Handler(BaseHTTPRequestHandler):
         handle = read_session(d.get("session"))
         if handle:
             player = verified_player(handle)
-        if not (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith("rn"))
+        if not (isinstance(player, str) and RE_PLAYER.match(player) and (handle or not player.startswith(("rn", "ur")))
                 and isinstance(card, str) and RE_CARD.match(card)):
             return self.send(400, {"error": "bad challenge"})
         if not rate_ok("king:" + self.client_key(), 30):

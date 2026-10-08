@@ -3081,7 +3081,7 @@ async function loadKing(){
   if(!r){ el.classList.add("hidden"); return; }
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
-    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " <span class='dim'>✓ ~"+esc(k.handle)+"</span>" : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
+    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
            + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
@@ -3152,30 +3152,42 @@ async function api(path, body){ // null on any failure: the game never depends o
 /* Sign in with RemiliaNET. The service does the exchange and hands back its own signed session in the page's
    #fragment; scores posted with it are tied to the account instead of this browser. Entirely optional. */
 function rnUser(){ return META.rn && META.rn.exp*1000 > Date.now() ? META.rn : null; }
-function rnReturn(){ // back from RemiliaNET: keep the session, tidy the address bar
+/* A verified name is a RemiliaNET handle (shown green) or an Urbit ship (shown blue; its handle is stored with its ~).
+   A player is one or the other: signing in with either replaces the session. */
+const isShip = h => typeof h==="string" && h[0]==="~";
+const whoTag = h => isShip(h) ? "<span class='rn-tag ur' title='verified Urbit ship'>✓ "+esc(h)+"</span>"
+  : "<a class='rn-tag' href='https://remilia.net/~"+encodeURIComponent(h)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'>✓ ~"+esc(h)+"</a>";
+function rnReturn(){ // back from signing in: keep the session, tidy the address bar
   const m = /[#&]rn(_error)?=([^&]*)/.exec(location.hash); if(!m) return "";
   try{ history.replaceState(null, "", location.pathname+location.search); }catch(e){}
-  if(m[1]) return "RemiliaNET sign-in didn't go through ("+esc(decodeURIComponent(m[2]))+")";
+  if(m[1]) return "sign-in didn't go through ("+esc(decodeURIComponent(m[2]))+")";
   try{
     const b = m[2].split(".")[0].replace(/-/g,"+").replace(/_/g,"/");
     const d = JSON.parse(decodeURIComponent(escape(atob(b))));
     META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
-    if(!META.name) META.name = cleanName(META.rn.name);
+    if(!META.name && !isShip(META.rn.handle)) META.name = cleanName(META.rn.name);
     saveMeta();
-  }catch(e){ return "RemiliaNET sign-in didn't go through"; }
+  }catch(e){ return "sign-in didn't go through"; }
   return "";
 }
-let rnOn = null; // whether the service offers sign-in yet
+let rnOn = null; // which sign-ins the service offers: {rn, ur}
+const URBIT_MARK = "<svg viewBox='0 0 24 24' width='20' height='20' aria-hidden='true'><circle cx='12' cy='12' r='10.5' fill='none' stroke='currentColor' stroke-width='1.6'/><path d='M6.4 13.4c1.2-2.6 2.9-3.3 4.6-2.1l2 1.4c1.7 1.2 3.4.5 4.6-2.1' fill='none' stroke='currentColor' stroke-width='1.9' stroke-linecap='round'/></svg>";
 async function renderRn(msg){
   const el = $("rn-row"); if(!el) return;
   if(!online()){ el.remove(); return; }
   const u = rnUser();
-  if(!u && rnOn===null){ const h = await api("/api/health"); rnOn = !!(h && h.rn); }
-  if(!u && !rnOn){ el.innerHTML = ""; return; }
-  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as <a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>~"+esc(u.handle)+"</a></span><button class='btn small' id='rn-out'>sign out</button>"
-    : "<button class='btn' id='rn-in'><img src='"+coinSrc()+"' alt=''>Remilia SSO</button><span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
+  if(!u && rnOn===null){ const h = await api("/api/health"); rnOn = { rn:!!(h && h.rn), ur:!!(h && h.ur) }; }
+  if(!u && !(rnOn.rn || rnOn.ur)){ el.innerHTML = ""; return; }
+  const back = encodeURIComponent(location.origin+location.pathname+location.search);
+  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as "+(isShip(u.handle) ? "<b class='ur'>"+esc(u.handle)+"</b>"
+        : "<a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>~"+esc(u.handle)+"</a>")+"</span><button class='btn small' id='rn-out'>sign out</button>"
+    : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+coinSrc()+"' alt=''>Remilia SSO</button>" : "")
+        + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
+        + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
+      + "<span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your rank on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
-  else $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+encodeURIComponent(location.origin+location.pathname+location.search)); };
+  if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
+  if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
 }
 function playerId(){ // an anonymous id made once per browser, so a player has one row per board
   if(rnUser()) return rnUser().player; // signed in: the account's id, the same on every device
@@ -3285,7 +3297,7 @@ async function openBoard(tab, back, seed){
     const days = h ? h.days : [];
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !days.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
-      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+(e.handle ? " ✓" : "")+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+      : "<div class='hall'>"+days.map((e,i)=>"<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+(e.handle ? " <i class='vmark"+(isShip(e.handle)?" ur":"")+"' title='"+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"'>✓</i>" : "")+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
           + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
         + "<div class='note'>the best run on each day's map. today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
@@ -3303,7 +3315,7 @@ async function openBoard(tab, back, seed){
   else body = "<div class='board'>"+res.top.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " <a class='rn-tag' href='https://remilia.net/~"+encodeURIComponent(e.handle)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'>✓ ~"+esc(e.handle)+"</a>" : "")+"</b><span>"+(tr?tr.icon+" ":"")
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b><span>"+(tr?tr.icon+" ":"")
         + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "saved on day "+e.day : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+(e.heat?" · 🔥"+e.heat:"")+"</span></div>"
         + "<div class='brel'>"+relics+"</div><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em></div>";
     }).join("")+"</div>"

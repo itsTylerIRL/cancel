@@ -321,7 +321,7 @@ def render(run, seed="x"):
         if tier > 1:  # gold and diamond items carry their tier
             d.rounded_rectangle((x + 50, y - 8, x + 88, y + 12), 4, fill=(241, 250, 140, 255) if tier == 2 else (159, 243, 255, 255))
             d.text((x + 69, y + 2), "x2" if tier == 2 else "x4", font=font(14), fill="#111", anchor="mm")
-    text("CANCEL.TYLERIRL.COM" + ("   ✓ ~" + run["handle"] if run.get("handle") else ""), 500, 598, 16, "#666", "Regular")
+    text("CANCEL.TYLERIRL.COM" + ("   ✓ ~" + run["handle"].lstrip("~") if run.get("handle") else ""), 500, 598, 16, "#666", "Regular")
 
     out = io.BytesIO()
     cv.save(out, "PNG", compress_level=6)  # "optimize" doubles the drawing time for a few kilobytes

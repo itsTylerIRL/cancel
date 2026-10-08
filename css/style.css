@@ -1111,3 +1111,13 @@ body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 .king-box .king-relics .duel-relics{justify-content:flex-end;margin:0;gap:3px;} .king-box .king-relics .relic-ico{width:26px;height:26px;}
 @media (max-width:520px){ .king-box .king-card .king-relics{flex-basis:100%;max-width:none;align-items:center;order:3;} .king-box .king-relics .duel-relics{justify-content:center;} .king-clock{order:4;} }
 .king-card .king-rec{color:var(--gold);font-size:11px;}
+/* two ways to sign in, side by side: Remilia in its yellow, Urbit in blue. On the boards a Remilia name is green, an Urbit ship blue */
+:root{--urbit:#5fa8ff;}
+.rn-tag.ur,.rn-on b.ur,.vmark.ur{color:var(--urbit);} .vmark{font-style:normal;color:var(--acid);}
+.rn-on b.ur{font-weight:500;}
+.sso{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;} .sso i{font-style:normal;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);}
+.sso-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:9px 18px;font-size:13px;letter-spacing:.08em;text-transform:none;min-width:164px;}
+#ur-in{color:var(--urbit);border:1px solid var(--urbit);background:rgba(95,168,255,.10);box-shadow:0 0 18px rgba(95,168,255,.28);}
+#ur-in:hover,#ur-in.ksel{background:var(--urbit);color:#000;box-shadow:0 0 30px rgba(95,168,255,.55);}
+#ur-in svg{flex:none;}
+.rn-row:has(.sso){flex-direction:column;gap:6px;}

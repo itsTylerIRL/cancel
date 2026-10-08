@@ -20,6 +20,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `GET /r/ID` | a run's share link. Link previews get that run's card; people get forwarded to the same map |
 | `GET /api/card/ID.png` | the card itself |
 | `GET /api/auth/login`, `/callback` | Sign in with RemiliaNET |
+| `GET /api/auth/urbit/login`, `/callback` | Sign in with Urbit, through the owner's ship |
 
 Boards rank every run that saved the timeline above every run that was cancelled, then by score, then by who got there first. A player's row is replaced only by a run that ranks higher.
 
@@ -46,6 +47,25 @@ https://YOUR-API-HOST/api/auth/callback
 ```
 
 The button stays hidden until `CANCEL_RN_ON=1`.
+
+## Sign in with Urbit
+
+The owner's ship vouches for the visitor, using Eyre's eauth. The player clicks "Urbit ID", logs in to the owner's ship as their own ship, and approves on their own ship. They land on `/cancel-auth` on the ship's web address, which nginx hands to this service along with the ship's login cookie. The service asks the ship (`/~/name`) who holds that cookie, and that ship name becomes the identity.
+
+Galaxies, stars, planets and moons only. A comet is free to make, and a visitor who never logged in is given a comet-shaped guest name, so refusing comets is also what tells a real login from none.
+
+A player is signed in with RemiliaNET or with Urbit, not both. Urbit handles are stored with their `~`, which is how the two are told apart (green and blue on the boards).
+
+On the ship's nginx site:
+
+```
+location = /cancel-auth {
+    proxy_pass http://127.0.0.1:8787/api/auth/urbit/callback$is_args$args;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+Settings: `CANCEL_UR_ON=1`, `CANCEL_UR_PUBLIC` (the ship's web address), `CANCEL_UR_LOCAL` (the same ship from this machine, default `http://127.0.0.1:8080`).
 
 ## Setup
 
