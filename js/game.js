@@ -3082,9 +3082,9 @@ async function loadKing(){
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " <span class='dim'>✓ ~"+esc(k.handle)+"</span>" : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
            + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · "+k.defences+" defence"+(k.defences===1?"":"s")+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
+           + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
     + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>"
-    + (k ? relicStrip(k.relics) : "")
     + "<div class='note daily-clock'>📅 the daily map resets in <b id='daily-left'>"+untilReset(r.dailyResets)+"</b></div>";
   el.classList.remove("hidden");
   if(k) drawLook(el.querySelector("canvas"), k.look, k.relics).catch(()=>{});

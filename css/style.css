@@ -1105,3 +1105,8 @@ body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 #rn-in img{width:20px;height:20px;border-radius:50%;}
 #rn-in:hover,#rn-in.ksel{background:#ffde17;color:#000;box-shadow:0 0 30px rgba(255,222,23,.55);}
 .rn-row:has(#rn-in){flex-direction:column;gap:6px;}
+/* the king's relics sit inside the card, on the other side of the bar from the clock */
+.king-box .king-card .king-relics{flex:none;align-items:flex-end;gap:4px;max-width:132px;}
+.king-relics u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.14em;font-size:9px;color:var(--dim);}
+.king-box .king-relics .duel-relics{justify-content:flex-end;margin:0;gap:3px;} .king-box .king-relics .relic-ico{width:26px;height:26px;}
+@media (max-width:520px){ .king-box .king-card .king-relics{flex-basis:100%;max-width:none;align-items:center;order:3;} .king-box .king-relics .duel-relics{justify-content:center;} .king-clock{order:4;} }
