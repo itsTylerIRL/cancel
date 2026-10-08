@@ -549,6 +549,8 @@ async function buildIcon(rel){
 /* ---------- run state ---------- */
 let G = null;
 const DAY_MOVES = 34, NIGHT_MOVES = 16, BOSS_DAYS = [3,6,9];
+/* Unlocks belong to an account: they are bought, kept and switched on only while signed in. */
+const perk = id => !!(rnUser() && META.unlocks[id]);
 function baseStats(){
   return { hp:50, maxhp:50, atk:6, arm:0, spd:5, lck:10 };
 }
@@ -558,14 +560,14 @@ function newRun(ava, opt){
   const code = opt.daily ? "daily-"+opt.daily : (opt.seed || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
   SEED = seedFrom("tcc-"+code);
   const kit = ava.picks.kit || {};
-  const startCult = 100 + (META.unlocks.cult2?250:META.unlocks.cult1?100:0) + (tribe.cult||0) + (kit.cult||0);
+  const startCult = 100 + (perk("cult3")?400:perk("cult2")?250:perk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (META.unlocks.slot1?1:0) - (heat>=5?1:0),
+    maxSlots: 4 + (perk("slot1")?1:0) - (heat>=5?1:0),
     day: 1, phase: "day", movesLeft: DAY_MOVES,
     px: SX, py: SY,
     map: [], fog: [],
@@ -579,11 +581,13 @@ function newRun(ava, opt){
   };
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
-  G.keys = 0; G.flags = {}; G.curses = {}; G.altars = {};
+  G.keys = perk("key1") ? 1 : 0;
+  G.perks = { hp:perk("hp1") ? 10 : 0, reroll:perk("reroll1"), shop:perk("shop1"), frame:perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
+  G.flags = {}; G.curses = {}; G.altars = {};
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
-  if(META.unlocks.secondchance){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
+  if(perk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
   oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
@@ -593,7 +597,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -740,7 +744,7 @@ function statDelta(r){
 }
 function relicPool(){
   return RELICS.filter(r => {
-    if(r.tags.includes("blackmarket") && !META.unlocks.blackmarket) return false;
+    if(r.tags.includes("blackmarket") && !perk("blackmarket")) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]]) return false;
     return true;
   });
@@ -767,7 +771,7 @@ function rawStats(relics, setsAs){
   const R = id => relics.includes(id);
   const sets = s.sets = setsAs || setCounts(relics), S = (id,n) => (sets[id]||0) >= n;
   const tb = (G && (TRIBES.find(t=>t.id===G.tribe)||{}).stat) || {};
-  if(G){ s.maxhp+=G.bonus.maxhp+(tb.maxhp||0); s.atk+=G.bonus.atk+(tb.atk||0); s.spd+=G.bonus.spd+(tb.spd||0); s.arm+=tb.arm||0; }
+  if(G){ s.maxhp+=G.bonus.maxhp+((G.perks||{}).hp||0)+(tb.maxhp||0); s.atk+=G.bonus.atk+(tb.atk||0); s.spd+=G.bonus.spd+(tb.spd||0); s.arm+=tb.arm||0; }
   if(R("ak47")){ s.atk+=9; s.spd-=2; }
   if(R("bfg")){ s.atk+=15; s.maxhp-=15; }
   if(R("gold_ak")) s.atk+=13;
@@ -1222,6 +1226,7 @@ function renderMap(){
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)"; m.style.gridTemplateRows = "repeat("+H+", 1fr)";
   $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
+  document.body.dataset.frame = (G.perks||{}).frame || 0;
   { const w = $("weather"); if(w) w.className = "weather w"+districtAt(G.px,G.py)+(G.phase==="night" ? " night" : ""); }
   setDoom();
   m.innerHTML = ""; tileEl = {};
@@ -1815,7 +1820,7 @@ function confirmSwap(r, j, onDone, onBack){
 /* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of draft again).
    A reroll costs $CULT and the price doubles every time you use one in a run. */
 const REROLL_BASE = 30;
-const rerollCost = () => REROLL_BASE * Math.pow(2, G.rerolls||0);
+const rerollCost = () => REROLL_BASE * ((G.perks||{}).reroll ? 0.5 : 1) * Math.pow(2, G.rerolls||0);
 function openDraft(flavor, pool, luck, gen){
   if(typeof pool==="function"){ gen = pool; pool = gen(); }
   const n = pool && pool.length || 3;
@@ -1861,7 +1866,7 @@ function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
-  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * infl;
+  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shop ? 0.9 : 1) * infl;
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
@@ -3481,7 +3486,7 @@ async function renderRn(msg){
     : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+localFile(REMILIA_LOGO)+"' alt=''>Remilia SSO</button>" : "")
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
         + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
-      + "<span class='dim'>"+(msg || "optional: put your verified name on the leaderboard and keep your progress on any device")+"</span>";
+      + "<span class='dim'>"+(msg || "optional: verified name on the leaderboard, unlocks, and your progress on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
   if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
   if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
@@ -3854,7 +3859,7 @@ function renderMenu(){
     $("menu-record").innerHTML = "📈 record <small>"+(w+l ? w+"W · "+l+"L · "+Math.round(100*w/(w+l))+"%" : "no runs yet")+"</small>"; }
   // the collections live behind three buttons; each says how far along you are
   const pool = codexPool(), have = pool.filter(r=>META.seen[r.id]).length, done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
-  const afford = UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
+  const afford = !!rnUser() && UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
   $("menu-codex").innerHTML = "📖 codex <small>"+have+" / "+pool.length+"</small>";
   $("menu-ach").innerHTML = "🏆 achievements <small>"+done+" / "+ACHIEVEMENTS.length+"</small>";
   $("menu-unlocks").innerHTML = "✨ unlocks <small>"+META.drip+" drip</small>";
@@ -3864,15 +3869,19 @@ const backRow = "<div class='row'><button class='btn small' id='menu-close'>clos
 const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
 /* ---------- drip unlocks ---------- */
 function openUnlocks(){
-  let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div><div class='unlock-shop'>";
+  const signed = !!rnUser();
+  let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div>"
+    + (signed ? "" : "<div class='note unlock-gate'>🔒 unlocks are for verified players. sign in with <b>Remilia SSO</b> or <b>Urbit ID</b> on the title screen to buy them and switch them on."
+        + (Object.keys(META.unlocks||{}).length ? " the ones you own are waiting for you." : "")+" your DRIP keeps adding up either way.</div>")
+    + "<div class='unlock-shop'>";
   UNLOCKS.forEach((u,i)=>{
     const owned = !!META.unlocks[u.id], locked = u.req && !META.unlocks[u.req];
-    html += "<div class='unlock"+(owned?" owned":"")+"'><div class='uinfo'><b>"+u.name+"</b><span>"+u.desc+"</span></div>"
-      + "<button class='btn small' data-u='"+i+"'"+(owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned?"OWNED":locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
+    html += "<div class='unlock"+(owned?" owned":"")+(signed?"":" off")+"'><div class='uinfo'><b>"+u.name+"</b><span>"+u.desc+"</span></div>"
+      + "<button class='btn small' data-u='"+i+"'"+(!signed||owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned ? (signed?"OWNED":"OWNED · OFF") : locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
   });
   openModal(html+"</div>"+backRow); wireClose();
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
-    const u = UNLOCKS[+b.dataset.u]; if(META.drip<u.cost || META.unlocks[u.id]) return;
+    const u = UNLOCKS[+b.dataset.u]; if(!rnUser() || META.drip<u.cost || META.unlocks[u.id]) return;
     META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks();
   };});
 }
@@ -3906,7 +3915,7 @@ function openAchievements(){
   wireClose();
 }
 /* ---------- the codex: everything in the game, in one place ---------- */
-const codexPool = () => RELICS.filter(r=>!r.tags.includes("blackmarket") || META.unlocks.blackmarket);
+const codexPool = () => RELICS.filter(r=>!r.tags.includes("blackmarket") || perk("blackmarket"));
 const TRAIT_TEXT = { mirror:"copies part of your ATK when the fight starts", thief:"steals $CULT with every hit. kill it to get it back", hard:"gains ATK every third tick",
   creeper:"blows up in your face when it dies", bomber:"bombs you every fourth tick", revive:"gets back up once, at half health" };
 const CODEX_TABS = [["relics","💎 relics"],["sets","✨ synergies"],["foes","👹 enemies"],["bosses","☠ bosses"],["maze","🗺 the maze"],["lore","📜 lore"]];

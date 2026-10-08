@@ -1232,3 +1232,12 @@ body.calm .king-call,body.calm .king-call::before,body.calm .king-call #king-go{
 @media (max-width:520px){ .brow{grid-template-columns:22px 40px minmax(0,1fr) 92px;} }
 
 .brow .bscore{position:relative;} .brow .bheat{position:absolute;right:-2px;bottom:-1px;width:24px;text-align:center;text-decoration:none;font-size:10px;font-weight:700;line-height:1.25;color:#ffb86c;white-space:nowrap;filter:drop-shadow(0 0 5px rgba(255,140,40,.7));}
+
+/* unlocks are for signed-in players; the cosmetic frames */
+.unlock-gate{border:1px dashed var(--gold);border-radius:8px;padding:8px 10px;color:var(--gold);} .unlock.off{opacity:.55;}
+body[data-frame="1"] #you-tok img,body[data-frame="1"] #map.night ~ #you-tok img{box-shadow:0 0 0 2px #ffd166,0 0 0 3px rgba(0,0,0,.7),0 0 18px rgba(255,209,102,.8);}
+body[data-frame="1"] #hud-avatar{border-color:#ffd166;box-shadow:0 0 14px rgba(255,209,102,.5);}
+body[data-frame="2"] #you-tok img,body[data-frame="2"] #map.night ~ #you-tok img{box-shadow:0 0 0 2px #e8fbff,0 0 0 4px #8be9fd,0 0 0 5px rgba(0,0,0,.7),0 0 22px rgba(139,233,253,.95);animation:diamond 2.4s linear infinite;}
+body[data-frame="2"] #hud-avatar{border-color:#e8fbff;box-shadow:0 0 0 2px #8be9fd,0 0 18px rgba(139,233,253,.7);animation:diamond 2.4s linear infinite;}
+@keyframes diamond{50%{filter:brightness(1.18) saturate(1.2);}}
+body.calm[data-frame="2"] #you-tok img,body.calm[data-frame="2"] #hud-avatar{animation:none;}

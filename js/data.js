@@ -335,4 +335,11 @@ const UNLOCKS = [
  {id:"slot1", name:"Extra Pocket", cost:300, desc:"+1 relic slot from the start."},
  {id:"blackmarket", name:"Black Market", cost:350, desc:"Adds 6 cursed relics to the loot pool."},
  {id:"secondchance", name:"Second Chance", cost:500, desc:"Begin every run holding Wartime PFP."},
+ {id:"key1", name:"Skeleton Key", cost:700, desc:"Start every run with a key in your pocket. The vault still wants its 100 $CULT."},
+ {id:"hp1", name:"Thick Skin", cost:800, desc:"+10 max HP."},
+ {id:"reroll1", name:"Insider Info", cost:900, desc:"Rerolls start at half price."},
+ {id:"cult3", name:"Series A", cost:1200, desc:"Start runs with +400 $CULT.", req:"cult2"},
+ {id:"shop1", name:"Loyalty Card", cost:1500, desc:"Every shop is 10% cheaper."},
+ {id:"frame1", name:"Gold Frame", cost:2000, desc:"Cosmetic. Your token on the map and your portrait wear gold."},
+ {id:"frame2", name:"Diamond Frame", cost:5000, desc:"Cosmetic. Gold becomes diamond. Nothing else. That's the point.", req:"frame1"},
 ];
