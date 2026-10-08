@@ -1221,3 +1221,5 @@ body.calm #map .tile.moveable,body.calm #map .tile.foe .tok,body.calm .fire-glow
 body.calm .king-call,body.calm .king-call::before,body.calm .king-call #king-go{animation:none;}
 
 .brow .bname .early{color:var(--gold);font-weight:700;text-shadow:0 0 8px rgba(255,209,102,.6);}
+
+.hcard .hwho{color:var(--acid);text-shadow:0 0 8px rgba(80,250,123,.35);cursor:help;} .hcard .hwho.ur{color:var(--urbit);text-shadow:0 0 8px color-mix(in srgb,var(--urbit) 45%,transparent);}

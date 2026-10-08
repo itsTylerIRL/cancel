@@ -3640,13 +3640,15 @@ async function openBoard(tab, back, seed){
     const items = !h ? [] : h.days.map(e=>({...e, at:e.date}))
       .concat((h.kings||[]).map(k=>({...k, king:true, at:new Date(Date.parse(k.week+"T12:00:00Z")+6*86400e3).toISOString().slice(0,10)+"~"})))
       .sort((x,y)=> x.at<y.at ? 1 : -1);
-    const mark = e => e.handle ? " <i class='vmark"+(isShip(e.handle)?" ur":"")+"' title='"+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"'>✓</i>" : "";
+    // a verified player is shown by their account, in its colour, with the character's name on hover; anyone else by the name they played under
+    const who = e => !e.handle ? "<b>"+esc(e.name)+"</b>"
+      : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"</b>";
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
       : "<div class='hall'>"+items.map((e,i)=> e.king
-          ? "<div class='hcard king' title='held the hill when the week ended'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>week of "+esc(mon(e.week))+"</u><b>"+esc(e.name)+mark(e)+"</b><em>👑 king of the hill</em><span>"
+          ? "<div class='hcard king' title='held the hill when the week ended'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>week of "+esc(mon(e.week))+"</u>"+who(e)+"<em>👑 king of the hill</em><span>"
             + (e.defences ? e.defences+" defence"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
-          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u><b>"+esc(e.name)+mark(e)+"</b><em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u>"+who(e)+"<em>"+e.score+(e.win?" 👑":"")+"</em><span>"
             + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
         + "<div class='note'>the best run on each day's map"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
