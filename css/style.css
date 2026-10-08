@@ -1122,3 +1122,5 @@ body.calm img.corrupt,body.calm .relic-ico.corrupt{animation:none;}
 #ur-in svg{flex:none;}
 .rn-row:has(.sso){flex-direction:column;gap:6px;}
 .title-board{display:flex;justify-content:center;margin:12px 0 2px;} .title-board .btn{margin:0;min-width:200px;}
+.odds.doom{color:#ff3030;letter-spacing:.08em;text-shadow:0 0 10px rgba(255,48,48,.7);animation:blink 1s steps(2) infinite;}
+body.calm .odds.doom{animation:none;}

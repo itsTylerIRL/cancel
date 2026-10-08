@@ -2580,6 +2580,7 @@ function fightOdds(def, opts={}){
   return oddsCache[key] = { p, hp: wins ? Math.round(hp/wins) : 0, tag: p>=0.85?"easy":p>=0.6?"fair":p>=0.35?"risky":"deadly" };
 }
 function oddsText(o){
+  if(Math.round(o.p*100)<=0) return "<span class='odds doom'>OBLITERATION IMMINENT</span>"; // not one trial fight was won: no number needed
   return "<span class='odds "+o.tag+"'>"+o.tag+" · win "+Math.round(o.p*100)+"%"+(o.p?" · ~"+o.hp+" HP left":"")+"</span>";
 }
 
