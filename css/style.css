@@ -1219,3 +1219,5 @@ body.calm #map .tile.moveable,body.calm #map .tile.foe .tok,body.calm .fire-glow
 @keyframes kingsheen{0%,55%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
 @keyframes kingbtn{50%{transform:scale(1.025);}}
 body.calm .king-call,body.calm .king-call::before,body.calm .king-call #king-go{animation:none;}
+
+.brow .bname .early{color:var(--gold);font-weight:700;text-shadow:0 0 8px rgba(255,209,102,.6);}
