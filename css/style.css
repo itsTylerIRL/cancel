@@ -615,8 +615,6 @@ body::after{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0
 .corner-brackets .bottom::before{bottom:15px;left:15px;border-bottom-width:2px;border-left-width:2px;}
 .corner-brackets .bottom::after{bottom:15px;right:15px;border-bottom-width:2px;border-right-width:2px;}
 @media (max-width:520px){ .corner-brackets{display:none;} }
-/* the site's floating "Return Home" card */
-  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:8px 14px;transition:all .3s ease;backdrop-filter:blur(4px);}
 /* surfaces: thin cyan lines on near-black glass, no chunky shadows */
 .panel,.box,#hud,#map-wrap,.unlock,.ach,.shop-row,.card,.choice,.set-row,.syn,#tile-info,.meta-stat,.share pre,#combat-log,#map-log,.toast,#combat-choice{
   border-width:1px;border-radius:12px;box-shadow:none;}
