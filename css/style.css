@@ -1138,3 +1138,9 @@ body.calm .odds.doom{animation:none;}
 .record-big b{font-size:26px;color:var(--neon);} .record-big b.good{color:var(--acid);} .record-big b.bad{color:var(--red);}
 .record-big u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.12em;font-size:9px;color:var(--dim);text-align:center;}
 .title-menu #menu-record small{text-transform:none;opacity:.85;}
+/* meme maker */
+.meme-stage{position:relative;width:min(100%,380px);margin:0 auto 10px;} .meme-stage .meme-cv{width:100%;margin:0;}
+.meme-busy{position:absolute;right:8px;bottom:8px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#000;background:var(--gold);padding:2px 8px;border-radius:4px;opacity:0;transition:opacity .15s;pointer-events:none;}
+.meme-busy.on{opacity:1;}
+.meme-levels .pick.on{border-color:#ff8a3c;color:#ffb347;background:rgba(255,120,0,.14);box-shadow:0 0 14px rgba(255,120,0,.3);}
+#modal-panel:has(.meme-stage){max-width:520px;}

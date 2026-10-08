@@ -2949,14 +2949,113 @@ function saveImage(cv, name, text){
   });
 }
 /* ---------- meme maker: top text, bottom text, deep fry ---------- */
-function memeCanvas(run, top, bottom, fried){
-  let cv = document.createElement("canvas"); cv.width=1080; cv.height=1080;
-  let cx = cv.getContext("2d");
-  const bg = cx.createRadialGradient(540,400,40,540,540,760);
-  bg.addColorStop(0,"#1f5663"); bg.addColorStop(0.45,"#0c2a33"); bg.addColorStop(0.8,"#031014"); bg.addColorStop(1,"#000000");
-  cx.fillStyle = bg; cx.fillRect(0,0,1080,1080);
+/* ---------- the meme maker's deep fryer ----------
+   A proper fry is a stack of abuse: the colours pushed past what the picture can hold, sharpened until edges ring,
+   grain, then saved as a terrible JPEG several times over so it breaks into blocks. On top: glowing eyes, a bulge,
+   and the emoji. Captions go on before the last pass so they come out crunchy too. */
+const FRY_LEVELS = [
+  { name:"raw" },
+  { name:"fried",      sat:2.0, con:1.35, warm:0.10, sharp:0.9, grain:16, jpeg:[[0.22,1]] },
+  { name:"deep fried", sat:3.0, con:1.75, warm:0.20, sharp:1.7, grain:28, jpeg:[[0.10,0.62],[0.10,1]] },
+  { name:"nuked",      sat:4.2, con:2.3,  warm:0.32, sharp:2.6, grain:42, jpeg:[[0.05,0.42],[0.04,0.6],[0.05,1]], crush:40 },
+];
+function fryPixels(cv, L){ // colour, contrast, a push toward orange, grain, and at the top level the colours crushed into bands
+  const cx = cv.getContext("2d", {willReadFrequently:true}), im = cx.getImageData(0,0,cv.width,cv.height), d = im.data;
+  for(let i=0;i<d.length;i+=4){
+    let r=d[i], g=d[i+1], b=d[i+2]; const y = 0.299*r+0.587*g+0.114*b, n = (Math.random()-0.5)*2*L.grain;
+    r = ((y+(r-y)*L.sat)-128)*L.con+128; g = ((y+(g-y)*L.sat)-128)*L.con+128; b = ((y+(b-y)*L.sat)-128)*L.con+128;
+    r = r*(1+L.warm)+n; g = g*(1+L.warm*0.35)+n; b = b*(1-L.warm)+n;
+    if(L.crush){ r = Math.round(r/L.crush)*L.crush; g = Math.round(g/L.crush)*L.crush; b = Math.round(b/L.crush)*L.crush; }
+    d[i]=r; d[i+1]=g; d[i+2]=b; // a clamped array: out-of-range values pin at 0 and 255, which is the look
+  }
+  cx.putImageData(im,0,0);
+}
+function frySharpen(cv, amt){ // an unsharp kernel run hot, so every edge grows a halo
+  const w = cv.width, h = cv.height, cx = cv.getContext("2d", {willReadFrequently:true}), src = cx.getImageData(0,0,w,h), s = src.data, out = cx.createImageData(w,h), o = out.data;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const i = (y*w+x)*4, up = y ? i-w*4 : i, dn = y<h-1 ? i+w*4 : i, lf = x ? i-4 : i, rt = x<w-1 ? i+4 : i;
+    for(let c=0;c<3;c++) o[i+c] = s[i+c] + amt*(4*s[i+c]-s[up+c]-s[dn+c]-s[lf+c]-s[rt+c]);
+    o[i+3] = 255;
+  }
+  cx.putImageData(out,0,0);
+}
+function fryBulge(cv, px, py, radius, power){ // a fisheye swelling out from one point
+  const w = cv.width, h = cv.height, cx = cv.getContext("2d", {willReadFrequently:true}), src = cx.getImageData(0,0,w,h), s = src.data, out = cx.createImageData(w,h), o = out.data;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const dx = x-px, dy = y-py, r = Math.hypot(dx,dy); let sx = x, sy = y;
+    if(r<radius){ const k = Math.pow(r/radius, power); sx = px+dx*k; sy = py+dy*k; }
+    const i = (y*w+x)*4, j = ((sy|0)*w+(sx|0))*4;
+    o[i]=s[j]; o[i+1]=s[j+1]; o[i+2]=s[j+2]; o[i+3]=255;
+  }
+  cx.putImageData(out,0,0);
+}
+function fryJpeg(cv, q, scale){ // save it badly, load it back
+  return new Promise(res=>{
+    const t = document.createElement("canvas"); t.width = Math.max(64, Math.round(cv.width*scale)); t.height = Math.max(64, Math.round(cv.height*scale));
+    t.getContext("2d").drawImage(cv, 0, 0, t.width, t.height);
+    const im = new Image();
+    im.onload = ()=>{ const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = scale>=1; cx.drawImage(im, 0, 0, cv.width, cv.height); res(); };
+    im.onerror = ()=>res();
+    try{ im.src = t.toDataURL("image/jpeg", q); }catch(e){ res(); }
+  });
+}
+const BULGE_R = 430, BULGE_P = 0.55; // how far the swelling reaches, and how hard it pushes
+async function eyeSpots(run){ // where her eyes are on the 864x1080 portrait as it sits on the meme, or [] if they can't be found
+  try{
+    const b = run.base, tk = b.token, cfg = tk ? tk.cfg : "Milady", file = tk ? tk.layers.Eyes : b.nft ? null : b.Eyes;
+    if(!file) return [];
+    const url = assetURL(cfg, "Eyes", file), im = await loadImg(url), [bx,by,bw,bh] = traitBounds(im, url);
+    const k = cfg==="Remilio" ? 762/im.naturalWidth : 600/im.naturalWidth, ox = cfg==="Remilio" ? -70 : 0, oy = cfg==="Remilio" ? -32 : 0, s = 864/600;
+    return [0.24, 0.76].map(f=>[108+(ox+(bx+bw*f)*k)*s, (oy+(by+bh*0.5)*k)*s, bw*k*s*0.2]);
+  }catch(e){ return []; }
+}
+async function memeImage(run, o){ // o: top, bottom, level 0..3, eyes, emoji, bulge
+  const L = FRY_LEVELS[o.level] || FRY_LEVELS[0], S = 1080;
+  const cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+  const cx = cv.getContext("2d");
+  if(o.level){ // a fried meme sits on a sunburst
+    cx.fillStyle = "#ffd400"; cx.fillRect(0,0,S,S);
+    cx.save(); cx.translate(S/2, S*0.46);
+    for(let i=0;i<24;i+=2){ cx.fillStyle = "#ff3b1d"; cx.beginPath(); cx.moveTo(0,0); cx.arc(0,0,S, i*Math.PI/12, (i+1)*Math.PI/12); cx.closePath(); cx.fill(); }
+    cx.restore();
+    const v = cx.createRadialGradient(S/2,S*0.46,S*0.15,S/2,S/2,S*0.75); v.addColorStop(0,"rgba(255,255,255,.35)"); v.addColorStop(1,"rgba(120,0,0,.55)"); cx.fillStyle = v; cx.fillRect(0,0,S,S);
+  } else {
+    const bg = cx.createRadialGradient(540,400,40,540,540,760);
+    bg.addColorStop(0,"#1f5663"); bg.addColorStop(0.45,"#0c2a33"); bg.addColorStop(0.8,"#031014"); bg.addColorStop(1,"#000000");
+    cx.fillStyle = bg; cx.fillRect(0,0,S,S);
+  }
   cx.drawImage(run.avatar, 108, 0, 864, 1080);
-  if(fried){ cv = fry(cv); cx = cv.getContext("2d"); }
+  const eyes = (o.eyes || o.bulge) ? await eyeSpots(run) : [];
+  const face = eyes.length ? [(eyes[0][0]+eyes[1][0])/2, (eyes[0][1]+eyes[1][1])/2+40] : [540, 430];
+  if(o.bulge) fryBulge(cv, face[0], face[1], BULGE_R, BULGE_P);
+  if(o.emoji){ // the usual crowd, at the edges, so they fry with everything else
+    const spots = [[150,250,-20,"😂"],[930,220,18,"👌"],[120,640,14,"💯"],[950,620,-16,"🔥"],[230,860,-10,"😂"],[860,880,12,"💯"],[540,120,0,"🅱️"]];
+    cx.textAlign = "center"; cx.textBaseline = "middle";
+    for(const [x,y,rot,e] of spots){ cx.save(); cx.translate(x,y); cx.rotate(rot*Math.PI/180); cx.font = (120+((x*7+y)%50))+"px serif"; cx.fillText(e,0,0); cx.restore(); }
+    cx.textBaseline = "alphabetic";
+  }
+  if(o.level){
+    fryPixels(cv, L);
+    frySharpen(cv, L.sharp);
+    for(const [q,sc] of L.jpeg.slice(0,-1)) await fryJpeg(cv, q, sc);
+  }
+  if(o.eyes && eyes.length){ // glowing eyes, added light on light, with the long horizontal streak
+    cx.save(); cx.globalCompositeOperation = "lighter";
+    for(const [ex0,ey0,er] of eyes){
+      let ex = ex0, ey = ey0;
+      if(o.bulge){ // follow the swelling: a point at radius r in the picture ends up at R*(r/R)^(1/(1+p))
+        const dx = ex0-face[0], dy = ey0-face[1], r = Math.hypot(dx,dy), k = r>0 && r<BULGE_R ? BULGE_R*Math.pow(r/BULGE_R, 1/(1+BULGE_P))/r : 1; ex = face[0]+dx*k; ey = face[1]+dy*k; }
+      const R = Math.max(60, er*3.2);
+      const gl = cx.createRadialGradient(ex,ey,0,ex,ey,R); gl.addColorStop(0,"rgba(255,255,255,1)"); gl.addColorStop(0.18,"rgba(255,90,60,.95)"); gl.addColorStop(0.5,"rgba(255,0,0,.45)"); gl.addColorStop(1,"rgba(255,0,0,0)");
+      cx.fillStyle = gl; cx.fillRect(ex-R,ey-R,R*2,R*2);
+      for(const [len,th,rot] of [[R*4.2,7,0],[R*1.8,5,Math.PI/2],[R*1.6,3,Math.PI/4],[R*1.6,3,-Math.PI/4]]){
+        cx.save(); cx.translate(ex,ey); cx.rotate(rot);
+        const st = cx.createLinearGradient(-len,0,len,0); st.addColorStop(0,"rgba(255,40,40,0)"); st.addColorStop(0.5,"rgba(255,255,255,.95)"); st.addColorStop(1,"rgba(255,40,40,0)");
+        cx.fillStyle = st; cx.fillRect(-len,-th,len*2,th*2); cx.restore();
+      }
+    }
+    cx.restore();
+  }
   const caption = (text, yTop, fromBottom) => {
     text = text.trim().toUpperCase(); if(!text) return;
     let fs = 120, lines;
@@ -2973,9 +3072,10 @@ function memeCanvas(run, top, bottom, fried){
       cx.strokeText(l,540,y); cx.fillText(l,540,y);
     });
   };
-  caption(top, 20, false); caption(bottom, 0, true);
+  caption(o.top||"", 20, false); caption(o.bottom||"", 0, true);
   cx.font = "bold 22px 'Courier New', monospace"; cx.textAlign="right"; cx.fillStyle="rgba(255,255,255,.75)"; cx.strokeStyle="rgba(0,0,0,.7)"; cx.lineWidth=4;
   cx.strokeText("THE CANCEL IS COMING", 1064, 30); cx.fillText("THE CANCEL IS COMING", 1064, 30);
+  if(o.level){ const [q,sc] = L.jpeg[L.jpeg.length-1]; await fryJpeg(cv, Math.min(0.3, q*1.6), sc); } // the last save crunches the type too, a little more gently so it stays readable
   return cv;
 }
 /* ---------- king of the hill ----------
@@ -3098,17 +3198,28 @@ async function loadKing(){
 }
 function openMeme(run, win, back){
   const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;
-  openModal("<h2>🧀 MEME MAKER</h2><canvas id='meme-cv' class='meme-cv'></canvas>"
-    + "<input id='meme-top' class='meme-in' maxlength='60' placeholder='top text' value=\""+top0+"\">"
-    + "<input id='meme-bot' class='meme-in' maxlength='60' placeholder='bottom text' value=\""+bot0.replace(/"/g,"&quot;")+"\">"
-    + "<label class='meme-fry'><input type='checkbox' id='meme-fried' checked> deep fry</label>"
+  const o = run.memeOpts = run.memeOpts || { top:top0, bottom:bot0, level:2, eyes:true, emoji:false, bulge:false };
+  openModal("<h2>🧀 MEME MAKER</h2><div class='meme-stage'><canvas id='meme-cv' class='meme-cv'></canvas><div class='meme-busy' id='meme-busy'>frying…</div></div>"
+    + "<input id='meme-top' class='meme-in' maxlength='60' placeholder='top text' value=\""+esc(o.top)+"\">"
+    + "<input id='meme-bot' class='meme-in' maxlength='60' placeholder='bottom text' value=\""+esc(o.bottom)+"\">"
+    + "<div class='pick-row meme-levels'>"+FRY_LEVELS.map((l,i)=>"<button class='pick"+(i===o.level?" on":"")+"' data-level='"+i+"'>"+["🥩","🍳","🔥","☢️"][i]+" "+l.name+"</button>").join("")+"</div>"
+    + "<div class='pick-row'>"+[["eyes","🔴 glowing eyes"],["emoji","😂 emoji"],["bulge","🔍 bulge"]].map(([k,l])=>"<button class='pick"+(o[k]?" on":"")+"' data-opt='"+k+"'>"+l+"</button>").join("")+"</div>"
     + "<div class='row'><button class='btn big' id='meme-save'>"+(TOUCH?"SHARE":"SAVE")+" 📸</button><button class='btn small' id='meme-back'>← back</button></div>");
-  let cv = null;
-  const draw = ()=>{ cv = memeCanvas(run, $("meme-top").value, $("meme-bot").value, $("meme-fried").checked); paint($("meme-cv"), cv); };
-  for(const id of ["meme-top","meme-bot"]){ $(id).oninput = draw; }
-  $("meme-fried").onchange = draw;
-  $("meme-save").onclick = ()=>{ sfx("click"); saveImage(cv, run.name+"-meme", "THE CANCEL IS COMING"); };
-  $("meme-back").onclick = ()=>{ sfx("click"); back(); };
+  let cv = null, job = 0, timer = 0;
+  const draw = async ()=>{ // frying takes a moment: only the newest request is shown
+    const mine = ++job; $("meme-busy").classList.add("on");
+    const out = await memeImage(run, o);
+    if(mine!==job || !$("meme-cv")) return;
+    cv = out; paint($("meme-cv"), cv); $("meme-busy").classList.remove("on");
+  };
+  const soon = ()=>{ clearTimeout(timer); timer = setTimeout(draw, 220); };
+  $("meme-top").oninput = ()=>{ o.top = $("meme-top").value; soon(); };
+  $("meme-bot").oninput = ()=>{ o.bottom = $("meme-bot").value; soon(); };
+  $("modal-panel").querySelectorAll("[data-level]").forEach(b=>{ b.onclick=()=>{ sfx("click"); o.level = +b.dataset.level;
+    $("modal-panel").querySelectorAll("[data-level]").forEach(x=>x.classList.toggle("on", x===b)); draw(); }; });
+  $("modal-panel").querySelectorAll("[data-opt]").forEach(b=>{ b.onclick=()=>{ sfx("click"); o[b.dataset.opt] = !o[b.dataset.opt]; b.classList.toggle("on", o[b.dataset.opt]); draw(); }; });
+  $("meme-save").onclick = ()=>{ if(!cv) return; sfx("click"); saveImage(cv, run.name+"-meme", "THE CANCEL IS COMING"); };
+  $("meme-back").onclick = ()=>{ sfx("click"); job++; back(); };
   draw();
 }
 /* A link that puts whoever opens it in the same maze: ?daily=2026-10-04 or ?seed=k3x9ab. */
