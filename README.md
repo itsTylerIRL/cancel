@@ -13,8 +13,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 ## How it plays
 
 - **The maze.** 41×41, four districts, a boss gate in each. Loot hides in dead ends. Each district bends one rule in your favour.
-- **Relics.** About 85 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
-- **Sets.** Every relic belongs to a set or two (ARMED, HYPEBEAST, DEGEN, KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD, FLAMEWAR, BLOODSPORT, ICED OUT). Hold enough of one and it switches on.
+- **Relics.** About 120 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
+- **Sets.** Every relic belongs to a set or two (ARMED, HYPEBEAST, DEGEN, KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD, FLAMEWAR, BLOODSPORT, ICED OUT, THREE LETTER AGENCY, NIGHT SHIFT, TOUCH GRASS, FAST FOOD, WAR ROOM). Hold enough of one and it switches on.
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
 - **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and hands one of them back a grade higher. She decides which. One trade each, and neither lets you pick.
 - **Scearpo.** Scorched earth policy. Hand him a relic and he flips a coin: it comes back a tier higher, or it burns.

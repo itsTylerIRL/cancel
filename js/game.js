@@ -669,7 +669,8 @@ function dropRelicAt(i){ G.relics.splice(i,1); G.tiers.splice(i,1); }
 /* relics whose fight numbers are scaled where they are used (in fightEngine and settleWin); the rest get their
    stat bonuses scaled in computeStats, or a flat bonus per tier if they have no numbers at all */
 const TIER_IN_FIGHT = ["network_spirituality","jesus_tank","cookie","cult_robe","lollipop","snakebites","pikachu","remilio_friend","tails","dino",
-  "evil_eye","trucker","cat_ears","birthday_hat","maid","strawberry","silver_coin","blood_splatter","cigarette","fbi_cap","bonkler"];
+  "evil_eye","trucker","cat_ears","birthday_hat","maid","strawberry","silver_coin","blood_splatter","cigarette","fbi_cap","bonkler",
+  "cia","gnome","juicebox","sleepyhead","flower_clip","burger_earring","mcdonalds"];
 /* A relic's text at a given worth (1 normal, 2 gold, 4 diamond): the same numbers the engine uses, so the
    description always says what the item in that slot really gives. */
 const STAT_RX = /\+(\d+)(%? ?)(ATK|ARM|SPD|max HP|crit chance|dodge)/g, DODGE_RX = /^(\d+)(% dodge chance)/;
@@ -677,7 +678,8 @@ const HEAL_RX = /(Heal )(\d+)/;
 const FIGHT_RX = { network_spirituality:/(an? )(\d+)( HP shield)/, jesus_tank:/(an? )(\d+)( HP shield)/, cookie:HEAL_RX, cult_robe:HEAL_RX, lollipop:HEAL_RX,
   birthday_hat:HEAL_RX, maid:HEAL_RX, strawberry:HEAL_RX, cat_ears:HEAL_RX, snakebites:/(poison: )(\d+)/, pikachu:/(shock for )(\d+)/,
   remilio_friend:/(strikes for )(\d+)/, tails:/(hit for )(\d+)/, dino:/(bites for )(\d+)/, evil_eye:/(Reflect )(\d+)/, trucker:/(heal you for )(\d+)/,
-  silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/ };
+  silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/,
+  cia:/(strikes for )(\d+)/, gnome:/(heals you )(\d+)/, juicebox:/(heals you )(\d+)/, sleepyhead:HEAL_RX, flower_clip:HEAL_RX, burger_earring:/(heal )(\d+)/, mcdonalds:/(heal )(\d+)/ };
 const hasStatText = r => r.id!=="blood_splatter" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
 const flatTier = r => !hasStatText(r) && !TIER_IN_FIGHT.includes(r.id); // nothing numeric to scale: +2 ATK, +6 max HP per extra copy's worth
 /* A relic that has been used up shows it. The MiladyStation Memory Card loads its save once a run; after that the
@@ -785,6 +787,12 @@ function rawStats(relics, setsAs){
   if(R("drip_score")) s.atk += 2*relics.length;
   if(R("post_authorship")) s.atk += Math.min(10, G.kills);
   if(R("cancelversary")) s.atk += 4*G.bossesBeaten;
+  if(R("atf_cap")){ s.atk+=2; s.arm+=3; }
+  if(R("shooting_glasses")) s.atk+=3;
+  if(R("goth_headband")) s.atk+=2;
+  if(R("pickaxe")){ s.atk+=5; s.arm+=2; }
+  if(R("hk416")){ s.atk+=7; s.arm+=2; }
+  if(G && G.phase==="night"){ if(R("crescent")) s.atk+=4; if(S("night",2)) s.atk+=3; }
   if(S("armed",2)) s.atk+=4;
   if(R("ss_drip")) s.atk *= 1.5;
   if(R("diamond_stud")) s.maxhp+=30;
@@ -799,16 +807,35 @@ function rawStats(relics, setsAs){
   if(R("strawberry")) s.maxhp+=8;
   if(R("custom")){ s.atk+=3; s.arm+=2; s.spd+=1; s.maxhp+=10; }
   if(S("kawaii",2)) s.maxhp+=12;
+  if(R("un_helmet")){ s.arm+=4; s.maxhp+=8; }
+  if(R("skull_sweater")){ s.maxhp+=12; s.arm+=2; }
+  if(R("straw_hat")){ s.spd+=2; s.maxhp+=8; }
+  if(R("sheep_pullover")) s.maxhp+=16;
+  if(R("flower_clip")) s.maxhp+=10;
+  if(R("cherry")) s.maxhp+=6;
+  if(R("sandwich")) s.maxhp+=10;
+  if(R("mushroom") && G) s.maxhp += Math.min(30, Math.floor((G.tilesSeen||0)/12));
+  if(R("airtag")) s.spd+=2;
+  if(R("black_niqab")) s.spd+=2;
+  if(S("grass",2)) s.maxhp+=10;
+  if(S("food",2)) s.maxhp+=15;
+  if(R("safety_glasses")) s.arm+=3;
+  if(R("firefighter")) s.arm+=5;
+  if(R("bike_helmet")) s.arm+=2;
+  if(S("war",2)) s.arm+=4;
   if(R("hat_911")) s.spd+=3;
   if(R("bulletproof")) s.arm+=8;
   if(R("moteiga")) s.arm+=5;
   if(R("hypebeast")) s.arm+=6;
   if(S("bonkler",2)) s.arm+=3;
+  if(R("punisher")) s.atk += Math.floor(Math.max(0, s.arm)/2); // after every source of ARM
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
-    + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0);
+    + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0)
+    + (R("bluetooth")?5:0) + (R("shooting_glasses")?15:0) + (R("cherry")?6:0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
-  s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0);
+  s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0)
+    + (R("bluetooth")?8:0) + (R("goth_headband")?6:0) + (R("black_niqab")?12:0) + (R("safety_glasses")?5:0) + (G && G.phase==="night" && S("night",2) ? 10 : 0);
   s.dodgeRaw = s.dodge;
   s.shopDisc = (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
   return s;
@@ -1036,7 +1063,7 @@ function renderHUD(){
   $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : "");
   $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day;
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
-  const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
+  const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
   let pips = "";
   for(let i=0;i<total;i++) pips += "<i"+(i<G.movesLeft?"":" class='spent'")+"></i>";
   const mv = $("hud-moves"); mv.innerHTML = pips; mv.title = G.movesLeft+" moves left"; mv.className = G.phase;
@@ -1328,7 +1355,7 @@ function placeYou(){
 function placeHunters(){ // one sliding token per demon you can see
   const inner = $("map-inner"), live = {}, cell = "((100% - "+(W-1)*GAP+"px) / "+W+" + "+GAP+"px)";
   for(const h of G.hunters){
-    if(G.fog[h.y][h.x]) continue;
+    if(G.fog[h.y][h.x] && !((G.stats.sets.agency||0)>=2)) continue; // THREE LETTER AGENCY has eyes on them
     h.id = h.id || Math.random().toString(36).slice(2,9); live[h.id] = 1;
     let el = inner.querySelector(".hunter-tok[data-id='"+h.id+"']");
     if(!el){ el = document.createElement("div"); el.className="hunter-tok nt"+nightTier(); el.dataset.id=h.id; el.innerHTML="<img alt='' src='"+NFT.schizo.src(1+parseInt(h.id,36)%SCHIZO_LOCAL.length)+"'>"; inner.appendChild(el); }
@@ -1339,7 +1366,7 @@ function placeHunters(){ // one sliding token per demon you can see
   // the ones you can't see yet: if they are close, their eyes show in the dark
   inner.querySelectorAll(".hunter-eyes").forEach(el=>el.remove());
   for(const h of G.hunters){
-    if(!G.fog[h.y][h.x] || Math.abs(h.x-G.px)+Math.abs(h.y-G.py) > 8) continue;
+    if(!G.fog[h.y][h.x] || (G.stats.sets.agency||0)>=2 || Math.abs(h.x-G.px)+Math.abs(h.y-G.py) > 8) continue;
     const el = document.createElement("div"); el.className = "hunter-eyes nt"+nightTier(); el.innerHTML = "<i></i><i></i>";
     el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
@@ -1509,7 +1536,9 @@ function tryMove(x,y){
   if(x<0||y<0||x>=W||y>=H) return;
   if(Math.abs(x-G.px)+Math.abs(y-G.py)!==1) return;
   if(G.fog[y][x] || !isFloor(x,y)) return;
+  const was = districtAt(G.px,G.py);
   G.px=x; G.py=y; G.sel="";
+  if(districtAt(x,y)!==was && (G.stats.sets.grass||0)>=2 && G.stats.hp<G.stats.maxhp){ const h = Math.min(4, G.stats.maxhp-G.stats.hp); G.stats.hp += h; mapFloat("🌿 +"+h, "loot"); }
   sfx("step");
   updateFog();
   // hunter collision
@@ -1592,6 +1621,13 @@ function startDay(){
     const d = Math.min(G.curses.dawn, G.stats.hp-1); G.stats.hp -= d;
     mlog("🩸 The curse takes its due: <b>−"+d+" HP</b>.", "bad");
   }
+  recalcStats(); // some relics only work in the dark, and some grow with the map
+  if(hasRelic("sleepyhead") && G.stats.hp<G.stats.maxhp){ const h = Math.min(G.stats.maxhp-G.stats.hp, Math.round(8*tm("sleepyhead"))); G.stats.hp += h; mlog("😴 Sleepyhead: you slept anyway. <b>+"+h+" HP</b>.", "good"); }
+  if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
+    G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good");
+    if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
+    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); }
+  }
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
   if(bi>=0 && bi>=G.bossesBeaten){ // one you already beat early doesn't come
@@ -1610,7 +1646,8 @@ function showBanner(){
   if(b) bb.innerHTML = "⚠️ "+b.name+" IS COMING<small>"+b.mechanic+"<br>face it at the ⛩️ gate — or it finds you at dawn</small>";
 }
 function startNight(){
-  G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0);
+  G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
+  recalcStats();
   mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
   splash("NIGHT FALLS<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
   setTimeout(doomWhisper, 50);
@@ -2167,6 +2204,7 @@ function openFountain(note, cls){
     + "<div class='note'><i>Coins on the bottom, none of them yours. Nobody remembers who built it, or what it wants.</i><br>"+mood+"</div>"
     + (note ? "<div class='note "+(cls||"good")+"'>"+note+"</div>" : "")
     + "<div class='stat-line'><span>you hold</span><b>"+G.cult+" $CULT</b></div>"
+    + ((G.stats.sets.agency||0)>=2 ? "<div class='stat-line'><span>🕶️ the file on this fountain</span><b>"+Math.max(0, need-w.given)+" $CULT more</b></div>" : "")
     + "<div class='row'>"+[25,100,250].map(n=>"<button class='btn small' data-give='"+n+"'"+(G.cult<n?" disabled":"")+">throw in "+n+"</button>").join("")+"</div>"
     + "<div class='row'><button class='btn small' id='well-leave'>leave</button></div>");
   $("modal-panel").querySelectorAll("[data-give]").forEach(b=>{ b.onclick=()=>{
@@ -2473,9 +2511,14 @@ function fightEngine(foeDef, opts, io){
     F.over=true; F.win=win;
   };
   const heal = n => {
-    const before = you.hp;
-    you.hp = Math.min(you.maxhp, you.hp + n*(act("heart_tattoo")?2:1));
+    const before = you.hp, want = you.hp + n*(act("heart_tattoo")?2:1);
+    you.hp = Math.min(you.maxhp, want);
     if(you.hp>before) io.float("you", "+"+(you.hp-before), "heal");
+    if(want>you.maxhp && set("grass",3)){ const over = Math.round(want-you.maxhp); you.shield += over; io.float("you","+"+over+" shield","heal"); } // TOUCH GRASS: nothing healed is wasted
+  };
+  const eat = id => { // a meal is used up when it is eaten, unless FAST FOOD keeps it on the plate
+    if(set("food",3) && rnd()<0.4){ io.log("🍔 Still some left. <b>"+relicById(id).name+"</b> stays.", "good"); return; }
+    lose(st.relics.indexOf(id)); io.strip(F);
   };
   const companion = (dmg, msg) => { // every companion hit goes through here so SQUAD applies to all of them
     dmg += set("squad",2) ? 3 : 0;
@@ -2483,6 +2526,12 @@ function fightEngine(foeDef, opts, io){
     if(set("squad",3)) heal(2);
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
+  const hunter = foe.id==="fud";
+  you.helmet = act("bike_helmet"); you.stored = 0;
+  if(set("agency",3)) you.sure = true;
+  if(hunter && act("airtag")){ foe.stun = 1; io.log("📍 Airtag: you knew it was coming. "+foe.name+" is caught flat.", "good"); }
+  if(hunter && act("spider_tattoo")){ foe.bleed = 3; io.log("🕷️ "+foe.name+" walked through the web. It is already bleeding.", "good"); }
+  if(boss && act("modelo")){ { const pc = Math.round(60*tm("modelo")); you.atk = Math.round(you.atk*(1+pc/100)); io.log("🍺 <b>Modelo.</b> Down in one. +"+pc+"% ATK for this fight.", "good"); } eat("modelo"); }
   // burn: damage every tick. bleed: hurts the enemy each time it attacks. chill: saps its ATK, and can freeze it
   const bleedMax = () => set("blood",2) ? 6 : 4, chillMax = () => set("ice",2) ? 5 : 3;
   if(foe.trait==="hard") io.log("🧀 "+foe.name+" goes harder the longer this lasts.", "bad");
@@ -2513,6 +2562,7 @@ function fightEngine(foeDef, opts, io){
     if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0) + heftOf(you.maxhp);
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
+    if(!isYou && act("atf_agent") && (opts.elite || hunter)) atk *= 0.85;
     if(!isYou && att.puppet){ // already past armour and crits on the other side: only what you carry can soften it now
       let d = Math.min(Math.max(1, Math.round(atk)), Math.ceil(you.maxhp * BAL.guardDuel)); // guarded: a duel is never one round long
       if(def===you && act("fbi_cap")) d = Math.max(1, d-tv("fbi_cap",3));
@@ -2523,6 +2573,7 @@ function fightEngine(foeDef, opts, io){
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
     // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
     let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armour has the same limit
+    if(!isYou && def===you && set("war",4)) you.stored += Math.min(you.arm, Math.max(0, Math.round(atk) - dmg)); // WAR ROOM keeps what the armour stopped
     let crit = false;
     if(rnd()*100 < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
       dmg = Math.round(dmg * ((isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0))); crit=true; }
@@ -2559,7 +2610,7 @@ function fightEngine(foeDef, opts, io){
       return;
     }
     if(!isYou){ // armour bites back: a swing that reaches you costs the attacker a quarter of your ARM
-      const th = thornsOf(you.arm);
+      const th = thornsOf(you.arm) * (act("cactus_shirt") ? 2 : 1);
       if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
@@ -2567,6 +2618,8 @@ function fightEngine(foeDef, opts, io){
       const soak = Math.min(you.shield, dmg); you.shield-=soak; dmg-=soak;
       if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
     }
+    if(!isYou && you.helmet){ you.helmet = false; if(dmg>1){ dmg = 1; io.log("🚲 Bike Helmet takes the first one.", "good"); } }
+    if(!isYou && act("firefighter")) dmg = Math.min(dmg, Math.max(1, Math.ceil(you.maxhp*0.25)));
     let guarded = false;
     if(isYou && !foe.puppet){ // guard: no single blow takes more than a share of an enemy's health, so a fight is never one swing long
       const lim = Math.max(1, Math.ceil(foe.maxhp * (boss ? BAL.guardBoss : BAL.guardFoe)));
@@ -2577,12 +2630,13 @@ function fightEngine(foeDef, opts, io){
     if(guarded) F.guarded++;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : ""), crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
+    if(!isYou && act("plaster") && you.hp>0) heal(1);
     if(isYou && set("cheese",3)){ st.cult+=3; }
     if(isYou){
       const extra = act("juul") ? 2 : 0;
       if(act("fire_glasses")) foe.burn = Math.max(foe.burn, 2+extra);
       if(crit && act("laser_eyes")) foe.burn = Math.max(foe.burn, 4+extra);
-      const bleed = (act("claw")||act("vampire") ? 1 : 0) + (crit && act("desert_eagle") ? 2 : 0);
+      const bleed = (act("claw")||act("vampire") ? 1 : 0) + (crit && act("desert_eagle") ? 2 : 0) + (act("teardrops") && you.hp < you.maxhp/2 ? 1 : 0);
       if(bleed) foe.bleed = Math.min(bleedMax(), foe.bleed+bleed);
       if(act("chain_earrings")||act("square_diamond")){
         foe.chill = Math.min(chillMax(), foe.chill+1);
@@ -2656,12 +2710,17 @@ function fightEngine(foeDef, opts, io){
     if(foe.burn>0){ const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(act("pikachu") && F.tick%4===0){ const z = grow(tv("pikachu",8)); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
+    if(act("gnome") && F.tick%4===0){ heal(tv("gnome",3)); io.log("🍄 Gnome patches you up.", "good"); }
+    if(act("juicebox") && F.tick%3===0){ heal(tv("juicebox",2)); io.log("🧃 Juicebox.", "good"); }
+    if(act("burger_earring") && you.hp>0 && you.hp < you.maxhp*0.3){ io.log("🍔 <b>Burger Earring.</b> Eaten.", "good"); heal(tv("burger_earring",40)); eat("burger_earring"); }
+    if(you.stored>0 && F.tick%5===0){ const d = Math.round(you.stored); you.stored = 0; foe.hp-=d; credit("🪖 War Room", d); io.log("🪖 War Room: everything your armour stopped comes back. <b>"+d+"</b>.", "good"); io.hit("foe",d,false); }
     // companions
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
       if(act("remilio_friend") && you.compTick%3===0) companion(grow(tv("remilio_friend",5)), "🧸 Remilio Friend strikes");
       if(act("tails") && rnd()<0.3) companion(grow(tv("tails",4)), "🦊 Tails spins in");
       if(act("dino") && you.compTick%2===0) companion(grow(tv("dino",3)), "🦖 Dino bites");
+      if(act("cia") && you.compTick%2===0){ companion(grow(tv("cia",4)), "🕴️ CIA strikes"); if(foe.arm>0) foe.arm--; }
       if(act("amogus") && !boss && !foe.king && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
@@ -2814,7 +2873,8 @@ function settleWin(F, opts, log){
   log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
   if(hasRelic("silver_coin")){ const sc = Math.round(15*tm("silver_coin")); G.cult+=sc; log("🪙 Silver Coin: +"+sc+" $CULT.", "good"); }
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
-  for(const [id,n,label] of [["birthday_hat",15,"🎂 Birthday Hat"],["maid",6,"🧹 Maid Outfit"],["strawberry",3,"🍓 Strawberry Earring"]])
+  for(const [id,n,label] of [["birthday_hat",15,"🎂 Birthday Hat"],["maid",6,"🧹 Maid Outfit"],["strawberry",3,"🍓 Strawberry Earring"],["flower_clip",2,"🌸 Flower Clip"]]
+      .concat(hasRelic("mcdonalds") && rnd()<0.3 ? [["mcdonalds",12,"🍟 McDonalds"]] : []))
     if(hasRelic(id)){ const h = Math.round(n*hm*tm(id)); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); }
   const hp = clamp(Math.round(you.hp),1,you.maxhp);
   recalcStats(); // kills and burned relics change the build
@@ -2829,6 +2889,7 @@ function trivial(foeDef, opts){
   const o = fightOdds(def, opts);
   return o.p===1 && o.hp >= G.stats.hp*0.85;
 }
+const dropOdds = (foe, opts) => foe.id==="fud" && ((G.stats.sets||{}).night||0)>=4 ? 1 : opts.elite ? 0.6 : 0.25; // NIGHT SHIFT: a beaten hunter always drops something
 function quickFight(foeDef, opts){
   const keep = SEED, F = fightEngine(foeDef, opts, NOIO);
   for(let n=0; !F.over && n<3000; n++) F.step();
@@ -2838,7 +2899,7 @@ function quickFight(foeDef, opts){
   renderMap();
   mapFloat("⚔️ +"+c+(lost>0 ? "  −"+lost+" HP" : ""), "loot");
   sfx("win");
-  if(rnd() < (opts.elite?0.6:0.25)) G.queue.unshift(()=>openDraft("The fallen drops something.", null, opts.elite?1:0));
+  if(rnd() < dropOdds(foeDef, opts)) G.queue.unshift(()=>openDraft("The fallen drops something.", null, opts.elite?1:0));
   return true;
 }
 const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss's own name (THE CANCEL's reads as a sentence)
@@ -2925,7 +2986,7 @@ function startCombat(foeDef, opts={}){
         clearTimeout(auto); btn.classList.remove("auto");
         show("screen-map");
         if(boss) onBossDown(boss, opts.forced, opts.called);
-        else if(rnd() < (opts.elite?0.6:0.25)) openDraft("The fallen drops something.", null, opts.elite?1:0);
+        else if(rnd() < dropOdds(foeDef, opts)) openDraft("The fallen drops something.", null, opts.elite?1:0);
         pump();
       };
     } else {
