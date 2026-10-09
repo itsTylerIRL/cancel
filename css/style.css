@@ -1340,3 +1340,14 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 #rtip .rt-tier.now{border-color:rgba(139,233,253,.5);background:rgba(139,233,253,.07);}
 #rtip .rt-tier.now b::after{content:" ◂";color:var(--acid);letter-spacing:0;}
 #rtip small{display:block;margin-top:7px;color:var(--dim);font-size:10px;}
+
+/* combat: both sides' numbers, under their health bars */
+.cstats{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:6px 0 4px;font-size:11px;}
+.cstats span{border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:rgba(0,0,0,.45);color:var(--dim);white-space:nowrap;}
+.cstats b{color:var(--txt);font-weight:700;} .cstats i{font-style:normal;color:var(--acid);}
+.cstats .lead{border-color:rgba(139,233,253,.6);} .cstats .lead b{color:var(--neon);}
+.cstats .up b{color:var(--acid);} .cstats .down b{color:#ff8b8b;}
+@media (min-width:900px) and (min-height:560px){
+  .combat-panel .cstats{font-size:15px;gap:7px;margin:2px 0 0;} .combat-panel .cstats span{padding:3px 10px;border-radius:6px;}
+  .combat-panel .portrait{width:min(100%,calc((100vh - 340px) * .8));} .combat-panel .fighter .hpbar{width:min(100%,calc((100vh - 340px) * .8));}
+}

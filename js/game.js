@@ -2475,6 +2475,18 @@ function combatBars(you, foe){
   }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+  { // the match-up in numbers, both sides, kept current as the fight changes them
+    const chip = (ico, label, v, extra, cls) => "<span title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+ico+" <b>"+v+"</b>"+(extra||"")+"</span>";
+    const hard = you.hard||0, heft = heftOf(you.maxhp);
+    $("you-stats").innerHTML = chip("⚔️","attack"+(heft ? " (plus "+heft+" from heft on every hit)" : ""), Math.round(you.atk)+(hard ? "<i>+"+hard+"</i>" : ""), "", hard ? "up" : "")
+      + chip("🛡️","armour", you.arm) + chip("💨","speed: the faster side strikes first", you.spd, "", you.spd>=foe.spd ? "lead" : "")
+      + chip("✨","crit chance", Math.round(you.crit)+"%") + chip("🌀","dodge chance", Math.round(you.dodge||0)+"%")
+      + (you.shield>0 ? chip("🕯️","shield", you.shield, "", "up") : "");
+    $("foe-stats").innerHTML = chip("⚔️","attack", Math.round(foe.atk), "", foe.chill>0 ? "down" : "")
+      + chip("🛡️","armour", Math.max(0, foe.arm)) + chip("💨","speed: the faster side strikes first", foe.spd, "", foe.spd>you.spd ? "lead" : "")
+      + chip("✨","crit chance", Math.round(5+(foe.lck||0)/2)+"%")
+      + (foe.adapt ? chip("📈","the timeline pushed back: this one was raised to meet your build", "+"+Math.round(foe.adapt*100)+"%", "", "down") : "");
+  }
   { // the fight at a glance: whose share of health is holding up
     const a = clamp(you.hp/you.maxhp,0,1), b = clamp(foe.hp/foe.maxhp,0,1), t = $("tug");
     if(t){ t.style.setProperty("--tug", (a+b>0 ? 100*a/(a+b) : 50).toFixed(1)+"%"); t.classList.toggle("ahead", a>b+0.02); t.classList.toggle("behind", b>a+0.02);
