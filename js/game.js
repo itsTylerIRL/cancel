@@ -599,7 +599,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1770,6 +1770,7 @@ function foeInstance(def){ return raised(foeBase(def), adaptLevel(def)); }
 const NIGHT = { power:0.35, names:["Schizoposter","Unhinged Schizoposter","Terminal Schizoposter","Terminal Schizoposter"],
   mood:["the schizoposters are hunting", "they are bolder tonight", "they are everywhere, and they are fast"] };
 const nightTier = () => clamp((G && G.bossesBeaten) || 0, 0, 2);
+const CALL = { boss:0.2, day:0.05, world:0.08 }; // per boss called out early: that boss, per day early, and everything afterwards
 function foeBase(def){
   if(def.tier==="hunter" && nightTier() && !def.night){ // a hunter, raised for the bosses already beaten, then grown by the day like anything else
     const t = nightTier();
@@ -1778,8 +1779,11 @@ function foeBase(def){
   }
   const boss = BOSSES.some(b=>b.id===def.id), d = G.day-1;
   const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
-  const hpx = lvl * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
-  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * (boss && G.heat>=4 ? 1.2 : 1);
+  // rushing has a price: every boss called out early leaves the whole timeline tougher, and the boss being called
+  // out is tougher again, by how many have been called and by how many days early this one is
+  const rush = (1 + CALL.world*(G.calls||0)) * (boss && G.calling ? 1 + CALL.boss*((G.calls||0)+1) + CALL.day*G.calling : 1);
+  const hpx = lvl * rush * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
+  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
     atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
     cult:def.cult.map(c=>Math.round(c*lvl)) };
@@ -2120,21 +2124,29 @@ function openBossGate(){
 }
 /* Don't want to wait for it? Clicking the next boss on the timeline starts the fight now. It fights at the strength
    it would have on the day it was due. Beat it and it simply never comes: the days until then are still yours. */
-function bossAtArrival(bi){ const was = G.day; G.day = Math.max(G.day, BOSS_DAYS[bi]); try{ return foeInstance(runBoss(bi)); } finally { G.day = was; } }
+function bossAtArrival(bi){
+  const was = G.day, early = Math.max(0, BOSS_DAYS[bi]-G.day);
+  G.day = Math.max(G.day, BOSS_DAYS[bi]); G.calling = early; oddsCache = {}; adaptCache = {};
+  try{ return foeInstance(runBoss(bi)); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
+}
 function skipToBoss(){
   if(!G || G.over || busy() || !$("screen-map").classList.contains("active")) return;
   const bi = G.bossesBeaten, b = runBoss(bi); if(!b) return;
   const to = BOSS_DAYS[bi], early = to>G.day, was = G.day;
-  G.day = Math.max(G.day, to); // show its numbers, and your odds, as they will be in the fight
-  try{ bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; }
+  G.day = Math.max(G.day, to); G.calling = to-was > 0 ? to-was : 0; oddsCache = {}; adaptCache = {}; // show its numbers, and your odds, as they will be in the fight
+  try{ bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
+  const up = Math.round(100*(CALL.boss*((G.calls||0)+1) + CALL.day*(to-was)));
   $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note'>"
-    + (early ? "it fights at its day-"+to+" strength. win, and it never comes: you keep every day until then for looting"
+    + (early ? "it fights at its day-"+to+" strength, and <b class='bad'>+"+up+"% stronger</b> for being called out "+(to-was)+" day"+(to-was>1?"s":"")+" early"+(G.calls ? " (your "+["second","third"][G.calls-1]+" call-out)" : "")
+               + ". win, and it never comes, but everything left in the timeline gets <b class='bad'>"+Math.round(CALL.world*100)+"% tougher</b>"
              : "you fight it right here, without walking to the gate")+"</div>");
   $("boss-wait").onclick=()=>closeModal();
   $("boss-fight").onclick=()=>{
     closeModal();
     mlog("📣 You call out <b>"+b.name+"</b>"+(early ? " "+(to-G.day)+" day"+(to-G.day>1?"s":"")+" early." : "."), "bad");
-    startCombat(bossAtArrival(bi), {boss:b, called:true, portrait:G.bossLook[bi].portrait});
+    const foe = bossAtArrival(bi);
+    if(early){ G.calls = (G.calls||0)+1; oddsCache = {}; adaptCache = {}; } // from here on the timeline remembers
+    startCombat(foe, {boss:b, called:true, portrait:G.bossLook[bi].portrait});
   };
 }
 function bossArrives(){
