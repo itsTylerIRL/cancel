@@ -3711,7 +3711,7 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
     const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
     if(b.locked) return "<div>📅 the daily keeps your <b>first run</b> of the day"+(b.rank ? ": #"+b.rank+" of "+b.total+" with "+b.score : "")+" <span class='dim'>(this one was practice)</span></div>";
-    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score!==res.sent ? " <span class='dim'>(the board keeps your best: "+b.score+(b.win ? " 👑" : "")+")</span>" : "")+"</div>";
+    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score!==res.sent ? " <span class='dim'>(best: "+b.score+(b.win ? " 👑" : "")+")</span>" : "")+"</div>";
   }).join("");
 }
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
