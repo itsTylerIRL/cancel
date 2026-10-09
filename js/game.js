@@ -1739,10 +1739,10 @@ function enterTile(t){
 let BOSS_ATK_PER_DAY = 0.085;
 /* The timeline pushes back. When a build would beat an elite, a hunter or a boss nearly every time, it meets a
    tougher version: the game finds how much stronger the foe would need to be for the fight to be in doubt, and
-   raises it by 60% of that (so a better build still has clearly better odds, just never a free pass). There is a limit
-   (+55% on an elite or hunter, +40% on a boss), it only applies to builds that win with health to spare,
+   raises it by about two thirds of that (so a better build still has better odds, just never a free pass). There is a limit
+   (+75% on an elite or hunter, +60% on a boss), it only applies to builds that win with health to spare,
    ordinary monsters are left alone, nothing is raised before the first boss falls, and a raised foe pays more. */
-const ADAPT = { step:0.1, foe:0.9, boss:0.7, share:0.6, win:0.9, hpLeft:0.42, trials:14, pay:0.5 };
+const ADAPT = { step:0.1, foe:1.1, boss:0.9, share:0.68, win:0.9, hpLeft:0.38, trials:14, pay:0.5 };
 let adaptCache = {};
 function adaptLevel(def){
   if(!G || !G.stats) return 0;
