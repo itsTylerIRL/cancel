@@ -2437,6 +2437,11 @@ function combatBars(you, foe){
   }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+  { // the fight at a glance: whose share of health is holding up
+    const a = clamp(you.hp/you.maxhp,0,1), b = clamp(foe.hp/foe.maxhp,0,1), t = $("tug");
+    if(t){ t.style.setProperty("--tug", (a+b>0 ? 100*a/(a+b) : 50).toFixed(1)+"%"); t.classList.toggle("ahead", a>b+0.02); t.classList.toggle("behind", b>a+0.02);
+      $("tug-you").textContent = Math.round(a*100)+"%"; $("tug-foe").textContent = Math.round(b*100)+"%"; }
+  }
   // the portraits wear what is happening to them
   const pf = $("port-foe"), py = $("port-you");
   for(const [c,on] of [["burning",foe.burn>0],["bleeding",foe.bleed>0],["chilled",foe.chill>0],["poisoned",foe.poison>0],["stunned",foe.stun>0]]) pf.classList.toggle(c, !!on);
@@ -2459,6 +2464,12 @@ function hitFx(side, kind){
   port.appendChild(d); setTimeout(()=>d.remove(), 700);
 }
 function critFlash(){ if(META.calm) return; const s = $("screen-combat"); s.classList.remove("critflash"); void s.offsetWidth; s.classList.add("critflash"); setTimeout(()=>s.classList.remove("critflash"), 260); }
+function clash(side, crit){ // the middle of the stage reacts to every blow
+  if(META.calm) return;
+  const v = document.querySelector("#screen-combat .vs"); if(!v) return;
+  v.classList.remove("clash-you","clash-foe","clash-crit"); void v.offsetWidth;
+  v.classList.add(side==="foe" ? "clash-you" : "clash-foe"); if(crit) v.classList.add("clash-crit");
+}
 function lunge(side){ // the attacker jabs toward the other portrait
   const c = $("port-"+side), cls = side==="you" ? "lunge-r" : "lunge-l";
   c.classList.remove(cls); void c.offsetWidth; c.classList.add(cls);
@@ -2939,7 +2950,7 @@ function startCombat(foeDef, opts={}){
   };
   const io = {
     log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); },
-    hit: (side,dmg,crit)=>fx(()=>{ floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
+    hit: (side,dmg,crit)=>fx(()=>{ clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
     strip: f=>{

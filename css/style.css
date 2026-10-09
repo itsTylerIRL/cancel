@@ -1247,3 +1247,50 @@ body.calm[data-frame="2"] #you-tok img,body.calm[data-frame="2"] #hud-avatar{ani
 #modal.inboard::after{content:"";position:fixed;inset:0;z-index:-1;} /* nothing outside it can be clicked while it is open */
 #modal.inboard #modal-panel{max-height:94vh;}
 .pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px 0 2px;font-size:12px;color:var(--neon2);} .pager small{color:var(--dim);} .pager .btn{min-width:44px;}
+
+/* ---------- combat on a wide screen: a stage, not a card ---------- */
+#tug{display:none;}
+@media (min-width:900px) and (min-height:560px){
+  #screen-combat.active{display:flex;align-items:center;justify-content:center;padding:14px 20px;}
+  .panel.combat-panel{max-width:min(1500px,97vw);width:100%;min-height:calc(100vh - 28px);margin:0;padding:18px 26px 20px;
+    display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,27vw,430px) minmax(0,1fr);grid-template-rows:auto auto auto auto minmax(0,1fr) auto;column-gap:26px;row-gap:10px;
+    grid-template-areas:"title title title" "you vs foe" "you tug foe" "you choice foe" "you log foe" "you ctl foe";
+    background:radial-gradient(ellipse 70% 55% at 50% 108%,rgba(139,233,253,.10),transparent 70%),rgba(2,6,8,.92);}
+  .combat-panel #combat-title{grid-area:title;margin:0 0 2px;font-size:1.5rem;}
+  .combat-panel .fighters{display:contents;}
+  .combat-panel .fighter{max-width:none;align-self:center;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;padding-bottom:6px;}
+  .combat-panel .fighter:first-child{grid-area:you;--side:80,250,123;} .combat-panel .fighter:last-child{grid-area:foe;--side:255,85,85;}
+  /* a light on each corner of the stage, and a floor under each fighter */
+  .combat-panel .fighter::before{content:"";position:absolute;left:50%;top:-4%;width:120%;height:86%;transform:translateX(-50%);pointer-events:none;
+    background:radial-gradient(ellipse 50% 60% at 50% 46%,rgba(var(--side),.16),rgba(var(--side),.05) 55%,transparent 75%);animation:stagelight 5s ease-in-out infinite;}
+  .combat-panel .fighter:last-child::before{animation-delay:-2.5s;}
+  .combat-panel .portrait{width:min(100%,calc((100vh - 290px) * .8));}
+  .combat-panel .portrait::after{content:"";position:absolute;left:8%;right:8%;bottom:-16px;height:26px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.85),transparent);z-index:-1;}
+  .combat-panel .portrait canvas{border-radius:16px;box-shadow:0 0 0 1px rgba(var(--side),.55),0 0 46px rgba(var(--side),.22);}
+  .combat-panel .fighter .cname{font-size:15px;letter-spacing:.2em;margin:10px 0 0;color:#e9f6fa;}
+  .combat-panel .fighter .hpbar{height:28px;width:min(100%,calc((100vh - 290px) * .8));border-radius:5px;}
+  .combat-panel .fighter .hpbar span{font-size:15px;line-height:26px;font-weight:700;}
+  .combat-panel #combat-relics .relic-ico{width:38px;height:38px;border-radius:8px;} .combat-panel #combat-relics{gap:6px;min-height:40px;}
+  .combat-panel .statuses{font-size:16px;gap:8px;min-height:26px;} .combat-panel .statuses span{padding:2px 8px;}
+  .combat-panel .vs{grid-area:vs;margin:8px 0 0;font-size:64px;line-height:1;letter-spacing:.04em;align-self:end;}
+  .combat-panel .vs.clash-you{animation:clashyou .34s ease-out;} .combat-panel .vs.clash-foe{animation:clashfoe .34s ease-out;}
+  .combat-panel .vs.clash-crit{color:var(--gold);text-shadow:0 0 26px rgba(241,250,140,.9);}
+  #tug{grid-area:tug;display:block;position:relative;height:14px;margin:4px 0 22px;border-radius:999px;border:1px solid rgba(139,233,253,.3);overflow:visible;
+    background:linear-gradient(90deg,rgba(80,250,123,.85) 0 var(--tug,50%),rgba(255,85,85,.85) var(--tug,50%) 100%);transition:--tug .3s;box-shadow:0 0 18px rgba(139,233,253,.12);}
+  #tug b{position:absolute;left:var(--tug,50%);top:-5px;bottom:-5px;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 10px #fff;border-radius:2px;transition:left .3s ease-out;}
+  #tug u{position:absolute;top:18px;text-decoration:none;font-size:11px;font-family:var(--label);letter-spacing:.1em;color:var(--acid);left:0;} #tug #tug-foe{left:auto;right:0;color:var(--red);}
+  .combat-panel #combat-choice{grid-area:choice;margin:0;} .combat-panel #combat-choice.hidden{display:none;}
+  .combat-panel #combat-log{grid-area:log;height:auto;min-height:180px;font-size:13px;line-height:1.55;text-align:left;}
+  .combat-panel #combat-ctl{grid-area:ctl;margin:0;} .combat-panel #btn-combat-done{grid-area:ctl;justify-self:center;margin:0;}
+  .combat-panel .float{font-size:44px;text-shadow:0 3px 0 #000,0 0 18px currentColor;} .combat-panel .float.crit{font-size:72px;} .combat-panel .float.heal,.combat-panel .float.psn{font-size:30px;}
+  .combat-panel .portrait.lunge-r{animation:lungerbig .24s ease-out;} .combat-panel .portrait.lunge-l{animation:lungelbig .24s ease-out;}
+  .combat-panel .portrait.stunned .fx-stun{font-size:54px;left:calc(50% - 30px);}
+}
+@keyframes lungerbig{40%{transform:translateX(13%) rotate(4deg) scale(1.04);}} @keyframes lungelbig{40%{transform:translateX(-13%) rotate(-4deg) scale(1.04);}}
+@keyframes clashyou{30%{transform:translateX(22px) scale(1.25);}} @keyframes clashfoe{30%{transform:translateX(-22px) scale(1.25);}}
+@keyframes stagelight{50%{opacity:.6;transform:translateX(-50%) scale(1.06);}}
+body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:none!important;}
+@media (min-width:900px) and (min-height:560px){
+  #app:has(#screen-combat.active){max-width:none;} /* the fight gets the whole window */
+  .combat-panel #combat-log{max-height:calc(100vh - 330px);}
+}
