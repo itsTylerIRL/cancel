@@ -247,12 +247,13 @@ async function tokenURI(contract, id){ // ask a public Ethereum node where a tok
 // SchizoPosters ship with the game (the sixteen from tylerirl.com's gallery): the collection's own host is too flaky to rely on
 const SCHIZO_LOCAL = ["atlantean","brobot","celestial","crystalline","demon","grey","ice","microlady","monument","nebulady","psychedelic","robro","rockbro","sealady","tulpa","wired"];
 // Radbros ship with the game too: the collection's images live on a gateway that fails more often than it answers
+const PIXELADY_LOCAL = [77,111,256,404,888,1500,1999,2222,4242,5000,5555,6000,6969,8192,9001]; // and Pixeladys (Paper Hands, Pixelady, Death Knight), for the same reason
 const RADBRO_LOCAL = [7,420,1111,1337,1984,2187,2600];
 const localFile = path => (window.INLINE_FILES && window.INLINE_FILES[path]) || path;
 const NFT = {
   milady:   { name:"Milady",          max:9999,  frame:"milady",  playable:true, src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
   remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
-  pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
+  pixelady: { name:"Pixelady",        max:PIXELADY_LOCAL.length, frame:"milady",  src:id=>localFile("assets/img/Pixelady/"+PIXELADY_LOCAL[(id-1)%PIXELADY_LOCAL.length]+".webp") },
   radbro:   { name:"Radbro",          max:RADBRO_LOCAL.length, frame:"remilio", src:id=>localFile("assets/img/Radbro/"+RADBRO_LOCAL[(id-1)%RADBRO_LOCAL.length]+".webp") },
   schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
