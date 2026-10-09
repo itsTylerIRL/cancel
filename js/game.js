@@ -3639,7 +3639,9 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
   }).join("");
 }
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
-async function openBoard(tab, back, seed){
+let boardGot = null; // the board last fetched, so turning a page doesn't ask again
+const BOARD_PAGE = 10;
+async function openBoard(tab, back, seed, page){
   const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
@@ -3647,7 +3649,9 @@ async function openBoard(tab, back, seed){
     $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openBoard(b.dataset.tab, back, seed); }; });
     $("board-close").onclick=()=>{ sfx("click"); back ? back() : closeModal(); };
   };
-  openModal(shell("<div class='note'>loading…</div>")); wire();
+  const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
+  const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
+  if(!turning){ openModal(shell("<div class='note'>loading…</div>")); wire(); }
   if(tab==="hall"){ // every daily map's champion, as a wall of faces
     const h = await api("/api/hall");
     if($("modal").classList.contains("hidden") || !$("board-close")) return;
@@ -3673,13 +3677,14 @@ async function openBoard(tab, back, seed){
     }
     return;
   }
-  const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
-  const res = await api("/api/board?"+q+"&limit=50&player="+playerId());
+  const res = turning ? boardGot.res : await api("/api/board?"+q+"&limit=100&player="+playerId());
+  boardGot = res ? {q, res} : null;
+  const pages = res ? Math.max(1, Math.ceil(res.top.length/BOARD_PAGE)) : 1, pg = clamp(page||0, 0, pages-1), rows = res ? res.top.slice(pg*BOARD_PAGE, (pg+1)*BOARD_PAGE) : [];
   if($("modal").classList.contains("hidden") || !$("board-close")) return; // closed while loading
   let body;
   if(!res) body = "<div class='note bad'>the leaderboard can't be reached right now</div>";
   else if(!res.top.length) body = "<div class='note'>nobody is on this board yet. be the first.</div>";
-  else body = "<div class='board'>"+res.top.map(e=>{
+  else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b><span>"+(tr?tr.icon+" ":"")
@@ -3687,11 +3692,14 @@ async function openBoard(tab, back, seed){
         + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
         + (e.cult!=null ? "<span title='$CULT banked'>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span title='enemies beaten'>"+e.kills+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>";
     }).join("")+"</div>"
+    + (pages>1 ? "<div class='pager'><button class='btn small' id='pg-prev'"+(pg ? "" : " disabled")+" aria-label='higher ranks'>◀</button><span>"+(pg*BOARD_PAGE+1)+"–"+(pg*BOARD_PAGE+rows.length)+" <small>of "+res.top.length+"</small></span>"
+        + "<button class='btn small' id='pg-next'"+(pg<pages-1 ? "" : " disabled")+" aria-label='lower ranks'>▶</button></div>" : "")
     + "<div class='note'>👑 saved timelines rank first, then score</div>"
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
+  if($("pg-prev")){ $("pg-prev").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg-1); }; $("pg-next").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg+1); }; }
   if(res && res.top.length){ // the characters, drawn one after another so the list stays responsive
-    $("modal-panel").querySelector(".board").insertAdjacentHTML("beforebegin", "<div class='lineup' style='--n:"+Math.min(10, res.top.length)+"'>"+res.top.slice(0,10).map((e,i)=>"<canvas class='bpfp big' data-n='"+i+"' width='4' height='4' title='"+esc(e.name)+" · "+e.score+"'></canvas>").join("")+"</div>");
+    $("modal-panel").querySelector(".board").insertAdjacentHTML("beforebegin", "<div class='lineup' style='--n:"+rows.length+"'>"+rows.map(e=>"<canvas class='bpfp big' data-n='"+(e.rank-1)+"' width='4' height='4' title='"+esc(e.name)+" · "+e.score+"'></canvas>").join("")+"</div>");
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
       if(!cv.isConnected) return; // the board was closed or switched
       const e = res.top[+cv.dataset.n];

@@ -1246,3 +1246,4 @@ body.calm[data-frame="2"] #you-tok img,body.calm[data-frame="2"] #hud-avatar{ani
 #modal.inboard{left:var(--bl);right:auto;width:var(--bw);background:rgba(0,0,0,.8);border-radius:14px;}
 #modal.inboard::after{content:"";position:fixed;inset:0;z-index:-1;} /* nothing outside it can be clicked while it is open */
 #modal.inboard #modal-panel{max-height:94vh;}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px 0 2px;font-size:12px;color:var(--neon2);} .pager small{color:var(--dim);} .pager .btn{min-width:44px;}
