@@ -56,7 +56,7 @@ Beat THE CANCEL and you get one shot at the king: your final build against their
 
 ## Signing in
 
-Optional. Sign in with RemiliaNET or an Urbit ID and your name on the boards is verified. Your unlocks, achievements, codex, record and streak also move to the account, so a second device picks up where the first left off. Unlocks are bought with DRIP and only work while you're signed in.
+Optional. Sign in with RemiliaNET or an Urbit ID and your name on the boards is verified. Your unlocks, achievements, codex, record and streak also move to the account, so a second device picks up where the first left off. Unlocks are bought with DRIP and only work while you're signed in. They're switched off on the daily map, so everyone starts that one equal. Runs you posted before signing in move to your account the first time you do.
 
 ## Controls
 

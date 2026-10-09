@@ -1351,3 +1351,35 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
   .combat-panel .cstats{font-size:15px;gap:7px;margin:2px 0 0;} .combat-panel .cstats span{padding:3px 10px;border-radius:6px;}
   .combat-panel .portrait{width:min(100%,calc((100vh - 340px) * .8));} .combat-panel .fighter .hpbar{width:min(100%,calc((100vh - 340px) * .8));}
 }
+/* ---------- the run summary: stacked on a phone, two columns on a wide screen ---------- */
+.end-cols{display:flex;flex-direction:column;}
+.end-left,.end-right{display:contents;}
+.end-cols .end-actions{order:5;margin-top:12px;} .end-cols .end-rank{order:6;} .end-cols .share{order:7;}
+@media (min-width:900px){
+  #modal-panel:has(.end-cols){max-width:1040px;}
+  .end-cols{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:8px 30px;align-items:start;text-align:left;margin-top:8px;}
+  .end-left,.end-right{display:block;min-width:0;}
+  .end-left{position:sticky;top:0;text-align:center;}
+  .end-left .end-avatar{width:min(100%,250px);margin:0 auto 10px;}
+  .end-left .end-actions{flex-direction:column;align-items:stretch;gap:8px;margin-top:14px;} .end-left .end-actions .btn{width:100%;}
+  .end-right .drip-total{text-align:left;margin-top:14px;} .end-right .end-rank{text-align:left;}
+  .end-right .note{text-align:left;}
+}
+/* relics that are waiting on something say so */
+.rstate{font-style:normal;font-weight:400;font-size:9px;letter-spacing:.02em;padding:1px 5px;border-radius:4px;border:1px solid #4a5560;color:var(--dim);white-space:nowrap;vertical-align:1px;}
+.rstate.on{border-color:#7f8cff;color:#b9c1ff;background:rgba(127,140,255,.14);}
+.rstate.meal{border-color:rgba(255,122,69,.6);color:#ffb08f;}
+/* ---------- a phone: the fight uses the whole screen ---------- */
+@media (max-width:899px){
+  #screen-combat.active{display:flex;}
+  #screen-combat .combat-panel{width:100%;min-height:calc(100dvh - 20px);display:flex;flex-direction:column;}
+  #screen-combat .fighters{margin:6px 0 4px;}
+  #screen-combat .fighter{max-width:none;}
+  #screen-combat #combat-log{flex:1 1 0;height:auto;min-height:140px;}
+  #screen-combat #combat-ctl,#screen-combat #btn-combat-done{margin-top:10px;}
+  #tug{display:block;position:relative;height:9px;margin:2px 4px 22px;border-radius:999px;border:1px solid rgba(139,233,253,.3);
+    background:linear-gradient(90deg,rgba(80,250,123,.85) 0 var(--tug,50%),rgba(255,85,85,.85) var(--tug,50%) 100%);}
+  #tug b{position:absolute;left:var(--tug,50%);top:-4px;bottom:-4px;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 8px #fff;border-radius:2px;transition:left .3s ease-out;}
+  #tug u{position:absolute;top:12px;text-decoration:none;font-size:10px;font-family:var(--label);letter-spacing:.1em;color:var(--acid);left:0;} #tug #tug-foe{left:auto;right:0;color:var(--red);}
+  #rtip{width:min(270px,calc(100vw - 16px));}
+}

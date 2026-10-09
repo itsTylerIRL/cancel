@@ -562,14 +562,15 @@ function newRun(ava, opt){
   const code = opt.daily ? "daily-"+opt.daily : (opt.seed || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
   SEED = seedFrom("tcc-"+code);
   const kit = ava.picks.kit || {};
-  const startCult = 100 + (perk("cult3")?400:perk("cult2")?250:perk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0);
+  const pk = id => !opt.daily && perk(id); // the daily is the same for everyone: unlocks that change the game are switched off there
+  const startCult = 100 + (pk("cult3")?400:pk("cult2")?250:pk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (perk("slot1")?1:0) - (heat>=5?1:0),
+    maxSlots: 4 + (pk("slot1")?1:0) - (heat>=5?1:0),
     day: 1, phase: "day", movesLeft: DAY_MOVES,
     px: SX, py: SY,
     map: [], fog: [],
@@ -583,13 +584,13 @@ function newRun(ava, opt){
   };
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
-  G.keys = perk("key1") ? 1 : 0;
-  G.perks = { hp:perk("hp1") ? 10 : 0, reroll:perk("reroll1"), shop:perk("shop1"), frame:perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
+  G.keys = pk("key1") ? 1 : 0;
+  G.perks = { hp:pk("hp1") ? 10 : 0, reroll:pk("reroll1"), shop:pk("shop1"), frame:perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
   G.flags = {}; G.curses = {}; G.altars = {};
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
-  if(perk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
+  if(pk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
   oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
@@ -723,9 +724,9 @@ function relicTipHTML(el){
     + "<small>two of the same fuse into the next tier at Remilia Jackson</small>";
 }
 let tipFor = null;
-function relicTipMove(el){
+function relicTipMove(el, held){
   let tip = $("rtip"); if(!tip){ tip = document.createElement("div"); tip.id = "rtip"; document.body.appendChild(tip); }
-  if(!el || TOUCH){ tip.classList.remove("show"); tipFor = null; return; }
+  if(!el || (TOUCH && !held)){ tip.classList.remove("show"); tipFor = null; return; }
   if(el===tipFor) return;
   tipFor = el; tip.innerHTML = relicTipHTML(el); if(!tip.innerHTML){ tip.classList.remove("show"); return; }
   tip.classList.add("show");
@@ -735,8 +736,20 @@ function relicTipMove(el){
   let y = x>=r.right || x+w<=r.left ? clamp(r.top, pad, innerHeight-h-pad) : (r.bottom+pad+h <= innerHeight ? r.bottom+pad : Math.max(pad, r.top-pad-h));
   tip.style.left = Math.round(x)+"px"; tip.style.top = Math.round(y)+"px";
 }
-document.addEventListener("mouseover", e=>relicTipMove(e.target.closest ? e.target.closest("[data-rid]") : null));
-for(const ev of ["mousedown","keydown","wheel"]) document.addEventListener(ev, ()=>relicTipMove(null), true);
+document.addEventListener("mouseover", e=>{ if(!TOUCH) relicTipMove(e.target.closest ? e.target.closest("[data-rid]") : null); });
+{ // no hover on a touch screen: press and hold a relic instead. The tap that ends the hold doesn't pick anything.
+  let hold = 0, heldTip = false, at = null;
+  document.addEventListener("touchstart", e=>{
+    clearTimeout(hold); if(heldTip){ heldTip = false; relicTipMove(null); }
+    const el = e.target.closest && e.target.closest("[data-rid]"); if(!el) return;
+    at = [e.touches[0].clientX, e.touches[0].clientY];
+    hold = setTimeout(()=>{ heldTip = true; relicTipMove(el, true); if(navigator.vibrate) navigator.vibrate(8); }, 420);
+  }, {passive:true});
+  document.addEventListener("touchmove", e=>{ if(at && Math.hypot(e.touches[0].clientX-at[0], e.touches[0].clientY-at[1])>10) clearTimeout(hold); }, {passive:true});
+  document.addEventListener("touchend", ()=>clearTimeout(hold), {passive:true});
+  document.addEventListener("click", e=>{ if(heldTip && e.target.closest && e.target.closest("[data-rid]")){ e.stopPropagation(); e.preventDefault(); } }, true);
+}
+for(const ev of ["mousedown","keydown","wheel"]) document.addEventListener(ev, ()=>{ if(!TOUCH) relicTipMove(null); }, true);
 const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain, G.relics.indexOf(r.id)!==i); // the item in slot i
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
@@ -772,7 +785,7 @@ function statDelta(r){
 }
 function relicPool(){
   return RELICS.filter(r => {
-    if(r.tags.includes("blackmarket") && !perk("blackmarket")) return false;
+    if(r.tags.includes("blackmarket") && !(perk("blackmarket") && !(G && G.daily))) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]]) return false;
     return true;
   });
@@ -879,7 +892,7 @@ function setsHTML(relics, full){
   if(!rows.length) return "<div class='syn none'>hold 2 relics of the same set to switch on a synergy</div>";
   return rows.map(({t,c,on,next})=>
     "<div class='syn"+(on.length?" on":"")+"' style='--sc:"+t.color+"' title='"+t.tiers.map(([k,d])=>k+": "+d).join(" · ")+"'>"
-    + "<b>"+t.icon+" "+t.name+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
+    + "<b>"+t.icon+" "+t.name+(t.id==="night" && on.length && G ? (G.phase==="night" ? " <i class='rstate on'>awake</i>" : " <i class='rstate'>waits for night</i>") : "")+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
     + "<span>"+(on.length ? on.map(([k,d])=>d).join(" · ") : "")+(next && (full || !on.length) ? (on.length?" · ":"")+"<i>"+next[0]+": "+next[1]+"</i>" : "")+"</span></div>").join("");
 }
 /* weighted relic roll: rarer is scarcer, luck tilts toward rare, and sets you already hold come up more */
@@ -1097,7 +1110,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && shown(relicById(G.relics[i]));
-    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
+    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+relicState(rel.id)+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1271,6 +1284,13 @@ function renderLegend(){ // the key under the map uses the same drawings as the 
   const it = (t, label) => "<span>"+POI_SVG[t]+label+"</span>";
   el.innerHTML = it(T.CHEST,"loot")+it(T.GRAVE,"grave")+it(T.SHOP,"shop")+it(T.SHRINE,"shrine")+it(T.FIRE,"rest")+it(T.EVENT,"event")+it(T.FOUNTAIN,"fountain")+it(T.ALTAR,"cursed altar")
     + it(T.KEY,"key")+it(T.VAULT,"vault")+it(T.GATE,"boss gate")+"<span class='lg-npc'>someone to trade with</span><span class='lg-foe'>foe</span><span class='lg-elite'>elite</span>";
+}
+/* Some relics are not simply "on": a meal is waiting to be eaten once, and a few only work after dark. They say so. */
+const MEALS = { burger_earring:"eaten below 30% health", sandwich:"eaten at dawn if you're hurt", modelo:"drunk at the next boss" };
+function relicState(id){
+  if(MEALS[id]) return " <i class='rstate meal' title='a meal: used once, then gone'>🍴 "+MEALS[id]+"</i>";
+  if(id==="crescent") return G.phase==="night" ? " <i class='rstate on'>🌙 awake</i>" : " <i class='rstate'>🌙 waits for night</i>";
+  return "";
 }
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
 let hoverTile = null, pinHold = 0, pinHeld = false;
@@ -1652,7 +1672,7 @@ function startDay(){
   if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
     G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good");
     if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
-    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); }
+    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
   }
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
@@ -1899,7 +1919,7 @@ function openDraft(flavor, pool, luck, gen){
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
   html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button>"
     + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost?" disabled":"")+" title='a new set of relics. the price doubles each time'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
-    + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+"</div>";
+    + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
   openModal(html);
   document.querySelectorAll("#modal-panel .card").forEach(c=>{
     c.onclick = ()=>{
@@ -2112,6 +2132,7 @@ function bossModal(b, title, fightLabel, canWait){
   const face = G.bossLook[G.bossIds.indexOf(b.id)].face;
   openModal("<h2>"+title+"</h2>"+(face?"<img class='boss-face' src='"+face+"' alt=''>":"")+"<div class='note'><i>"+b.intro+"</i></div><div class='stat-line'><span>mechanic</span><b>"+b.mechanic+"</b></div>"
     + "<div class='stat-line'><span>"+b.name+"</span><b>❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+"</b></div>"
+    + (hasRelic("modelo") ? "<div class='note good'>🍺 your <b>Modelo</b> gets drunk in this fight: +"+Math.round(60*tm("modelo"))+"% ATK, and then it's gone</div>" : "")
     + (foeInstance(b).adapt ? "<div class='note adapt'>📈 the timeline is pushing back: it is "+Math.round(foeInstance(b).adapt*100)+"% stronger against a build like yours</div>" : "")
     + "<div class='stat-line'><span>your odds right now</span><b>"+oddsText(fightOdds(b, {boss:b}))+"</b></div>"
     + "<div class='row'><button class='btn big' id='boss-fight'>"+fightLabel+"</button>"+(canWait?"<button class='btn small' id='boss-wait'>not yet</button>":"")+"</div>");
@@ -2930,6 +2951,10 @@ function fightSummary(F){ // what did the work, biggest first
 }
 function settleWin(F, opts, log){
   const you = F.you, foe = F.foe, boss = opts.boss || null;
+  for(const id of Object.keys(MEALS)){ // a meal that went in the fight is called out, in the fight log and in the feed
+    const gone = G.relics.filter(x=>x===id).length - F.st.relics.filter(x=>x===id).length;
+    if(gone>0){ const m = "🍴 <b>"+relicById(id).name+"</b> was "+(id==="modelo" ? "drunk" : "eaten")+" in that fight. The slot is free again."; log(m, "gold"); mlog(m, "gold"); }
+  }
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
   G.kills++;
   if(opts.elite && G.day<3) G.flags.eliteEarly = true;
@@ -3199,8 +3224,10 @@ function endRun(win){
   const next = UNLOCKS.filter(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req])).sort((a,b)=>a.cost-b.cost)[0];
   let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
     + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
-    + "<canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
+    + "<div class='end-cols'><div class='end-left'><canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
     + (win ? "<div id='end-king' class='end-king'></div>" : "") // straight under the character: the one thing left to do
+    + "<div class='row end-actions'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"
+      + (!rnUser() ? "title screen" : next && META.drip>=next.cost ? "spend drip ✨" : "unlocks")+"</button></div></div><div class='end-right'>"
     + dailyNote
     + (G.heatUp ? "<div class='note good'>🔥 HEAT "+META.heat+" unlocked — "+HEAT[META.heat-1]+"</div>" : "")
     + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
@@ -3208,15 +3235,17 @@ function endRun(win){
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
     + parts.map(p=>"<div class='stat-line'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
     + "<div class='drip-total'>DRIP EARNED <b id='end-drip'>0</b></div>";
-  if(next){
+  const signed = !!rnUser();
+  if(next && !signed) html += "<div class='next-unlock note'>🔒 you have <b>"+META.drip+" DRIP</b>. sign in on the title screen (Remilia SSO or Urbit ID) to spend it on unlocks</div>";
+  else if(next){
     const can = META.drip>=next.cost;
     html += "<div class='next-unlock'><div class='stat-line'><span>"+(can?"you can afford":"next unlock")+"</span><b>"+next.name+" · "+Math.min(META.drip,next.cost)+" / "+next.cost+"</b></div>"
       + "<div class='bar'><div style='width:"+clamp(100*META.drip/next.cost,0,100)+"%'></div></div></div>";
   }
   if(!win) html += deathRecap(G.death);
-  html += "<div class='row'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"+(next && META.drip>=next.cost?"spend drip ✨":"unlocks")+"</button></div>"
+  html += ""
     + "<div id='end-rank' class='end-rank'></div>"
-    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div>";
+    + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div></div></div>";
   openModal(html);
   const run = G; let txt = resultText(run, win, d);
   countUp($("end-drip"), 0, d, 900);
@@ -3229,7 +3258,7 @@ function endRun(win){
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
-    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); if(next && META.drip>=next.cost) openUnlocks(); };
+    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); if(rnUser() && next && META.drip>=next.cost) openUnlocks(); };
     $("end-copy").onclick=async()=>{
       sfx("click");
       let ok = false;
@@ -3631,7 +3660,7 @@ async function renderRn(msg){
     : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+localFile(REMILIA_LOGO)+"' alt=''>Remilia SSO</button>" : "")
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
         + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
-      + "<span class='dim'>"+(msg || "optional: verified name on the leaderboard, unlocks, and your progress on any device")+"</span>";
+      + "<span class='dim'>"+(msg || "sign in for a verified name on the leaderboard, unlocks"+(META.drip>0 ? " (you have "+META.drip+" DRIP waiting)" : "")+", and your progress on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
   if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
   if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
@@ -3681,6 +3710,13 @@ const streakTag = n => "⚡ "+n+" day streak";
 const profileOf = () => ({ runs:META.runs||0, wins:META.wins||0, drip:META.drip||0, best:META.best||0, heat:META.heat||0,
   unlocks:META.unlocks||{}, seen:META.seen||{}, ach:META.ach||{}, tips:META.tips||{}, tut:!!META.tut,
   streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "" });
+/* Runs posted from this browser before signing in belong to the account once you do: the service moves them over,
+   keeping the better of the two where both have a row, so nobody is on a board twice. Once per account. */
+async function claimRows(){
+  const u = rnUser(); if(!u || !META.pid || (META.claimed||{})[u.player]) return;
+  const r = await api("/api/claim", { session:u.token, anon:META.pid });
+  if(r && r.ok){ META.claimed = {...(META.claimed||{}), [u.player]:1}; saveMeta(); }
+}
 let syncing = false, syncAt = 0, syncAgain = false;
 async function syncProfile(force){
   const u = rnUser(); if(!u || !online()) return;
@@ -4026,6 +4062,7 @@ function openUnlocks(){
   let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div>"
     + (signed ? "" : "<div class='note unlock-gate'>🔒 unlocks are for verified players. sign in with <b>Remilia SSO</b> or <b>Urbit ID</b> on the title screen to buy them and switch them on."
         + (Object.keys(META.unlocks||{}).length ? " the ones you own are waiting for you." : "")+" your DRIP keeps adding up either way.</div>")
+    + "<div class='note'>📅 on the daily map everyone starts equal: unlocks only apply to your other runs (frames always show)</div>"
     + "<div class='unlock-shop'>";
   UNLOCKS.forEach((u,i)=>{
     const owned = !!META.unlocks[u.id], locked = u.req && !META.unlocks[u.req];
@@ -4300,7 +4337,7 @@ async function init(){
     b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; $("btn-start").click(); };
     $("link-note").textContent = "someone sent you this map — same maze, same bosses, same loot spots";
   }
-  renderRn(rnReturn()); syncProfile(true);
+  renderRn(rnReturn()); syncProfile(true); claimRows();
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
     if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
@@ -4341,6 +4378,7 @@ async function init(){
     show("screen-map");
     $("map-log").innerHTML="";
     mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");
+    if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
     mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     startDay();

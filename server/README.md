@@ -14,6 +14,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `GET /api/king` | this week's king of the hill, their relics, and when the hill (Sunday night, Eastern) and the daily next reset |
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
 | `GET /api/hall` | the best run of every daily map, and whoever held the hill as each past week ended |
+| `POST /api/claim` | on sign-in, runs posted earlier from that browser become the account's. Where both have a row on a board, the better one stays |
 | `POST /api/profile` | a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account already holds |
 | `GET /api/pulse` | games and wins today, this week, ever |
 | `GET /api/stats` | how runs end, in aggregate. Useful for balancing |

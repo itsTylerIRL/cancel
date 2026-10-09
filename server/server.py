@@ -13,6 +13,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
   GET  /api/hall    the best run of every daily map, and whoever held the hill as each past week ended
+  POST /api/claim    on sign-in, a browser's earlier anonymous runs become the account's (the better row per board stays)
   POST /api/profile  a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account holds
   GET  /api/auth/urbit/login?return=URL   start "Sign in with Urbit": log in to the owner's ship as your own (eauth)
   GET  /api/auth/urbit/callback     arrives through the ship's address; the ship says who you are
@@ -702,6 +703,28 @@ def profile_sync(player, data, base, now):
     return merged
 
 
+def claim_rows(anon, player, handle):
+    """A browser's runs from before its player signed in become the account's. Where both are on a board the better
+    row stays (a win beats any loss, then score), so signing in never leaves someone on a board twice."""
+    moved = dropped = 0
+    with db() as con:
+        for r in con.execute("SELECT id, board, win, score FROM scores WHERE player=?", (anon,)).fetchall():
+            mine = con.execute("SELECT id, win, score FROM scores WHERE board=? AND player=?", (r["board"], player)).fetchone()
+            if mine and (mine["win"], mine["score"]) >= (r["win"], r["score"]):
+                con.execute("DELETE FROM scores WHERE id=?", (r["id"],))
+                dropped += 1
+                continue
+            if mine:
+                con.execute("DELETE FROM scores WHERE id=?", (mine["id"],))
+            con.execute("UPDATE scores SET player=?, handle=? WHERE id=?", (player, handle, r["id"]))
+            moved += 1
+        for a in con.execute("SELECT date, run, created FROM attempts WHERE player=?", (anon,)).fetchall():  # the day's one attempt comes along too
+            con.execute("INSERT OR IGNORE INTO attempts (date, player, run, created) VALUES (?,?,?,?)", (a["date"], player, a["run"], a["created"]))
+        con.execute("DELETE FROM attempts WHERE player=?", (anon,))
+        con.execute("UPDATE hill SET player=? WHERE player=?", (player, anon))
+    return moved, dropped
+
+
 def daily_attempt(con, date, player, run, now):
     """True if `run` is this player's one daily run for `date`. The first run started (or, failing that, the first
     one posted) claims the day; a player already on that day's board from before this rule has used theirs."""
@@ -1005,6 +1028,26 @@ class Handler(BaseHTTPRequestHandler):
         player = verified_player(handle)
         self.send(200, {"ok": True, "player": player, "data": profile_sync(player, d["data"], d.get("base"), int(time.time()))})
 
+    def claim_post(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = json.loads(self.rfile.read(length)) if 0 < length <= MAX_BODY else None
+        except (ValueError, UnicodeDecodeError):
+            d = None
+        if not isinstance(d, dict):
+            return self.send(400, {"error": "bad json"})
+        handle, anon = read_session(d.get("session")), d.get("anon")
+        if not handle:
+            return self.send(401, {"error": "sign in first"})
+        if not (isinstance(anon, str) and RE_PLAYER.match(anon)) or anon.startswith(("rn", "ur")):
+            return self.send(400, {"error": "bad player"})
+        if not rate_ok("claim:" + self.client_key(), 20):
+            return self.send(429, {"error": "slow down"})
+        moved, dropped = claim_rows(anon, verified_player(handle), handle)
+        if moved or dropped:
+            print("claim: %s took %d row(s), %d duplicate(s) removed" % (handle, moved, dropped), flush=True)
+        self.send(200, {"ok": True, "moved": moved, "dropped": dropped})
+
     def king_post(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -1030,6 +1073,10 @@ class Handler(BaseHTTPRequestHandler):
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})
             return self.king_post()
+        if urlparse(self.path).path == "/api/claim":
+            if not self.allowed_origin():
+                return self.send(403, {"error": "origin not allowed"})
+            return self.claim_post()
         if urlparse(self.path).path == "/api/profile":
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})
