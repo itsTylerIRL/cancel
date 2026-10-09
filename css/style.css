@@ -1326,3 +1326,17 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 .mstats .relic-ico{width:24px;height:24px;border-radius:5px;}
 .mstats i{font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;border:1px solid color-mix(in srgb,var(--sc) 45%,transparent);color:var(--dim);white-space:nowrap;}
 .mstats i.on{color:var(--sc);border-color:var(--sc);background:color-mix(in srgb,var(--sc) 12%,transparent);}
+
+/* hover a relic: its three tiers */
+#rtip{position:fixed;z-index:400;pointer-events:none;display:none;width:270px;padding:10px 11px;border:1px solid rgba(139,233,253,.45);border-radius:8px;background:rgba(2,7,10,.97);box-shadow:0 8px 30px rgba(0,0,0,.7),0 0 22px rgba(139,233,253,.12);font-size:11px;line-height:1.4;text-align:left;color:var(--txt);}
+#rtip.show{display:block;}
+#rtip .rt-name{display:block;font-size:13px;margin-bottom:6px;}
+#rtip .rt-tier{display:grid;grid-template-columns:82px 1fr;gap:6px;padding:4px 6px;border-radius:5px;border:1px solid transparent;}
+#rtip .rt-tier+.rt-tier{margin-top:2px;}
+#rtip .rt-tier b{font-family:var(--label);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);align-self:start;padding-top:1px;}
+#rtip .rt-tier span{color:#cfdfe4;}
+#rtip .rt-tier.gold b{color:#ffd166;} #rtip .rt-tier.diamond b{color:#8be9fd;}
+#rtip .rt-tier.gold span{color:#ffe6a3;} #rtip .rt-tier.diamond span{color:#c9f5ff;}
+#rtip .rt-tier.now{border-color:rgba(139,233,253,.5);background:rgba(139,233,253,.07);}
+#rtip .rt-tier.now b::after{content:" ◂";color:var(--acid);letter-spacing:0;}
+#rtip small{display:block;margin-top:7px;color:var(--dim);font-size:10px;}

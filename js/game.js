@@ -714,6 +714,29 @@ function tierChange(r, m){
   if(flatTier(r)) out.push("+"+2*(m-1)+" ATK, +"+6*(m-1)+" max HP");
   return out.join(", ").replace(/^(\d+%)$/, "$1 chance").replace(/^poison: (\d+)/, "poison $1 a tick");
 }
+/* Hover a relic and its tiers are spelled out: what it is now, and what gold and diamond would make it. */
+function relicTipHTML(el){
+  const r = shown(relicById(el.dataset.rid)); if(!r) return "";
+  const t = +el.dataset.tier || 1;
+  const row = (k, cls, label, m) => "<div class='rt-tier "+cls+(t===k ? " now" : "")+"'><b>"+label+"</b><span>"+(k===1 ? r.desc : tierChange(r, m) || "the same effect")+"</span></div>";
+  return "<b class='rt-name "+r.rar+"'>"+r.name+"</b>"+row(1,"base","normal",1)+row(2,"gold","🥇 gold",2)+row(3,"diamond","💎 diamond",4)
+    + "<small>two of the same fuse into the next tier at Remilia Jackson</small>";
+}
+let tipFor = null;
+function relicTipMove(el){
+  let tip = $("rtip"); if(!tip){ tip = document.createElement("div"); tip.id = "rtip"; document.body.appendChild(tip); }
+  if(!el || TOUCH){ tip.classList.remove("show"); tipFor = null; return; }
+  if(el===tipFor) return;
+  tipFor = el; tip.innerHTML = relicTipHTML(el); if(!tip.innerHTML){ tip.classList.remove("show"); return; }
+  tip.classList.add("show");
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, pad = 8;
+  // beside it if there is room, otherwise under or over it; always inside the window
+  let x = r.right+pad+w <= innerWidth ? r.right+pad : r.left-pad-w >= 0 ? r.left-pad-w : clamp(r.left+r.width/2-w/2, pad, innerWidth-w-pad);
+  let y = x>=r.right || x+w<=r.left ? clamp(r.top, pad, innerHeight-h-pad) : (r.bottom+pad+h <= innerHeight ? r.bottom+pad : Math.max(pad, r.top-pad-h));
+  tip.style.left = Math.round(x)+"px"; tip.style.top = Math.round(y)+"px";
+}
+document.addEventListener("mouseover", e=>relicTipMove(e.target.closest ? e.target.closest("[data-rid]") : null));
+for(const ev of ["mousedown","keydown","wheel"]) document.addEventListener(ev, ()=>relicTipMove(null), true);
 const textAt = (r, i, plain) => relicText(r, TIERS[tierAt(i)].mult, plain, G.relics.indexOf(r.id)!==i); // the item in slot i
 function runBoss(i){ return BOSSES.find(b=>b.id===G.bossIds[i]); } // this run's i-th boss (bosses are drawn from a pool)
 function rarity(r){ return r.rar; }
@@ -1074,7 +1097,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && shown(relicById(G.relics[i]));
-    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' title='"+rel.name+" — "+textAt(rel,i,true).replace(/'/g,"&#39;")+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
+    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1774,7 +1797,7 @@ function relicExtras(r, preview){ // what taking r would do: stat changes and se
 function relicCard(r, attr, delta, tier){ // tier: when the card stands for a relic you hold, that item's tier
   const spent = tier && !delta && /data-j=/.test(attr) && isSpent(r.id); if(spent) r = shown(r); // only the copy in your slots, not one being offered
   const rar = rarity(r);
-  return "<div class='card "+rar+" "+tierCls(tier)+(spent?" corrupt":"")+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"
+  return "<div class='card "+rar+" "+tierCls(tier)+(spent?" corrupt":"")+"' data-rid='"+r.id+"' data-tier='"+(tier||1)+"' "+attr+">"+(rar!=="common"?"<em>"+rar+"</em>":"")+"<img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><b>"+r.name+tierLabel(tier||1)+"</b><span>"+relicText(r, TIERS[tier||1].mult)+"</span>"
     + relicExtras(r, delta)+(META.seen[r.id] ? (delta && hasRelic(r.id) ? "<u class='dup'>stacks</u>" : "") : "<u>new!</u>")+"</div>";
 }
 function setChips(r, preview){ // which sets a relic feeds, and whether taking it would switch a tier on
@@ -1897,7 +1920,7 @@ function openDraft(flavor, pool, luck, gen){
 const coinSrc = () => document.querySelector(".cult-coin").src;
 function relicRow(r, extra, tail, tier, copy){
   const spent = tier && isSpent(r.id); if(spent) r = shown(r); // a relic as a row: art, name, text, then whatever goes on the right
-  return "<div class='shop-row "+r.rar+" "+tierCls(tier)+(spent?" corrupt":"")+"'><img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
+  return "<div class='shop-row "+r.rar+" "+tierCls(tier)+(spent?" corrupt":"")+"' data-rid='"+r.id+"' data-tier='"+(tier||1)+"'><img"+(spent?" class='corrupt'":"")+" src='"+ICONS[r.id]+"' alt=''><div class='sinfo'><b class='"+r.rar+"'>"+r.name+tierLabel(tier||1)
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult, false, copy)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 const SHOP_INFLATION = 0.25; // per boss beaten
@@ -2972,7 +2995,7 @@ function startCombat(foeDef, opts={}){
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
       $("combat-relics").innerHTML = f.st.relics.map((id,n)=>{ const r=relicById(id);
-        return "<img class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+(id==="memcard" && f.st.memUsed ? " corrupt" : "")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true, f.st.relics.indexOf(id)!==n).replace(/'/g,"&#39;")+"'>"; }).join("");
+        return "<img data-rid='"+id+"' data-tier='"+(f.st.tiers[n]||1)+"' class='relic-ico "+tierCls(f.st.tiers[n])+(f.you.suppressed.has(id)?" off":"")+(id==="memcard" && f.st.memUsed ? " corrupt" : "")+"' src='"+ICONS[id]+"' alt='"+r.name+"' title='"+r.name+" — "+relicText(r, TIERS[f.st.tiers[n]||1].mult, true, f.st.relics.indexOf(id)!==n).replace(/'/g,"&#39;")+"'>"; }).join("");
     },
   };
   F = fightEngine(foeDef, opts, io);
