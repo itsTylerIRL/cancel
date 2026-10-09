@@ -246,12 +246,14 @@ async function tokenURI(contract, id){ // ask a public Ethereum node where a tok
    square = square close-up · poster = 2:3 */
 // SchizoPosters ship with the game (the sixteen from tylerirl.com's gallery): the collection's own host is too flaky to rely on
 const SCHIZO_LOCAL = ["atlantean","brobot","celestial","crystalline","demon","grey","ice","microlady","monument","nebulady","psychedelic","robro","rockbro","sealady","tulpa","wired"];
+// Radbros ship with the game too: the collection's images live on a gateway that fails more often than it answers
+const RADBRO_LOCAL = [7,420,1111,1337,1984,2187,2600];
 const localFile = path => (window.INLINE_FILES && window.INLINE_FILES[path]) || path;
 const NFT = {
   milady:   { name:"Milady",          max:9999,  frame:"milady",  playable:true, src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
   remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
   pixelady: { name:"Pixelady",        max:10000, frame:"milady",  src:id=>IPFS+"bafybeih5mqafo34424swmfdboww3s2tvfmzoojbip4jmcjbg5n3fl7edee/"+id+".png" },
-  radbro:   { name:"Radbro",          max:5000,  frame:"remilio", src:id=>metaImage("https://radbro.xyz/api/tokens/metadata/"+id) },
+  radbro:   { name:"Radbro",          max:RADBRO_LOCAL.length, frame:"remilio", src:id=>localFile("assets/img/Radbro/"+RADBRO_LOCAL[(id-1)%RADBRO_LOCAL.length]+".webp") },
   schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
   seen:     { name:"oh.. I've seen",  max:202,   frame:"square",  src:async id=>metaImage(await tokenURI("0x39dac0b2943757c6e53c3a1f02eb75330128c159", id)) },
@@ -695,6 +697,7 @@ function relicText(r, m, plain, copy){ // copy: a second item of a relic you alr
   if(FIGHT_RX[r.id]) d = d.replace(FIGHT_RX[r.id], (_, a, n, z)=>(/^an? $/.test(a) ? "a " : a)+"\u0001"+Math.round(n*m)+"\u0002"+(typeof z==="string" ? z : ""));
   if(r.id==="ss_drip") return "\u0001+"+Math.round(50+100*BAL.dripExtra*(m-1))+"% ATK\u0002.".replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
   if(hasStatText(r)) d = d.replace(STAT_RX, (_, n, u, k)=>"\u0001+"+Math.round(n*m)+u+k+"\u0002").replace(DODGE_RX, (_, n, z)=>"\u0001"+Math.round(n*m)+"\u0002"+z);
+  if(r.id==="mushroom") d = d.replace("up to 30", "up to \u0001"+Math.round(30*m)+"\u0002"); // the ceiling grows with the tier too
   if(flat) d += " \u0001+"+2*flat+" ATK, +"+6*flat+" max HP.\u0002";
   return d.replace(/\u0001([^\u0002]*)\u0002/g, (_, v)=>hi(v));
 }
@@ -2409,9 +2412,17 @@ function applyBackground(){
 /* ---------- modal helpers ---------- */
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
+  // a narrow screen has no side column to read from while you choose, so the dialog carries your numbers with it
+  if(G && !G.over && G.stats && window.innerWidth<900 && $("screen-map").classList.contains("active") && !/^<h2>(⚙️ SETTINGS|YOUR BUILD|HOW TO|leaderboard)/.test(html)) p.insertAdjacentHTML("afterbegin", runStrip());
   $("modal").classList.remove("hidden");
   placeModal();
   navRefresh();
+}
+function runStrip(){
+  const s = G.stats;
+  return "<div class='mstats'><div class='mnum'><span>❤️ "+Math.round(s.hp)+"/"+s.maxhp+"</span><span>⚔️ "+s.atk+"</span><span>🛡️ "+s.arm+"</span><span>💨 "+s.spd+"</span><span>✨ "+Math.round(s.crit)+"%</span><span>🌀 "+Math.round(s.dodge)+"%</span></div>"
+    + "<div class='mrel'>"+G.relics.map((id,i)=>ICONS[id] ? "<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>" : "").join("")
+    + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+r.t.icon+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>";
 }
 /* During a run on a wide screen, a draft, shop or event opens over the map and leaves the right-hand column in view:
    your stats, relics and synergies are what the decision is made from. Everywhere else it is centred as before. */

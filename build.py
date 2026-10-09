@@ -28,7 +28,7 @@ for cfg in index["order"]:  # other top-level keys are metadata
             rel = "assets/img/%s/%s/%s" % (cfg, layer, name)
             files[rel] = data_uri(rel)
 
-for folder in ("Schizo", "npc"):  # enemy posters and NPC pictures that ship with the game
+for folder in ("Schizo", "Radbro", "npc"):  # enemy posters and NPC pictures that ship with the game
     for p in sorted((ROOT / "assets/img" / folder).glob("*.webp")):
         rel = "assets/img/%s/%s" % (folder, p.name)
         files[rel] = data_uri(rel)

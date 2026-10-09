@@ -1297,7 +1297,7 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 /* ---------- a wide window: the feed on the left, the map in the middle, you and your gear on the right ---------- */
 @media (min-width:1280px){
   #app:has(#screen-map.active){max-width:min(1560px,97vw);}
-  .play{grid-template-columns:320px minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"log board hud" "log board relics";}
+  .play{grid-template-columns:320px minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"log board hud" "log board relics" "obj board relics";}
   /* both side columns are exactly as tall as the map: the feed fills the left, and the relic box takes what the player card leaves and scrolls inside itself */
   #relic-box{contain:size;align-self:stretch;min-height:0;overflow-y:auto;scrollbar-width:thin;}
   #log-box{contain:size;align-self:stretch;}
@@ -1309,3 +1309,20 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 /* an enemy's picture always fills its frame: square art is scaled up to cover it, never left sitting in a black box */
 #port-foe canvas{object-fit:cover;object-position:50% 30%;}
 #port-foe.boss canvas{object-position:50% 85%;}
+
+/* objectives have a box of their own, so a big build can never scroll them out of sight */
+#obj-box:has(#obj-bar:empty){display:none;}
+@media (min-width:900px){
+  .play{grid-template-rows:auto auto auto minmax(0,1fr);grid-template-areas:"board hud" "board relics" "board obj" "board log";}
+  #obj-box{grid-area:obj;}
+}
+@media (min-width:1280px){
+  .play{grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"log board hud" "log board relics" "obj board relics";}
+}
+/* on a phone, a run's dialogs carry your stats, relics and synergies at the top */
+.mstats{margin:-2px 0 10px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.04);text-align:left;}
+.mstats .mnum{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:12px;font-weight:700;color:var(--txt);}
+.mstats .mrel{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px;}
+.mstats .relic-ico{width:24px;height:24px;border-radius:5px;}
+.mstats i{font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;border:1px solid color-mix(in srgb,var(--sc) 45%,transparent);color:var(--dim);white-space:nowrap;}
+.mstats i.on{color:var(--sc);border-color:var(--sc);background:color-mix(in srgb,var(--sc) 12%,transparent);}
