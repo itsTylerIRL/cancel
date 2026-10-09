@@ -2420,7 +2420,11 @@ function placeModal(){
   const r = b && G && !G.over && $("screen-map").classList.contains("active") && window.innerWidth>=900 ? b.getBoundingClientRect() : null;
   const on = !!r && r.width>=500;
   m.classList.toggle("inboard", on);
-  if(on){ m.style.setProperty("--bl", Math.max(0, Math.round(r.left)-8)+"px"); m.style.setProperty("--bw", Math.round(r.width)+16+"px"); }
+  if(on){ // the map's own rectangle, top and bottom as well: it must not spill over the banner or the day strip
+    const top = Math.max(0, Math.round(r.top)-6), bottom = Math.min(window.innerHeight, Math.round(r.bottom)+6);
+    m.style.setProperty("--bl", Math.max(0, Math.round(r.left)-8)+"px"); m.style.setProperty("--bw", Math.round(r.width)+16+"px");
+    m.style.setProperty("--bt", top+"px"); m.style.setProperty("--bh", Math.max(320, bottom-top)+"px");
+  }
 }
 window.addEventListener("resize", ()=>{ if(!$("modal").classList.contains("hidden")) placeModal(); });
 function closeModal(){ $("modal").classList.add("hidden"); setTimeout(pump,0); setTimeout(navRefresh,0); }
