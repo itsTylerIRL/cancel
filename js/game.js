@@ -1723,7 +1723,7 @@ function adaptLevel(def){
   const boss = BOSSES.find(b=>b.id===def.id) || null, s = G.stats;
   if(!boss && def.tier!=="elite" && def.tier!=="hunter") return 0;
   if(!G.bossesBeaten) return 0; // not until the first boss is down: the opening days are for finding your feet
-  const key = [def.id, G.day, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40))].join("|");
+  const key = [def.id, G.day, G.phase, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40))].join("|");
   if(key in adaptCache) return adaptCache[key];
   const keepSeed = SEED, hp = s.hp, base = foeBase(def), cap = boss ? ADAPT.boss : ADAPT.foe;
   let need = 0;
@@ -2826,7 +2826,7 @@ const counterDmg = (you, foe) => Math.max(1, Math.round(you.atk/2) - (foe.arm||0
 let oddsCache = {};
 function fightOdds(def, opts={}){
   const s = G.stats;
-  const key = [def.id, G.day, G.relics.join(), s.hp, s.maxhp, s.atk, s.arm, s.spd, G.kills, G.cult>0].join("|");
+  const key = [def.id, G.day, G.relics.join(), s.hp, s.maxhp, s.atk, s.arm, s.spd, Math.round(s.dodge), Math.round(s.crit), G.kills, G.cult>0].join("|");
   if(oddsCache[key]) return oddsCache[key];
   const foe = foeInstance(def), N = 40;
   let wins=0, hp=0;
