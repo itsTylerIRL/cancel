@@ -2372,8 +2372,19 @@ function applyBackground(){
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
   $("modal").classList.remove("hidden");
+  placeModal();
   navRefresh();
 }
+/* During a run on a wide screen, a draft, shop or event opens over the map and leaves the right-hand column in view:
+   your stats, relics and synergies are what the decision is made from. Everywhere else it is centred as before. */
+function placeModal(){
+  const m = $("modal"), b = document.querySelector("#screen-map .board");
+  const r = b && G && !G.over && $("screen-map").classList.contains("active") && window.innerWidth>=900 ? b.getBoundingClientRect() : null;
+  const on = !!r && r.width>=500;
+  m.classList.toggle("inboard", on);
+  if(on){ m.style.setProperty("--bl", Math.max(0, Math.round(r.left)-8)+"px"); m.style.setProperty("--bw", Math.round(r.width)+16+"px"); }
+}
+window.addEventListener("resize", ()=>{ if(!$("modal").classList.contains("hidden")) placeModal(); });
 function closeModal(){ $("modal").classList.add("hidden"); setTimeout(pump,0); setTimeout(navRefresh,0); }
 
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */

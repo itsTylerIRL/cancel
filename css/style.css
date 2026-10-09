@@ -1241,3 +1241,8 @@ body[data-frame="2"] #you-tok img,body[data-frame="2"] #map.night ~ #you-tok img
 body[data-frame="2"] #hud-avatar{border-color:#e8fbff;box-shadow:0 0 0 2px #8be9fd,0 0 18px rgba(139,233,253,.7);animation:diamond 2.4s linear infinite;}
 @keyframes diamond{50%{filter:brightness(1.18) saturate(1.2);}}
 body.calm[data-frame="2"] #you-tok img,body.calm[data-frame="2"] #hud-avatar{animation:none;}
+
+/* a run's own dialogs open over the map, not over the whole window: the right-hand column stays readable */
+#modal.inboard{left:var(--bl);right:auto;width:var(--bw);background:rgba(0,0,0,.8);border-radius:14px;}
+#modal.inboard::after{content:"";position:fixed;inset:0;z-index:-1;} /* nothing outside it can be clicked while it is open */
+#modal.inboard #modal-panel{max-height:94vh;}
