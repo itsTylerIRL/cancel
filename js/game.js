@@ -4252,6 +4252,12 @@ async function init(){
     show("screen-avatar"); genAvatar();
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
+  { // fullscreen: a quiet button beside the sound one, where the browser allows it
+    const root = document.documentElement, can = !!(root.requestFullscreen && document.fullscreenEnabled);
+    const paint = ()=>document.querySelectorAll(".fs").forEach(b=>{ b.classList.toggle("on", !!document.fullscreenElement); b.title = document.fullscreenElement ? "leave fullscreen" : "fullscreen"; });
+    document.querySelectorAll(".fs").forEach(b=>{ b.hidden = !can; b.onclick = ()=>{ sfx("click"); (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(()=>{}); }; });
+    document.addEventListener("fullscreenchange", ()=>{ paint(); if(G && !G.over && $("screen-map").classList.contains("active")){ groundSig = ""; renderMap(); } });
+  }
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("name-in").value = META.name || "";
   $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");

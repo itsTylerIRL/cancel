@@ -1302,3 +1302,5 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
   #relic-box{contain:size;align-self:stretch;min-height:0;overflow-y:auto;scrollbar-width:thin;}
   #log-box{contain:size;align-self:stretch;}
 }
+
+.fs{opacity:.6;} .fs:hover,.fs.on{opacity:1;} .fs.on{border-color:var(--neon);color:var(--neon);} .fs[hidden]{display:none;}
