@@ -1294,9 +1294,11 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
   #app:has(#screen-combat.active){max-width:none;} /* the fight gets the whole window */
   .combat-panel #combat-log{max-height:calc(100vh - 330px);}
 }
-/* ---------- a wide window: gear and synergies on the left, the map in the middle, you and the feed on the right ---------- */
+/* ---------- a wide window: the feed on the left, the map in the middle, you and your gear on the right ---------- */
 @media (min-width:1280px){
   #app:has(#screen-map.active){max-width:min(1560px,97vw);}
-  .play{grid-template-columns:320px minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"relics board hud" "relics board log";}
-  #relic-box{align-self:start;max-height:calc(100vh - 150px);overflow-y:auto;scrollbar-width:thin;}
+  .play{grid-template-columns:320px minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"log board hud" "log board relics";}
+  /* both side columns are exactly as tall as the map: the feed fills the left, and the relic box takes what the player card leaves and scrolls inside itself */
+  #relic-box{contain:size;align-self:stretch;min-height:0;overflow-y:auto;scrollbar-width:thin;}
+  #log-box{contain:size;align-self:stretch;}
 }
