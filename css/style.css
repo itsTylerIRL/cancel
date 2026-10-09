@@ -1383,3 +1383,6 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
   #tug u{position:absolute;top:12px;text-decoration:none;font-size:10px;font-family:var(--label);letter-spacing:.1em;color:var(--acid);left:0;} #tug #tug-foe{left:auto;right:0;color:var(--red);}
   #rtip{width:min(270px,calc(100vw - 16px));}
 }
+
+#foe-relics{display:flex;justify-content:center;} #foe-relics:empty{display:none;} #foe-relics .duel-relics{justify-content:center;flex-wrap:wrap;gap:4px;}
+@media (min-width:900px) and (min-height:560px){ .combat-panel #foe-relics .relic-ico{width:38px;height:38px;border-radius:8px;} .combat-panel #foe-relics .duel-relics{gap:6px;} }

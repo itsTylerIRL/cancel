@@ -3021,7 +3021,7 @@ function startCombat(foeDef, opts={}){
   $("combat-title").textContent = opts.label || (boss ? boss.name : "WILD "+foeDef.name.toUpperCase());
   if(foeDef.adapt) tip("adapt");
   $("foe-name").textContent = foeDef.name.toUpperCase()+(foeDef.adapt ? "  📈+"+Math.round(foeDef.adapt*100)+"%" : "");
-  $("you-name").textContent = G.name.toUpperCase();
+  $("you-name").textContent = G.name.toUpperCase(); $("foe-relics").innerHTML = "";
   $("port-foe").classList.toggle("boss", !!boss);
   for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), G.avatar);
@@ -3448,15 +3448,15 @@ function kingContext(k){ // the king as a run of their own, so stats and relic t
 }
 function inRun(ctx, fn){ const mine = G; G = ctx; try{ return fn(); } finally { G = mine; } } // do something as another run
 const standIn = (name, s) => ({ id:"duel", king:true, puppet:true, name, hp:DUEL_HP, maxhp:DUEL_HP, atk:0, arm:s.arm, spd:s.spd, lck:0, cult:[0,0], nextDmg:0 });
-function makeDuel(run, k, log){
+function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each side: {hit(side,dmg,crit), float(side,text,cls)} with "foe" meaning the king
   const kg = kingContext(k), kn = "👑 "+esc(k.name);
   G.stats.hp = G.stats.maxhp;
   const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
-  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c); }, hit(){}, float(){}, strip(){} };
+  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, strip(){} };
   const flip = {good:"bad", bad:"good"};
   const ioB = { log:(m,c)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
       log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c); },
-    hit(){}, float(){}, strip(){} };
+    hit:(s,d,c)=>{ if(V && s==="you") V.hit("foe", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("foe", t, c); }, strip(){} };
   const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
   const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
   let fromKing = 0, fromYou = 0;
@@ -3519,25 +3519,64 @@ async function kingReport(run, won, k, back){
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armour)
 const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
-function kingDuel(run, k, back){
+function kingDuel(run, k, back){ // the hill is fought on the same stage as every other fight, with the same blows, numbers and pace
   const keep = SEED; SEED = null; // the run is over: this fight is its own luck
-  let ended = false;
-  const lines = [], D = makeDuel(run, k, (m,c)=>lines.push("<div class='"+(c||"")+"'>"+m+"</div>")), you = D.you, king = D.king;
-  openModal("<h2>KING OF THE HILL</h2><div class='duel'><div><canvas id='duel-you' width='4' height='5'></canvas><b>"+esc(run.name)+"</b><div class='hpbar'><div id='duel-hp-you'></div><span id='duel-t-you'></span></div>"
-    + relicStrip(run.relics.map((id,i)=>[id, (run.tiers||[])[i]||1]))+"</div>"
-    + "<b class='vs'>VS</b><div><canvas id='duel-king' class='bpfp' width='4' height='4'></canvas><b>👑 "+esc(k.name)+"</b><div class='hpbar foe'><div id='duel-hp-king'></div><span id='duel-t-king'></span></div>"
-    + relicStrip(k.relics)+"</div></div>"
-    + "<div id='duel-log' class='duel-log'></div><div class='row'><button class='btn small' id='duel-skip'>skip ⏩</button></div>");
-  paint($("duel-you"), run.avatar); drawLook($("duel-king"), k.look, k.relics).catch(()=>{});
-  const bar = (id, f)=>{ $("duel-hp-"+id).style.width = clamp(100*f.hp/f.maxhp,0,100)+"%"; $("duel-t-"+id).textContent = Math.max(0,Math.round(f.hp))+" / "+f.maxhp+(f.shield>0?" 🕯️"+f.shield:""); };
-  const bars = ()=>{ if(!$("duel-log")) return; bar("you", you); bar("king", king);
-    const lg = $("duel-log"); lg.innerHTML = lines.slice(-60).join(""); lg.scrollTop = lg.scrollHeight; };
-  const finish = ()=>{ if(ended) return; ended = true; SEED = keep; bars();
-    if($("duel-skip")){ $("duel-skip").textContent = D.win ? "TAKE THE HILL 👑" : "walk back down"; $("duel-skip").classList.add("big"); $("duel-skip").onclick = ()=>{ sfx("click"); kingReport(run, D.win, k, back); }; navSet($("duel-skip")); }
-    sfx(D.win ? "win" : "lose"); };
-  const tick = ()=>{ if(ended || !$("duel-log")) return; D.step(); bars(); if(D.over) return finish(); setTimeout(tick, META.calm ? 520 : 380); };
-  $("duel-skip").onclick = ()=>{ while(!D.over) D.step(); finish(); };
-  bars(); setTimeout(tick, 700);
+  const tok = ++combatTok;
+  let ended = false, quiet = false, timer = null, lag = 0;
+  closeModal(); show("screen-combat");
+  $("btn-combat-done").classList.add("hidden"); $("combat-ctl").classList.remove("hidden"); $("combat-choice").classList.add("hidden");
+  navSet($("btn-skip"));
+  $("combat-log").innerHTML = ""; $("combat-title").textContent = "KING OF THE HILL";
+  $("you-name").textContent = run.name.toUpperCase(); $("foe-name").textContent = "👑 "+k.name.toUpperCase();
+  $("port-foe").classList.add("boss"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
+  paint($("combat-you"), run.avatar);
+  const fc = $("combat-foe"); fc.width = 4; fc.height = 5;
+  lookCanvas(k.look, k.relics).then(cv=>{ if(cv && tok===combatTok) paint(fc, cv); }).catch(()=>{});
+  $("combat-relics").innerHTML = run.relics.map((id,i)=>ICONS[id] ? "<img data-rid='"+id+"' data-tier='"+((run.tiers||[])[i]||1)+"' class='relic-ico "+tierCls((run.tiers||[])[i]||1)+"' src='"+ICONS[id]+"' alt=''>" : "").join("");
+  $("foe-relics").innerHTML = relicStrip(k.relics);
+  // blows in one round land one after another, as they do in any fight
+  const fx = fn => { if(quiet) return; const d = lag; lag += 250/META.speed; setTimeout(()=>{ if(tok===combatTok) fn(); }, d); };
+  const V = {
+    hit: (side,dmg,crit)=>fx(()=>{ clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
+      hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
+    float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
+  };
+  const D = makeDuel(run, k, clog, V), you = D.you, king = D.king;
+  // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
+  const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, stun:king.stun||0 });
+  const bars = ()=>combatBars(you, view());
+  const finish = ()=>{
+    if(ended) return; ended = true; clearTimeout(timer); SEED = keep; bars();
+    $("combat-ctl").classList.add("hidden"); $("boss-intro").className = ""; $("port-foe").classList.remove("slam");
+    $("port-"+(D.win ? "foe" : "you")).classList.add("dead");
+    clog(D.win ? "👑 <b>"+esc(k.name)+" falls.</b> The hill is yours to take." : "💀 <b>"+esc(k.name)+" keeps the hill.</b>", D.win ? "crit" : "bad");
+    sfx(D.win ? "win" : "lose"); if(D.win) burst("👑✨🌸"); else quake();
+    const btn = $("btn-combat-done"); btn.classList.remove("hidden","auto"); btn.textContent = D.win ? "TAKE THE HILL 👑" : "WALK BACK DOWN";
+    btn.onclick = ()=>{ sfx("click"); $("port-foe").classList.remove("boss"); $("foe-relics").innerHTML = ""; show("screen-map"); kingReport(run, D.win, k, back); };
+    navSet(btn);
+  };
+  const loop = ()=>{
+    if(ended || tok!==combatTok) return;
+    lag = 0; D.step(); bars();
+    if(D.over){ timer = setTimeout(finish, quiet ? 0 : lag+150); return; }
+    timer = setTimeout(loop, Math.max(600/META.speed, lag+120));
+  };
+  const speedBtn = $("btn-speed");
+  speedBtn.textContent = META.speed+"X";
+  speedBtn.onclick = ()=>{ META.speed = META.speed>=4 ? 1 : META.speed*2; speedBtn.textContent = META.speed+"X"; saveMeta(); sfx("click"); };
+  $("btn-skip").onclick = ()=>{ if(ended) return; quiet = true; clearTimeout(timer); while(!D.over) D.step(); finish(); };
+  bars();
+  const intro = $("boss-intro"); intro.className = "";
+  let wait = 500;
+  if(!META.calm){ // the king gets an entrance too
+    intro.innerHTML = "<div class='bi-warn'>👑 KING OF THE HILL 👑</div><div class='bi-name'>"+esc(k.name)+"</div><div class='bi-mech'>"+beaten(k.defences)+" · your build against theirs · one shot</div>";
+    intro.className = "show bi-plain"; intro.style.animationDuration = "1900ms";
+    $("port-foe").classList.add("slam"); sfx("boss");
+    setTimeout(()=>{ if(tok===combatTok) quake(); }, 520);
+    setTimeout(()=>{ if(tok===combatTok){ intro.className = ""; $("port-foe").classList.remove("slam"); } }, 1900);
+    wait = 2000;
+  }
+  timer = setTimeout(loop, wait);
 }
 /* the title screen's king panel, with the clock to the next reset (the daily turns over then too) */
 let kingClock = 0;
@@ -3679,13 +3718,16 @@ function lookOf(base){
   const layers = {}; for(const l of BASE_LAYERS) layers[l] = base[l];
   return { cfg:"Milady", layers, eye:base.eyeColor||"", ps1:!!base.ps1 };
 }
-async function drawLook(cv, look, relics){ // paint a board entry's face onto a small canvas
-  if(!look || !TOKEN_SLOTS[look.cfg]) return;
+async function lookCanvas(look, relics){ // someone else's character, whole, from the recipe a board entry carries
+  if(!look || !TOKEN_SLOTS[look.cfg]) return null;
   const layers = {};
   for(const k in look.layers) if(TOKEN_SLOTS[look.cfg][k] && (ASSETS[look.cfg][k]||[]).includes(look.layers[k])) layers[k] = look.layers[k]; // only layers this game ships
-  if(!layers[TOKEN_MAP[look.cfg.toLowerCase()].body]) return;
+  if(!layers[TOKEN_MAP[look.cfg.toLowerCase()].body]) return null;
   const worn = [...new Set(relics.map(r=>r[0]).filter(id=>relicById(id)))];
-  const full = await composeAvatar({ token:{cfg:look.cfg, layers, eyeColor:look.eye}, ps1:look.ps1 }, worn);
+  return composeAvatar({ token:{cfg:look.cfg, layers, eyeColor:look.eye}, ps1:look.ps1 }, worn);
+}
+async function drawLook(cv, look, relics){ // paint a board entry's face onto a small canvas
+  const full = await lookCanvas(look, relics); if(!full) return;
   const w = full.width;
   cv.width = 144; cv.height = 144;
   cv.getContext("2d").drawImage(full, w*0.1, w*0.14, w*0.8, w*0.8, 0, 0, 144, 144);
