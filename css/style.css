@@ -1306,3 +1306,6 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 .fs{opacity:.6;} .fs:hover,.fs.on{opacity:1;} .fs.on{border-color:var(--neon);color:var(--neon);} .fs[hidden]{display:none;}
 /* a boss's art is a scene, not a cut-out: it fills its frame instead of sitting between two black bars */
 .portrait.boss canvas{object-fit:cover;object-position:50% 85%;}
+/* an enemy's picture always fills its frame: square art is scaled up to cover it, never left sitting in a black box */
+#port-foe canvas{object-fit:cover;object-position:50% 30%;}
+#port-foe.boss canvas{object-position:50% 85%;}
