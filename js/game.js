@@ -560,7 +560,7 @@ function baseStats(){
 function newRun(ava, opt){
   const tribe = TRIBES.find(t=>t.id===opt.tribe) || TRIBES[0], heat = opt.heat||0;
   // the whole run grows from one short code: the date for a daily, or six characters that a link can carry
-  const code = opt.daily ? "daily-"+opt.daily : (opt.seed || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
+  const code = opt.daily ? "daily-"+opt.daily : (opt.seed || opt.code || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
   SEED = seedFrom("tcc-"+code);
   const kit = ava.picks.kit || {};
   const pk = id => !opt.daily && perk(id); // the daily is the same for everyone: unlocks that change the game are switched off there
@@ -1579,7 +1579,7 @@ function objectivesHTML(){
     return "<div class='obj "+(o.state||"")+"'><i>"+(o.state==="done"?"✓":o.state==="failed"?"✕":"○")+"</i><span>"+def.text+"</span><em>+"+def.cult+"</em></div>"; }).join("");
 }
 function tryMove(x,y){
-  if(!G || G.over || busy() || G.queue.length) return;
+  if(!G || G.over || setupStep || busy() || G.queue.length) return;
   if(x<0||y<0||x>=W||y>=H) return;
   if(Math.abs(x-G.px)+Math.abs(y-G.py)!==1) return;
   if(G.fog[y][x] || !isFloor(x,y)) return;
@@ -2470,7 +2470,7 @@ function applyBackground(){
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
   // a narrow screen has no side column to read from while you choose, so the dialog carries your numbers with it
-  if(G && !G.over && G.stats && window.innerWidth<900 && $("screen-map").classList.contains("active") && !/^<h2>(⚙️ SETTINGS|YOUR BUILD|HOW TO|leaderboard)/.test(html)) p.insertAdjacentHTML("afterbegin", runStrip());
+  if(G && !G.over && !setupStep && G.stats && window.innerWidth<900 && $("screen-map").classList.contains("active") && !/^<h2>(⚙️ SETTINGS|YOUR BUILD|HOW TO|leaderboard)/.test(html)) p.insertAdjacentHTML("afterbegin", runStrip());
   $("modal").classList.remove("hidden");
   placeModal();
   navRefresh();
@@ -2495,7 +2495,8 @@ function placeModal(){
   }
 }
 window.addEventListener("resize", ()=>{ if(!$("modal").classList.contains("hidden")) placeModal(); });
-function closeModal(){ $("modal").classList.add("hidden"); setTimeout(pump,0); setTimeout(navRefresh,0); }
+function closeModal(){ $("modal").classList.add("hidden");
+  if(setupStep) setTimeout(()=>{ if(setupStep && $("modal").classList.contains("hidden") && $("screen-map").classList.contains("active")) setupStep(); }, 0); setTimeout(pump,0); setTimeout(navRefresh,0); }
 
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */
 function clog(msg, cls){
@@ -3258,7 +3259,7 @@ function endRun(win){
     $("end-rank").innerHTML = rankHtml;
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
-    $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft); };
+    $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft, run.base.nft ? null : META.last); };
     $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); if(rnUser() && next && META.drip>=next.cost) openUnlocks(); };
     $("end-copy").onclick=async()=>{
       sfx("click");
@@ -3978,30 +3979,67 @@ const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen 
 const DAILY_TZ = "America/New_York";
 const today = () => { try{ return new Intl.DateTimeFormat("en-CA", {timeZone:DAILY_TZ, year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()); }
   catch(e){ return new Date(Date.now()-5*3600e3).toISOString().slice(0,10); } }; // no time zone data: fixed UTC-5
-function renderPicks(){
+function renderPicks(){ // the character screen is only about the character: tribe and heat are chosen once the run has loaded
   if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favourite yet: don't always hand out the first one
   PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
-  $("tribes").innerHTML = TRIBES.map(t=>{ const tr = relicById(t.relic);
-    return "<button class='pick tribe"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'><i>"+t.icon+"</i><b>"+t.name+"</b><span>"+t.desc+"</span>"
-      + "<em><img class='relic-ico' src='"+(ICONS[tr.id]||"")+"' alt=''>"+tr.name+"</em></button>"; }).join("");
-  const kit = (AVA && AVA.picks.kit) || {};
-  const t = TRIBES.find(x=>x.id===PICK.tribe), r = relicById(kit.relic || t.relic);
-  $("tribe-desc").innerHTML = "<img class='relic-ico' src='"+(ICONS[r.id]||"")+"' alt=''><div><b>"+t.desc+"</b><span>starts with "+r.name+" — "+r.desc+"</span>"
-    + (kit.note && kit.note.length ? "<span class='kit'>token kit: "+kit.note.join(" · ")+"</span>" : "")+"</div>";
-  $("tribes").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.tribe=b.dataset.t; META.tribe=PICK.tribe; saveMeta(); sfx("click"); renderPicks(); }; });
-  const max = META.heat||0;
   const played = PICK.daily && META.dailyAt && META.dailyAt.date===PICK.daily;
   $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
       + "<div class='note"+(played?" bad":"")+"'>"+(played ? "you've already played today's daily: only that first run counts. this one is practice"
                                                           : "one attempt: only your first run of the day counts on the daily board")+"</div>"
-    : PICK.seed ? "<div class='note good'>🔗 MAP "+PICK.seed+" — the same maze as whoever sent you the link</div>"
-    : !max ? "" : "<div class='kicker'>heat</div><div class='pick-row'>"+Array.from({length:max+1},(_,i)=>"<button class='pick"+(i===PICK.heat?" on":"")+"' data-h='"+i+"'>"+(i?"🔥 "+i:"off")+"</button>").join("")+"</div>"
-      + "<div class='note'>"+(PICK.heat ? HEAT.slice(0,PICK.heat).join(" · ")+" · +"+25*PICK.heat+"% DRIP" : "beat THE CANCEL to unlock the next heat")+"</div>";
-  $("heat-row").querySelectorAll(".pick").forEach(b=>{ b.onclick=()=>{ PICK.heat=+b.dataset.h; sfx("click"); renderPicks(); }; });
+    : PICK.seed ? "<div class='note good'>🔗 MAP "+PICK.seed+" — the same maze as whoever sent you the link</div>" : "";
 }
-async function genAvatar(nft){
+/* character > load in > tribe > heat > start. The run is built once to put the map on screen, then rebuilt with each
+   choice; nothing is logged, saved or counted until the last one is made. */
+let setupStep = null; // the picker that must be answered before the run begins
+function beginSetup(){
+  const code = PICK.daily||PICK.seed ? "" : Math.random().toString(36).slice(2,8).padEnd(6,"0");
+  const build = ()=>{ newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed, code }); };
+  const backdrop = ()=>{ build(); G.setup = true; show("screen-map"); $("map-log").innerHTML = ""; $("boss-banner").classList.add("hidden"); camSnap = true; renderMap(); };
+  const start = ()=>{
+    setupStep = null; closeModal(); build();
+    show("screen-map");
+    $("map-log").innerHTML="";
+    mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");
+    if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
+    mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
+    mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
+    startDay();
+    startDaily(G);
+    sfx("relic"); saveRun();
+    if(!META.tut) openTutorial();
+  };
+  const pickHeat = ()=>{
+    const max = META.heat||0;
+    if(!max || PICK.daily || PICK.seed){ PICK.heat = 0; return start(); }
+    setupStep = pickHeat;
+    PICK.heat = clamp(PICK.heat, 0, max);
+    openModal("<h2>HEAT</h2><div class='note'>you've saved the timeline before. want it worse, for more DRIP?</div>"
+      + "<div class='heat-list'>"+Array.from({length:max+1}, (_,i)=>"<button class='choice"+(i===PICK.heat?" on":"")+"' data-h='"+i+"'><b>"+(i ? "🔥 HEAT "+i : "NO HEAT")+"</b><span>"
+          + (i ? HEAT.slice(0,i).join(" · ")+" · <i class='good'>+"+25*i+"% DRIP</i>" : "the timeline as it comes")+"</span></button>").join("")+"</div>"
+      + "<div class='row'><button class='btn small' id='setup-back'>← tribe</button></div>");
+    $("modal-panel").querySelectorAll("[data-h]").forEach(b=>{ b.onclick=()=>{ PICK.heat = +b.dataset.h; sfx("click"); start(); }; });
+    $("setup-back").onclick = ()=>{ sfx("click"); pickTribe(); };
+    navSet($("modal-panel").querySelector(".choice.on") || $("modal-panel").querySelector(".choice"));
+  };
+  const pickTribe = ()=>{
+    setupStep = pickTribe;
+    const kit = (AVA && AVA.picks.kit) || {};
+    openModal("<h2>CHOOSE YOUR TRIBE</h2><div class='tribe-grid'>"+TRIBES.map(t=>{ const tr = relicById(kit.relic || t.relic);
+        return "<button class='pick tribe"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'><i>"+t.icon+"</i><b>"+t.name+"</b><span>"+t.desc+"</span>"
+          + "<em><img class='relic-ico' src='"+(ICONS[tr.id]||"")+"' alt=''>"+tr.name+"</em></button>"; }).join("")+"</div>"
+      + (kit.note && kit.note.length ? "<div class='note good'>token kit: "+kit.note.join(" · ")+"</div>" : "")
+      + "<div class='note'>each tribe starts with its own relic and bonus"+(kit.relic ? ". your token wears "+relicById(kit.relic).name+", so you start with that whichever you pick" : "")+"</div>"
+      + "<div class='row'><button class='btn small' id='setup-back'>← character</button></div>");
+    $("modal-panel").querySelectorAll("[data-t]").forEach(b=>{ b.onclick=()=>{ PICK.tribe = b.dataset.t; META.tribe = PICK.tribe; saveMeta(); sfx("click"); backdrop(); pickHeat(); }; });
+    $("setup-back").onclick = ()=>{ sfx("click"); setupStep = null; leaveRun(); show("screen-avatar"); };
+    navSet($("modal-panel").querySelector(".pick.tribe.on") || $("modal-panel").querySelector(".pick.tribe"));
+  };
+  backdrop(); pickTribe();
+}
+async function genAvatar(nft, last){ // last: the character from the previous run, to start from instead of a new roll
   const tok = ++avaTok;
-  const ava = { picks: basePicks(), name: choice(NAMES) };
+  const keep = last && last.picks && BASE_LAYERS.every(l=>(ASSETS.Milady[l]||[]).includes(last.picks[l])) ? last : null; // only if its layers still exist
+  const ava = keep ? { picks:{...keep.picks}, name:keep.name || choice(NAMES) } : { picks: basePicks(), name: choice(NAMES) };
   if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
     const label = NFT[nft.kind].name+" #"+nft.id;
@@ -4391,7 +4429,9 @@ async function init(){
     $("btn-start").disabled=false; $("btn-start").textContent=label;
     sfx("click");
     $("btn-begin").disabled = true;
-    show("screen-avatar"); genAvatar();
+    show("screen-avatar");
+    const last = META.last || (META.nft ? {nft:META.nft} : null); // whoever you played last time is who you find here
+    genAvatar(last && last.nft, last && !last.nft ? last : null);
   };
   document.querySelectorAll(".mute").forEach(b=>{ b.onclick=()=>{ setMute(!META.mute); sfx("click"); }; });
   { // fullscreen: a quiet button beside the sound one, where the browser allows it
@@ -4417,17 +4457,9 @@ async function init(){
     const typed = cleanName($("name-in").value);
     META.name = typed; saveMeta();
     if(typed) AVA.name = typed;
-    newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed });
-    show("screen-map");
-    $("map-log").innerHTML="";
-    mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");
-    if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
-    mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
-    mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
-    startDay();
-    startDaily(G);
-    sfx("relic"); saveRun();
-    if(!META.tut) openTutorial();
+    // next time, this is who is waiting on the character screen
+    META.last = AVA.picks.nft ? { nft:AVA.picks.nft } : { picks:AVA.picks, name:AVA.name }; saveMeta();
+    beginSetup();
   };
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;

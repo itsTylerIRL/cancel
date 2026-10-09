@@ -1386,3 +1386,9 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 
 #foe-relics{display:flex;justify-content:center;} #foe-relics:empty{display:none;} #foe-relics .duel-relics{justify-content:center;flex-wrap:wrap;gap:4px;}
 @media (min-width:900px) and (min-height:560px){ .combat-panel #foe-relics .relic-ico{width:38px;height:38px;border-radius:8px;} .combat-panel #foe-relics .duel-relics{gap:6px;} }
+
+/* the run's first two questions: tribe, then heat */
+#modal-panel:has(.tribe-grid){max-width:620px;}
+.heat-list{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+.heat-list .choice{text-align:left;} .heat-list .choice.on{border-color:var(--neon);box-shadow:0 0 14px rgba(139,233,253,.25);}
+.heat-list .choice span{display:block;font-size:11px;color:var(--dim);} .heat-list .good{font-style:normal;color:var(--acid);}
