@@ -67,7 +67,7 @@ function splash(text, cls){ // a line of big type across the screen for a beat; 
   const d = document.createElement("div"); d.className = "splash "+(cls||""); d.innerHTML = text;
   document.body.appendChild(d); setTimeout(()=>d.remove(), 1700);
 }
-function quake(){ if(META.calm) return; const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); }
+function quake(){ bgKick(1); if(META.calm) return; const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); }
 function setMute(m){
   META.mute = m; saveMeta();
   document.querySelectorAll(".mute").forEach(b=>{ b.textContent = m ? "🔇" : "🔊"; });
@@ -2427,7 +2427,7 @@ function openSettings(){
     + row("Auto-continue", "ordinary wins move on by themselves", tog("auto", META.auto!==false))
     + row("Skip easy fights", "settle fights you can't lose on the map", tog("quick", META.quick!==false))
     + row("Calm mode", "no screen shake, flashing or confetti", tog("calm", !!META.calm))
-    + row("3D background", bgState==="failed" ? "couldn't be loaded on this device" : "the particle field from tylerirl.com", tog("bg3d", META.bg3d!==false))
+    + row("Animated backdrop", "the drifting field behind the game. it follows where you are, not your mouse", tog("bg3d", META.bg3d!==false))
     + (inRun ? "<div class='row'><button class='btn small danger' id='set-quit'>abandon this run</button></div>" : "")
     + "<div class='row'><button class='btn' id='set-close'>done</button></div>");
   const p = $("modal-panel");
@@ -2445,57 +2445,97 @@ function openSettings(){
   };
 }
 function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
-/* The 3D particle background is tylerirl.com's own script, loaded from the main site so this page always
-   carries whatever the site is running. If anything fails to load, the plain CSS backdrop simply stays. */
-const BG_SCRIPTS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
-  "https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js",
-  "https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js",
-  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js",
-  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js",
-  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js",
-  "https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js",
-  "https://tylerirl.com/js/background3d.js",
-];
-let bgState = "idle"; // idle | loading | on | failed
-/* On the main site the scene swings to follow the mouse. In the game that reads as the screen lurching whenever the
-   pointer moves, and does nothing at all for someone on a keyboard or controller. So here the mouse is unplugged and
-   the camera drifts slowly on its own instead. The site's script is untouched: this only detaches its listener on
-   this page. If its internals ever change, this quietly does nothing and the background behaves as the site's does. */
-function bgOwnMotion(){
-  try{
-    const g = (0, eval); // the script's own top-level names
-    if(typeof g("onMouseMove")!=="function") return;
-    document.removeEventListener("mousemove", g("onMouseMove"), {passive:true});
-    document.removeEventListener("mousemove", g("onMouseMove"));
-    g("mouseX = 0; mouseY = 0;");
-    const t0 = performance.now();
-    setInterval(()=>{ // a slow figure of eight, the same for everyone
-      if(window._bgPaused || document.hidden) return;
-      const t = (performance.now()-t0)/1000, calm = document.body.classList.contains("calm") ? 0.25 : 1;
-      try{ g("mouseX = "+(Math.sin(t*0.11)*9*calm).toFixed(3)+"; mouseY = "+(Math.sin(t*0.07+1)*5*calm).toFixed(3)+";"); }catch(e){}
-    }, 60);
-  }catch(e){}
+/* ---------- the backdrop ----------
+   The game's own: one canvas, no libraries, nothing loaded from anywhere. A field of posts drifting on the timeline,
+   threads between the ones near each other, and now and then a signal running down a thread. It takes its colour from
+   where you are (each district's own, cooler at night), turns red as THE CANCEL closes in, and flinches when a hit
+   lands. It never looks at the mouse. */
+const BG = { cv:null, cx:null, nodes:[], pulses:[], w:0, h:0, last:0, raf:0, col:[139,233,253], kick:0, nextPulse:0, frame:0 };
+const BG_TITLE = ["#ff79c6","#bd93f9","#50fa7b","#f1fa8c","#8be9fd"];
+function bgMood(){
+  const on = id => $(id).classList.contains("active");
+  let c = [139,233,253], energy = 1, mixed = true;
+  if(G && !G.over && (on("screen-map") || on("screen-combat"))){
+    mixed = false; c = hexRgb(DISTRICTS[districtAt(G.px,G.py)].color);
+    if(G.phase==="night"){ c = c.map((v,i)=>v*0.45+[110,120,255][i]*0.55); energy = 0.75; }
+    if(doomLevel){ const k = doomLevel*0.3; c = c.map((v,i)=>v*(1-k)+[255,50,50][i]*k); energy = 1+doomLevel*0.45; }
+    if(on("screen-combat")) energy *= 1.5;
+  }
+  return { c, energy, mixed };
+}
+function bgSize(){
+  const d = Math.min(1.5, window.devicePixelRatio||1), cv = BG.cv;
+  BG.w = window.innerWidth; BG.h = window.innerHeight; BG.d = d;
+  cv.width = Math.round(BG.w*d); cv.height = Math.round(BG.h*d);
+  const want = clamp(Math.round(BG.w*BG.h/16000), 44, 130);
+  while(BG.nodes.length<want) BG.nodes.push({ x:Math.random()*BG.w, y:Math.random()*BG.h, z:0.35+Math.random()*0.65, vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*5,
+    tint:hexRgb(BG_TITLE[BG.nodes.length%BG_TITLE.length]), ph:Math.random()*6.28 });
+  BG.nodes.length = want;
+}
+function bgKick(n){ BG.kick = Math.min(1.6, BG.kick+(n||1)); } // a hit lands: the field flinches
+function bgFrame(now){
+  BG.raf = requestAnimationFrame(bgFrame);
+  if(document.hidden || META.bg3d===false) return;
+  if(++BG.frame%2) return; // thirty frames a second is plenty for something this slow
+  const dt = Math.min(0.1, (now-BG.last)/1000 || 0.033); BG.last = now;
+  const calm = !!META.calm, m = bgMood(), cx = BG.cx, d = BG.d, W = BG.w, H = BG.h, t = now/1000;
+  for(let i=0;i<3;i++) BG.col[i] += (m.c[i]-BG.col[i])*Math.min(1, dt*1.5); // colour eases to wherever you are
+  BG.kick *= Math.pow(0.02, dt);
+  const sp = (calm ? 0.25 : 1)*m.energy, base = BG.col, link = Math.min(170, Math.max(110, W/9));
+  cx.setTransform(d,0,0,d,0,0); cx.clearRect(0,0,W,H);
+  // two soft clouds of the place's colour, wandering
+  for(let i=0;i<2;i++){
+    const gx = W*(0.5+0.38*Math.sin(t*0.05+i*2.4)), gy = H*(0.5+0.36*Math.cos(t*0.04+i*1.7)), r = Math.max(W,H)*0.42;
+    const g = cx.createRadialGradient(gx,gy,0,gx,gy,r);
+    g.addColorStop(0, "rgba("+base.map(Math.round).join(",")+","+(0.085+0.05*BG.kick)+")"); g.addColorStop(1, "rgba(0,0,0,0)");
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+  const ns = BG.nodes, rgb = n => m.mixed ? n.tint : base.map((v,i)=>v*0.8+n.tint[i]*0.2);
+  for(const n of ns){ // everything drifts up and to the left, like a feed scrolling by; nearer posts move faster
+    n.x += (n.vx-7*n.z)*sp*dt + (Math.random()-0.5)*BG.kick*5; n.y += (n.vy-3.5*n.z)*sp*dt + (Math.random()-0.5)*BG.kick*5;
+    if(n.x<-20) n.x += W+40; else if(n.x>W+20) n.x -= W+40;
+    if(n.y<-20) n.y += H+40; else if(n.y>H+20) n.y -= H+40;
+  }
+  cx.lineWidth = 1;
+  for(let i=0;i<ns.length;i++) for(let j=i+1;j<ns.length;j++){ // threads between posts that are close
+    const a = ns[i], b = ns[j], dx = a.x-b.x, dy = a.y-b.y, q = dx*dx+dy*dy;
+    if(q>link*link) continue;
+    const al = (1-Math.sqrt(q)/link)*0.32*Math.min(a.z,b.z)*(1+BG.kick);
+    cx.strokeStyle = "rgba("+rgb(a).map(Math.round).join(",")+","+al.toFixed(3)+")";
+    cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
+  }
+  for(const n of ns){
+    const c = rgb(n).map(Math.round).join(","), tw = 0.75+0.25*Math.sin(t*0.8+n.ph), r = 1.1+1.9*n.z;
+    cx.fillStyle = "rgba("+c+","+(0.13*n.z*tw).toFixed(3)+")"; cx.beginPath(); cx.arc(n.x,n.y,r*4.2,0,7); cx.fill();
+    cx.fillStyle = "rgba("+c+","+(0.92*n.z*tw).toFixed(3)+")"; cx.beginPath(); cx.arc(n.x,n.y,r,0,7); cx.fill();
+  }
+  // a signal runs from one post to a neighbour: something being said, passed on
+  if(!calm && t>BG.nextPulse){
+    BG.nextPulse = t + (0.5+Math.random()*1.1)/m.energy;
+    const a = ns[Math.floor(Math.random()*ns.length)], near = ns.filter(b=>b!==a && Math.hypot(a.x-b.x,a.y-b.y)<link);
+    if(near.length) BG.pulses.push({ a, b:near[Math.floor(Math.random()*near.length)], p:0 });
+  }
+  BG.pulses = BG.pulses.filter(pl=>{
+    pl.p += dt*1.5*m.energy; if(pl.p>=1) return false;
+    const x = pl.a.x+(pl.b.x-pl.a.x)*pl.p, y = pl.a.y+(pl.b.y-pl.a.y)*pl.p, c = base.map(v=>Math.round(v*0.5+127)).join(",");
+    cx.strokeStyle = "rgba("+c+","+(0.5*(1-pl.p)).toFixed(3)+")"; cx.beginPath(); cx.moveTo(pl.a.x,pl.a.y); cx.lineTo(x,y); cx.stroke();
+    cx.fillStyle = "rgba("+c+",.95)"; cx.beginPath(); cx.arc(x,y,2,0,7); cx.fill();
+    cx.fillStyle = "rgba("+c+",.18)"; cx.beginPath(); cx.arc(x,y,7,0,7); cx.fill();
+    return true;
+  });
 }
 function applyBackground(){
   const want = META.bg3d!==false;
-  window._bgPaused = !want; // the site script stops its per-frame work while this is set
-  document.body.classList.toggle("bg3d", want && bgState==="on");
-  if(!want || bgState!=="idle") return;
-  bgState = "loading";
-  const next = i => {
-    if(i>=BG_SCRIPTS.length){
-      bgState = document.getElementById("bg3d-canvas") ? "on" : "failed"; // no canvas means no WebGL here
-      if(bgState==="on") bgOwnMotion();
-      return applyBackground();
-    }
-    const el = document.createElement("script");
-    el.src = BG_SCRIPTS[i]; el.async = false;
-    el.onload = ()=>next(i+1);
-    el.onerror = ()=>{ bgState = "failed"; };
-    document.head.appendChild(el);
-  };
-  next(0);
+  document.body.classList.toggle("bg3d", want);
+  if(!BG.cv){
+    const cv = document.createElement("canvas"); cv.id = "bg-canvas"; cv.setAttribute("aria-hidden", "true");
+    document.body.insertBefore(cv, document.body.firstChild);
+    BG.cv = cv; BG.cx = cv.getContext("2d");
+    if(!BG.cx) return; // no canvas: the plain backdrop stays
+    bgSize(); window.addEventListener("resize", bgSize);
+    BG.raf = requestAnimationFrame(bgFrame);
+  }
+  if(!want && BG.cx) BG.cx.clearRect(0,0,BG.cv.width,BG.cv.height);
 }
 
 /* ---------- modal helpers ---------- */

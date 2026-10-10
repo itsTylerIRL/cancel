@@ -64,7 +64,7 @@ Arrow keys do everything, including menus. Enter picks, Esc backs out, `B` opens
 
 ## Running it yourself
 
-It's a static site. No build step, no framework, no dependencies.
+It's a static site. No build step, no framework, no dependencies. Even the animated backdrop is the game's own canvas: nothing is loaded from anywhere else.
 
 ```sh
 git clone git@github.com:itsTylerIRL/cancel.git
