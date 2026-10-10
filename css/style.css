@@ -34,20 +34,6 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;
 .screen.active{display:block;animation:fadein .25s ease-out;}
 @keyframes fadein{from{opacity:0;transform:translateY(6px);}}
 .hidden{display:none!important;}
-.btn{background:#0d1418;border:2px solid var(--neon);color:var(--txt);border-radius:999px;
-  font-family:var(--cute);font-weight:bold;padding:11px 20px;cursor:pointer;
-  text-transform:uppercase;letter-spacing:1px;font-size:14px;
-  box-shadow:0 4px 0 #000;transition:transform .08s,box-shadow .08s,background .15s;}
-.btn:hover{background:#12202a;}
-.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #000;}
-.btn:focus-visible{outline:2px solid var(--neon2);outline-offset:3px;}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:0 4px 0 #000;background:#0d1418;}
-.btn.big{font-size:18px;padding:14px 28px;border-width:3px;background:var(--neon);color:#fff;
-  text-shadow:1px 1px 0 rgba(0,0,0,.5);box-shadow:0 5px 0 #0e3a44,0 0 22px rgba(139,233,253,.55);}
-.btn.big:hover{background:#b5f1fe;}
-.btn.big:active{box-shadow:0 1px 0 #0e3a44;}
-.btn.big:disabled{background:var(--neon);box-shadow:0 5px 0 #0e3a44;}
-.btn.small{font-size:12px;padding:7px 13px;box-shadow:0 3px 0 #000;}
 .panel{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:18px;
   margin:10px 0;box-shadow:var(--sticker),0 0 30px rgba(0,0,0,.5);}
 .panel h2{font-family:var(--cute);text-align:center;letter-spacing:3px;color:var(--neon2);margin-top:0;
@@ -285,11 +271,6 @@ h1.game-title .is{color:var(--neon);text-shadow:3px 3px 0 var(--neon2),-1px -1px
 @keyframes flip{50%{transform:rotateY(90deg) translateY(-12px);}}
 .stat-line{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--dim);margin:5px 0;}
 .stat-line b{color:var(--txt);text-align:right;}
-.choice{display:block;width:100%;text-align:left;font-family:inherit;color:var(--txt);cursor:pointer;
-  background:#04070a;border:2px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0;
-  box-shadow:3px 3px 0 rgba(0,0,0,.6);transition:transform .1s,border-color .1s;}
-.choice:hover{border-color:var(--pink);transform:translateX(3px);}
-.choice:disabled{opacity:.4;cursor:not-allowed;transform:none;border-color:var(--line);}
 .choice b{display:block;font-family:var(--cute);font-size:14px;color:var(--neon2);letter-spacing:1px;text-transform:uppercase;}
 .choice span{display:block;font-size:12px;color:var(--dim);margin-top:2px;}
 .boss-face{display:block;width:96px;height:96px;margin:0 auto 6px;border-radius:16px;border:3px solid #ff5555;
@@ -370,10 +351,6 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 .tile.dig{box-shadow:inset 0 0 0 2px var(--gold);animation:blink 1s steps(2) infinite;}
 /* run setup */
 .pick-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0;}
-.pick{font-family:var(--cute);font-weight:bold;font-size:12px;letter-spacing:1px;color:var(--dim);cursor:pointer;
-  background:#04070a;border:2px solid var(--line);border-radius:999px;padding:6px 12px;transition:transform .1s,border-color .1s;}
-.pick:hover{border-color:var(--pink);transform:translateY(-2px);}
-.pick.on{color:#fff;border-color:var(--neon);background:var(--neon);box-shadow:0 3px 0 #0e3a44;}
 #tribe-desc{display:flex;gap:10px;align-items:center;justify-content:center;text-align:left;font-size:12px;color:var(--dim);margin:8px 0 4px;}
 #tribe-desc b{display:block;color:var(--neon2);font-size:13px;}
 #tribe-desc span{display:block;}
@@ -464,9 +441,6 @@ b.rare{color:var(--gold)!important;} b.legendary{color:var(--pink)!important;} b
 /* settings */
 .set-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;background:#04070a;padding:9px 12px;margin:8px 0;font-size:13px;}
 .set-row b{display:block;color:var(--neon2);} .set-row span{color:var(--dim);font-size:12px;}
-.tog{font-family:var(--cute);font-weight:bold;font-size:12px;letter-spacing:1px;text-transform:uppercase;min-width:54px;padding:7px 10px;cursor:pointer;
-  color:var(--dim);background:#0d1418;border:2px solid var(--line);border-radius:999px;}
-.tog.on{color:#0b2a00;background:var(--acid);border-color:var(--acid);}
 .seg{display:flex;gap:4px;} .seg .tog{min-width:40px;}
 .btn.danger{border-color:var(--red);color:var(--red);}
 .icon-btn{margin-left:-4px;}
@@ -634,29 +608,43 @@ body::after{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0
 .brand b{color:#fff;text-shadow:none;font-weight:700;}
 #doom b{font-family:var(--mono);color:#ff8b8b;}
 /* buttons: the site's bordered, square-ish buttons that fill on hover */
-.btn{font-family:var(--mono);font-weight:500;border-radius:4px;border:1px solid var(--neon);background:#0d1418;color:var(--neon);box-shadow:none;
-  text-transform:lowercase;letter-spacing:.06em;transition:all .2s;}
-.btn:hover{background:var(--neon);color:#000;}
-.btn:active{transform:translateY(1px);box-shadow:none;}
-.btn:disabled,.btn:disabled:hover{background:#0d1418;color:#3d4a4f;border-color:#243036;box-shadow:none;opacity:1;}
-.btn.big{font-size:15px;padding:13px 26px;border-width:1px;background:rgba(139,233,253,.12);color:var(--neon);text-shadow:none;
-  box-shadow:0 0 22px rgba(139,233,253,.25),inset 0 0 18px rgba(139,233,253,.08);text-transform:lowercase;letter-spacing:.12em;}
-.btn.big:hover{background:var(--neon);color:#000;box-shadow:0 0 30px rgba(139,233,253,.5);}
+/* ---------- buttons: one system ----------
+   Shared: one corner radius, one border weight, three heights. Every kind has the same four states (hover, pressed,
+   keyboard focus, disabled). Colour means one thing: cyan an ordinary action or the chosen option, green "on" or go,
+   gold costs or pays, red destroys. Only the big primary buttons fill solid on hover. */
+:root{--r:5px;--bh-s:32px;--bh:40px;--bh-l:50px;--bt:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .08s,filter .08s;}
+.btn,.pick,.tog,.choice,.mute,.icon-btn{font-family:var(--mono);border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:var(--bt);-webkit-tap-highlight-color:transparent;}
+.btn:focus-visible,.pick:focus-visible,.tog:focus-visible,.choice:focus-visible,.mute:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--neon2);outline-offset:2px;}
+.btn:active,.pick:active,.tog:active,.choice:active,.mute:active,.icon-btn:active{transform:translateY(1px);filter:brightness(.88);}
+.btn:disabled,.pick:disabled,.tog:disabled,.choice:disabled,.mute:disabled,.icon-btn:disabled{cursor:not-allowed;transform:none;filter:none;box-shadow:none;}
+/* the standard button */
+.btn{min-height:var(--bh);padding:10px 20px;font-size:14px;font-weight:500;text-transform:lowercase;letter-spacing:.06em;background:#0d1418;border-color:var(--neon);color:var(--neon);box-shadow:none;}
+.btn:hover{background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.22);}
+.btn:disabled,.btn:disabled:hover{background:#0d1418;color:#3d4a4f;border-color:#243036;opacity:1;}
+.btn.big{min-height:var(--bh-l);font-size:15px;padding:13px 26px;background:rgba(139,233,253,.12);letter-spacing:.12em;text-shadow:none;
+  box-shadow:0 0 22px rgba(139,233,253,.25),inset 0 0 18px rgba(139,233,253,.08);}
+.btn.big:hover{background:var(--neon);color:#000;box-shadow:0 0 30px rgba(139,233,253,.5);} /* the primary action is the one that fills */
 .btn.big:active{box-shadow:none;}
 .btn.big:disabled,.btn.big:disabled:hover{background:rgba(139,233,253,.04);color:#3d4a4f;box-shadow:none;}
-.btn.small{font-size:11px;padding:7px 12px;border-color:#333;color:#8a979c;background:transparent;box-shadow:none;border-radius:6px;}
-.btn.small:hover{border-color:var(--neon);color:var(--neon);background:rgba(139,233,253,.1);box-shadow:0 0 20px rgba(139,233,253,.2);}
+.btn.small{min-height:var(--bh-s);font-size:11px;padding:6px 12px;border-color:#333;color:#8a979c;background:transparent;}
+.btn.small:hover{border-color:var(--neon);color:var(--neon);background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.2);}
 .btn.price{color:var(--gold);border-color:rgba(241,250,140,.5);} .btn.price:hover{background:rgba(241,250,140,.12);color:var(--gold);border-color:var(--gold);box-shadow:0 0 18px rgba(241,250,140,.2);}
 .btn.fuse,.btn.fuse:hover{background:var(--acid);color:#000;border-color:var(--acid);}
-.btn.danger{border-color:rgba(255,85,85,.5);color:var(--red);} .btn.danger:hover{background:rgba(255,85,85,.12);border-color:var(--red);color:var(--red);}
+.btn.danger{border-color:rgba(255,85,85,.5);color:var(--red);} .btn.danger:hover{background:rgba(255,85,85,.12);border-color:var(--red);color:var(--red);box-shadow:0 0 18px rgba(255,85,85,.2);}
+/* a row to choose from: a tall option with a title and a line under it */
+.choice{display:block;width:100%;text-align:left;color:var(--txt);background:#04070a;padding:10px 12px;margin:8px 0;}
+.choice:hover{border-color:var(--neon);box-shadow:0 0 16px rgba(139,233,253,.18);}
+.choice:disabled{opacity:.45;border-color:var(--line);}
 #btn-link{background:rgba(80,250,123,.14);color:var(--acid);border-color:var(--acid);box-shadow:0 0 22px rgba(80,250,123,.25);}
 #btn-link:hover{background:var(--acid);color:#000;}
 .pick,.tog,.chip,.mute,.icon-btn,.meta-stat,.tier-tag,.rar-tag,.sets i,.delta i,.card em,.card u,.nft-row select,.nft-row input,.name-in,.meme-in{border-radius:4px;}
-.pick{font-family:var(--mono);font-weight:500;border-width:1px;background:transparent;color:#8a979c;text-transform:lowercase;}
-.pick:hover{border-color:var(--neon);color:var(--neon);transform:none;}
+/* one of several (a tab, a tribe): cyan when chosen. on or off: green when on. Otherwise they are the same button. */
+.pick,.tog{min-height:var(--bh-s);padding:6px 12px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:lowercase;background:transparent;color:#8a979c;}
+.tog{min-width:54px;}
+.pick:hover,.tog:hover{border-color:var(--neon);color:var(--neon);}
 .pick.on{background:rgba(139,233,253,.14);color:var(--neon);border-color:var(--neon);box-shadow:0 0 14px rgba(139,233,253,.25);}
-.tog{font-family:var(--mono);border-width:1px;background:transparent;}
-.tog.on{background:rgba(80,250,123,.14);color:var(--acid);border-color:var(--acid);}
+.tog.on{background:rgba(80,250,123,.14);color:var(--acid);border-color:var(--acid);box-shadow:0 0 14px rgba(80,250,123,.2);}
+.pick:disabled,.tog:disabled{opacity:.45;}
 .chip{background:rgba(139,233,253,.04);border:1px solid var(--line);}
 .chip.sale{background:rgba(80,250,123,.14);color:var(--acid);border-color:var(--acid);}
 .chip.markup{background:rgba(255,184,108,.14);color:#ffb86c;border-color:#ffb86c;}
@@ -1522,3 +1510,10 @@ body[data-phase="night"] .box-h{color:#8f96d8;}
 #you-tok .zzz i{font-style:normal;font-size:14px;margin-left:1px;} #you-tok .zzz b{font-size:18px;margin-left:1px;}
 @keyframes zzz{0%{opacity:0;transform:translate(-4px,6px);}30%{opacity:1;}100%{opacity:0;transform:translate(6px,-10px);}}
 body.calm #grade{display:none;}
+
+/* icon buttons are the small button's size, square, with the same corners */
+.top-right .mute,.icon-btn{width:var(--bh-s);height:var(--bh-s);min-height:0;padding:0;margin-left:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;background:transparent;border-color:#333;color:var(--txt);border-radius:var(--r);}
+.top-right .mute:hover,.icon-btn:hover{border-color:var(--neon);background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.2);}
+.top-right{gap:6px;}
+/* nothing you press with a finger is smaller than 40px */
+@media (pointer:coarse){ .btn.small,.pick,.tog{min-height:40px;} .top-right .mute,.icon-btn{width:40px;height:40px;} }
