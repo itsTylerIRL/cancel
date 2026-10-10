@@ -100,6 +100,8 @@ def compose(look, relic_ids):
         for k in ("shirt", "hat", "glasses", "hair", "face"):
             if k in slots:
                 slots[k] = [it for it in slots[k] if not it.get("own")]
+    if body == "Milady" and slots.get("costume") and "shirt" in slots:  # a costume is the whole outfit
+        slots["shirt"] = [it for it in slots["shirt"] if not it.get("own")]
     eyes = (slots.get("eyes") or [None])[0]
     tint = SPEC["tint"]
     colour = (look or {}).get("eye") or ""

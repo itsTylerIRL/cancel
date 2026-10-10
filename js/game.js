@@ -145,7 +145,8 @@ const SINGLE = ["hat","glasses","shirt","hair","eyes","costume"];
 const REMILIO_FIT = { base:[-70,-32,762,762],
   onMilady:{ shirt:[-179,-85,1006,838],   // wider, to her shoulders, and a little longer
              hat:[-130,-37,876,876],      // her head is bigger: hats grow and sit lower
-             glasses:[-137,-102,876,876], // a little bigger, and up to meet her eyes
+             glasses:[-92,-62,800,800],   // barely bigger, and up to meet her eyes
+             costume:[-118,-36,838,823],  // a hood wide enough for her head, and a body that reaches the bottom of the frame
              deco:[-157,-129,914,914],    // face paint and scars spread across her cheeks
              smoke:[-116,-78,838,838],    // whatever is in her mouth
              ear:[-120,-42,762,762] } };  // out to where her ear actually is
@@ -294,6 +295,7 @@ async function composeAvatar(base, relicIds){
   }
   // on a Remilio body a costume hides what the collection hides under one; a relic you put on still shows
   if(body==="Remilio" && slots.costume) for(const k of ["shirt","hat","glasses","hair","face"]) if(slots[k]) slots[k] = slots[k].filter(it=>!it.own);
+  if(body==="Milady" && slots.costume && slots.shirt) slots.shirt = slots.shirt.filter(it=>!it.own); // a costume is the whole outfit: her own shirt doesn't poke out of its collar
   const items = DRAW_ORDER[body].flatMap(slot => (slots[slot]||[]).map(it=>({...it, slot})));
   const ims = await Promise.all(items.map(it=>loadImg(it.url).catch(()=>null)));
   // eye colour applies to her own eyes, when they are a kind that takes a colour
