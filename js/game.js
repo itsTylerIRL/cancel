@@ -3347,8 +3347,8 @@ function endRun(win){
     + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
     + "<div class='end-cols'><div class='end-left'><canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
     + (win ? "<div id='end-king' class='end-king'></div>" : "") // straight under the character: the one thing left to do
-    + "<div class='row end-actions'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>"
-      + (!rnUser() ? "title screen" : next && META.drip>=next.cost ? "spend drip ✨" : "unlocks")+"</button></div></div><div class='end-right'>"
+    + "<div class='row end-actions'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>main menu"
+      +"</button></div></div><div class='end-right'>"
     + dailyNote
     + (G.heatUp ? "<div class='note good'>🔥 HEAT "+META.heat+" unlocked — "+HEAT[META.heat-1]+"</div>" : "")
     + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
@@ -3379,7 +3379,7 @@ function endRun(win){
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft, run.base.nft ? null : META.last); };
-    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); if(rnUser() && next && META.drip>=next.cost) openUnlocks(); };
+    $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
     $("end-copy").onclick=async()=>{
       sfx("click");
       let ok = false;
