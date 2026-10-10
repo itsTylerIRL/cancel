@@ -1030,6 +1030,7 @@ function genMap(){
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
   put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); put(T.ALTAR,4); // placed last, so everything above stays where it always was on a given seed
+  spreadOut(rooms);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
@@ -1050,6 +1051,30 @@ function genMap(){
     if((dist[x+","+y]||0) <= 18 || far++ % 2){ G.map[y][x] = T.EMPTY; G.late.push(x+","+y); }
   }
   updateFog();
+}
+/* The same character twice in a few steps is one spot too few: a cluster of onno is hard to find again and leaves the
+   rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
+   of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
+   a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
+const SPREAD = 12, SPREAD_FROM = "2026-10-12";
+function spreadOut(rooms){
+  if(G.daily && G.daily < SPREAD_FROM) return;
+  const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR]){
+    const kept = [];
+    for(const r of rooms.filter(r=>G.map[r.y][r.x]===t)){
+      if(kept.every(k=>far(k,r) >= SPREAD)){ kept.push(r); continue; }
+      const others = rooms.filter(o=>G.map[o.y][o.x]===t && o!==r);
+      let best = null, bestD = -1; // the ordinary room furthest from every other one of this kind
+      for(const o of rooms){
+        const here = G.map[o.y][o.x]; if(here!==T.EVENT && here!==T.MON && here!==T.FIRE) continue;
+        const d = Math.min(...others.map(k=>far(k,o)));
+        if(d > bestD){ bestD = d; best = o; }
+      }
+      if(!best || bestD < SPREAD){ kept.push(r); continue; } // nowhere better: it stays
+      const swap = G.map[best.y][best.x]; G.map[best.y][best.x] = t; G.map[r.y][r.x] = swap; kept.push(best);
+    }
+  }
 }
 function wakeElites(){ // the first boss is down: the held-back elites move into whatever rooms are still empty
   let n = 0;
@@ -2166,12 +2191,15 @@ function openShrine(){
 
 /* ---------- events ---------- */
 function openEvent(){
-  const fresh = EVENTS.filter(e=>!G.seen.includes(e.id));
-  const ev = choice(fresh.length ? fresh : EVENTS);
+  const ok = EVENTS.filter(e=>(e.after||0) <= G.bossesBeaten); // some only turn up once a boss is down
+  const fresh = ok.filter(e=>!G.seen.includes(e.id));
+  const ev = choice(fresh.length ? fresh : ok);
   G.seen.push(ev.id); clearTile();
   let html = "<h2>"+ev.icon+" "+ev.name+"</h2><div class='note'><i>"+ev.text+"</i></div>";
   ev.choices.forEach((c,i)=>{
-    const off = (c.cost && G.cult<c.cost) || (c.need==="relic" && !G.relics.length) || (c.need && c.need!=="relic" && !setCounts(G.relics)[c.need]);
+    const dressed = G.relics.some(id=>["Shirt","Hat","Costume"].includes(relicById(id).icon[1]));
+    const off = (c.cost && G.cult<c.cost) || (c.need==="relic" && !G.relics.length) || (c.need==="dressed" && !dressed)
+      || (c.need && c.need!=="relic" && c.need!=="dressed" && !setCounts(G.relics)[c.need]);
     html += "<button class='choice' data-i='"+i+"'"+(off?" disabled":"")+"><b>"+c.label+"</b><span>"+c.hint+"</span></button>";
   });
   openModal(html);
@@ -2195,13 +2223,27 @@ function applyFx(list){
   for(const [k,v] of list){
     switch(k){
       case "cult": G.cult+=v; out.push("+"+v+" $CULT"); break;
-      case "cultpct": { const c=Math.floor(G.cult*-v/100); G.cult-=c; out.push("−"+c+" $CULT"); break; }
+      case "cultpct": { const c=Math.floor(G.cult*Math.abs(v)/100); G.cult += v<0 ? -c : c; out.push((v<0?"−":"+")+c+" $CULT"); break; }
       case "hp": {
         const before = G.stats.hp;
         G.stats.hp = clamp(G.stats.hp+v, 1, G.stats.maxhp);
         out.push(v>0 ? "+"+(G.stats.hp-before)+" HP" : "−"+(before-G.stats.hp)+" HP"); break;
       }
-      case "maxhp": G.bonus.maxhp+=v; G.stats.hp+=v; G.stats.maxhp+=v; recalcStats(); out.push("+"+v+" max HP"); break;
+      case "maxhp": G.bonus.maxhp+=v; G.stats.hp=Math.max(1, G.stats.hp+v); G.stats.maxhp+=v; recalcStats(); out.push((v<0?"−":"+")+Math.abs(v)+" max HP"); break;
+      case "paydouble": G.flags.payDouble = (G.flags.payDouble||0)+v; out.push("your next "+v+" fights pay double"); break;
+      case "scout": { let n = 0; // the maze within v tiles is uncovered
+        for(let y=Math.max(0,G.py-v); y<=Math.min(H-1,G.py+v); y++) for(let x=Math.max(0,G.px-v); x<=Math.min(W-1,G.px+v); x++) if(G.fog[y][x] && Math.hypot(x-G.px,y-G.py)<=v){ G.fog[y][x] = false; G.tilesSeen++; n++; }
+        out.push(n ? n+" tiles of the maze revealed" : "you had already seen all of it"); break; }
+      case "dupe": { const mine = [...new Set(G.relics)].map(relicById).filter(r=>!v || r.rar===v);
+        if(!mine.length){ G.cult += 40; out.push("nothing to copy: +40 $CULT instead"); break; }
+        const r = choice(mine);
+        G.queue.unshift(()=>acquireRelic(r, old=>{ closeModal(); mlog("A copy of <b>"+r.name+"</b>"+(old?" <i>(dropped "+old.name+")</i>":"")+".", "good"); renderMap(); }, ()=>closeModal()));
+        out.push("a copy of "+r.name); break; }
+      case "giveset": { const pool = RELICS.filter(r=>r.set.includes(v) && !hasRelic(r.id) && r.rar!=="legendary" && r.rar!=="cursed" && !r.tags.includes("blackmarket"));
+        if(!pool.length){ out.push("nobody answers"); break; }
+        const r = choice(pool);
+        G.queue.unshift(()=>acquireRelic(r, old=>{ closeModal(); mlog("Took <b>"+r.name+"</b> — "+r.desc+(old?" <i>(dropped "+old.name+")</i>":""), "good"); renderMap(); }, ()=>closeModal()));
+        out.push(r.name+" is real now"); break; }
       case "atk": case "spd": G.bonus[k]+=v; recalcStats(); out.push("+"+v+" "+k.toUpperCase()); break;
       case "atkboss": { const n=1+G.bossesBeaten; G.bonus.atk+=n; recalcStats(); out.push("+"+n+" ATK"); break; }
       case "moves":
@@ -3189,9 +3231,11 @@ function settleWin(F, opts, log){
   if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
   if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
   let c = randi(foe.cult[0], foe.cult[1]);
-  c = Math.round(c * (tribeIs("schizoposter") && foe.id==="fud" ? 2 : 1) * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
+  const dbl = G.flags.payDouble>0; if(dbl) G.flags.payDouble--; // ABUNDANCE MINDSET: what you gave comes back
+  c = Math.round(c * (dbl ? 2 : 1) * (tribeIs("schizoposter") && foe.id==="fud" ? 2 : 1) * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
   if(hasRelic("no_meme") && rnd()<0.2){ c*=3; log("💌 There is no meme. I love you. The floor triples.", "crit"); }
   G.cult += c + foe.stolen;
+  if(dbl) log("🌾 Abundance: this one paid double."+(G.flags.payDouble ? " "+G.flags.payDouble+" more to come." : ""), "good");
   log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
   if(hasRelic("silver_coin")){ const sc = Math.round(15*tm("silver_coin")); G.cult+=sc; log("🪙 Silver Coin: +"+sc+" $CULT.", "good"); }
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
