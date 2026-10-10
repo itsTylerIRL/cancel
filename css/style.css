@@ -1490,11 +1490,6 @@ body.calm #screen-combat::after,body.calm #combo,body.calm #finish-word{display:
 #screen-title .title-wrap{padding-top:0;width:100%;}
 
 /* ---------- interface polish ---------- */
-/* changing screens: a flick of static, then the picture tunes in */
-#wipe{position:fixed;inset:0;z-index:180;pointer-events:none;opacity:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.10) 0 2px,rgba(0,0,0,.25) 2px 5px),linear-gradient(180deg,transparent 46%,rgba(139,233,253,.9) 49.5% 50.5%,transparent 54%);}
-#wipe.go{animation:wipe .3s steps(6) forwards;} @keyframes wipe{0%{opacity:.85;transform:scaleY(.04);filter:brightness(3);}35%{opacity:.6;transform:scaleY(1);}70%{opacity:.25;background-position:0 9px,0 0;}100%{opacity:0;}}
-.screen.tune{animation:tune .34s cubic-bezier(.2,.9,.3,1);} @keyframes tune{0%{opacity:0;transform:scaleY(.93);filter:brightness(2) saturate(.4) blur(2px);}55%{opacity:1;filter:brightness(1.25) saturate(.9);}100%{transform:none;filter:none;}}
-#screen-combat.tune{animation:none;} /* a fight has its own arrival */
 /* the day is warm and the night is cool, everywhere */
 #grade{position:fixed;inset:0;z-index:140;pointer-events:none;opacity:0;transition:opacity 1.6s,background 1.6s;}
 body[data-phase="day"] #grade{opacity:1;background:linear-gradient(180deg,rgba(255,196,120,.055),rgba(255,140,60,.03));}
@@ -1526,4 +1521,4 @@ body[data-phase="night"] .box-h{color:#8f96d8;}
 #you-tok .zzz{position:absolute;right:-6%;top:-26%;font-family:var(--mono);font-weight:700;font-size:11px;color:#cfd6ff;text-shadow:0 1px 0 #000;animation:zzz 2.4s ease-in-out infinite;pointer-events:none;}
 #you-tok .zzz i{font-style:normal;font-size:14px;margin-left:1px;} #you-tok .zzz b{font-size:18px;margin-left:1px;}
 @keyframes zzz{0%{opacity:0;transform:translate(-4px,6px);}30%{opacity:1;}100%{opacity:0;transform:translate(6px,-10px);}}
-body.calm #wipe,body.calm #grade{display:none;}
+body.calm #grade{display:none;}

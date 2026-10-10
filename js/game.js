@@ -1588,13 +1588,8 @@ function tileInfo(x,y){
   return T_DESC[t] || DISTRICTS[districtAt(x,y)].name+" district.";
 }
 function show(id){
-  const was = document.querySelector(".screen.active");
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
-  if(was && was.id!==id && !META.calm){ // changing screens is a channel change: a flick of static, then the new picture
-    const w = $("wipe"); w.classList.remove("go"); void w.offsetWidth; w.classList.add("go");
-    $(id).classList.remove("tune"); void $(id).offsetWidth; $(id).classList.add("tune");
-  }
   if(id==="screen-title" || id==="screen-avatar") delete document.body.dataset.phase; // the day and night grade belongs to a run
   document.body.classList.toggle("on-title", id==="screen-title");
   setTimeout(setDoom, 0);
