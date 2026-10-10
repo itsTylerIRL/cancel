@@ -121,8 +121,10 @@ def compose(look, relic_ids):
                 part = im.crop((x0, y0, x1, y1)).resize((max(1, round(bw * k)), max(1, round(bh * k))), Image.NEAREST)
                 paste(cv, part, round(78 - bw * k / 2), round(742 - 150 * props - bh * k))
                 props += 1
-            elif it["cfg"] == "Remilio":  # Remilio art is square with a smaller head: line its face up
-                paste(cv, im.resize((762, 762)), -70, -32)
+            elif it["cfg"] == "Remilio":  # Remilio art is square with a smaller head: fitted per kind of piece on a Milady, as the game does
+                fit = SPEC.get("REMILIO_FIT") or {"base": [-70, -32, 762, 762], "onMilady": {}}
+                x, y, w, h = (fit["onMilady"].get(slot) if body == "Milady" else None) or fit["base"]
+                paste(cv, im.resize((w, h)), x, y)
             elif slot == "hair" and slots.get("costume"):  # under a hood only the hair around the face shows
                 im = im.resize((600, 750))
                 clip = Image.new("L", (600, 750), 0)

@@ -140,6 +140,15 @@ const WEAR = {
   Bonkler: { Body:"prop", Armor:"prop", Hand:"prop", Offhand:"prop", Head:"prop" },
 };
 const SINGLE = ["hat","glasses","shirt","hair","eyes","costume"];
+/* Where Remilio art lands on the 600x750 canvas, as [x, y, width, height]. A Remilio is square with a smaller head and
+   narrower shoulders, so on a Milady each kind of piece is stretched to her proportions instead of sharing one fit. */
+const REMILIO_FIT = { base:[-70,-32,762,762],
+  onMilady:{ shirt:[-179,-85,1006,838],   // wider, to her shoulders, and a little longer
+             hat:[-130,-37,876,876],      // her head is bigger: hats grow and sit lower
+             glasses:[-203,-162,990,990], // sized to her eyes, and up to meet them
+             deco:[-157,-129,914,914],    // face paint and scars spread across her cheeks
+             smoke:[-116,-78,838,838],    // whatever is in her mouth
+             ear:[-120,-42,762,762] } };  // out to where her ear actually is
 /* back-to-front order of the slots, following each collection's own layering (hair sits over the eyes, brows over the hair) */
 const DRAW_ORDER = {
   Milady:  ["skin","face","eyes","mouth","necktat","neck","shirt","hair","costume","brows","smoke","ear","deco","glasses","hat","weapon","friend","prop"],
@@ -318,7 +327,8 @@ async function composeAvatar(base, relicIds){
       cx.drawImage(im, bx,by,bw,bh, 78-bw*k/2, 742-150*props-bh*k, bw*k, bh*k);
       props++;
     } else if(it.cfg==="Remilio"){ // Remilio art is 600x600 with a smaller head: line its face up with hers
-      cx.drawImage(im, -70, -32, 762, 762);
+      const f = (body==="Milady" && !nftIm && REMILIO_FIT.onMilady[it.slot]) || REMILIO_FIT.base;
+      cx.drawImage(im, f[0], f[1], f[2], f[3]);
     } else if(it.slot==="hair" && slots.costume){ // under a hood only the hair around the face shows
       cx.save(); cx.beginPath(); cx.ellipse(330, 300, 225, 255, 0, 0, Math.PI*2); cx.clip();
       cx.drawImage(im, 0, 0, 600, 750); cx.restore();

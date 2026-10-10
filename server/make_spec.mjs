@@ -7,7 +7,7 @@ const data = readFileSync(root+'js/data.js', 'utf8'), game = readFileSync(root+'
 const D = new Function(data+'; return {RELICS, TOKEN_MAP, TRIBES, SETS};')();
 const a = game.indexOf('const BASE_LAYERS'), b = game.indexOf('function basePicks');
 if(a<0 || b<a) throw new Error('layer tables not found in game.js');
-const L = new Function(game.slice(a, b)+'; return {BASE_LAYERS, WEAR, SINGLE, DRAW_ORDER, TOKEN_SLOTS};')();
+const L = new Function(game.slice(a, b)+'; return {BASE_LAYERS, WEAR, SINGLE, DRAW_ORDER, TOKEN_SLOTS, REMILIO_FIT};')();
 const index = JSON.parse(readFileSync(root+'assets/asset_index.json', 'utf8'));
 const spec = { ...L, tint: D.TOKEN_MAP.milady.tint, token_map: D.TOKEN_MAP, assets: {Milady: index.Milady, Remilio: index.Remilio},
   relics: Object.fromEntries(D.RELICS.map(r=>[r.id, {icon:r.icon, rar:r.rar, set:r.set}])),
