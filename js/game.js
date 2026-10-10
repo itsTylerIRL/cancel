@@ -4123,7 +4123,7 @@ async function genAvatar(nft, last){ // last: the character from the previous ru
     const ok = tk ? true : await loadNft(nft).then(()=>true, ()=>false);
     $("avatar-canvas").classList.remove("loading"); $("nft-load").disabled = false;
     if(tok!==avaTok) return;
-    $("nft-msg").textContent = tk ? "playing as "+label+", rebuilt from its traits: relics replace what it wears"
+    $("nft-msg").textContent = tk ? "playing as "+label
       : ok ? "playing as "+label+" — its traits couldn't be read, so relics are drawn over its picture"
       : "couldn't load that one — check the number and your connection";
     if(tk){ ava.picks.kit = tokenKit(nft.kind, traits, tk); if(ava.picks.kit.tribe) PICK.tribe = ava.picks.kit.tribe; }
