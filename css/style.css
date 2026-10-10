@@ -1588,3 +1588,16 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 
 .jade{display:block;font-family:var(--label);letter-spacing:.12em;text-transform:lowercase;color:#7fd8c4;font-size:10.5px;margin-bottom:4px;}
 .shop-sign{text-align:center;font-family:var(--label);letter-spacing:.14em;text-transform:lowercase;color:var(--dim);font-size:10px;margin:-2px 0 8px;}
+
+/* a player's tribe, on their card */
+.tribe-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 5px;border-radius:4px;border:1px solid var(--tc);color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent);
+  font-family:var(--label);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;vertical-align:1px;box-shadow:0 0 10px color-mix(in srgb,var(--tc) 22%,transparent);}
+.tribe-badge i{font-style:normal;font-size:12px;letter-spacing:0;}
+/* your last run: the king's card, in the interface's own colour instead of gold */
+.last-box{margin-bottom:8px;}
+.king-card.last-card{border-color:rgba(139,233,253,.4);background:rgba(139,233,253,.04);}
+.king-card.last-card b{color:#e9f6fa;} .king-card.last-card .bpfp.big{border-color:var(--neon);}
+.king-card.last-card.won{border-color:rgba(80,250,123,.5);background:rgba(80,250,123,.05);}
+.king-card.last-card .king-clock b{color:var(--gold);font-size:20px;} .king-card.last-card .bad{color:#ff8b8b;}
+/* today's daily, on its button */
+#btn-daily .dfield{display:block;font-size:11px;letter-spacing:.02em;opacity:.95;margin:1px 0;} #btn-daily .dfield u{text-decoration:none;font-weight:800;}

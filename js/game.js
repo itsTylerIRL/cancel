@@ -3905,6 +3905,32 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
 }
 /* the title screen's king panel, with the clock to the next reset (the daily turns over then too) */
 let kingClock = 0;
+/* A tribe is a class now, so it is shown like one: its own colour, its icon and its name, wherever a player's card appears. */
+const TRIBE_COLOR = { hypebeast:"#ffd75e", gyaru:"#a6ff5e", lolita:"#ff9ecb", harajuku:"#8be9fd", prep:"#b7a57a", schizoposter:"#b9a4ff", collector:"#ffb86c" };
+const tribeBadge = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<span class='tribe-badge' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.rule+" "+t.sig+" "+t.cost)+"'><i>"+t.icon+"</i>"+t.name+"</span>" : ""; };
+const agoText = at => { const m = Math.max(0, Math.round((Date.now()-at)/60000)); return m<1 ? "just now" : m<60 ? m+"m ago" : m<1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
+function renderLast(){ // your last run, above the king: the same card, in your colours instead of gold
+  const el = $("last-box"), r = META.lastRun; if(!el) return;
+  if(!r || !TRIBES.some(t=>t.id===r.tribe)){ el.classList.add("hidden"); return; }
+  el.innerHTML = "<div class='phead'>your last run</div><div class='king-card last-card"+(r.win ? " won" : "")+"'>"
+    + (r.look ? "<canvas class='bpfp big' width='4' height='4'></canvas>" : "")
+    + "<div><b>"+esc(r.name)+" "+tribeBadge(r.tribe)+"</b>"
+      + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
+      + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
+      + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
+    + "<div class='king-relics'><u>carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>"
+    + "<div class='king-clock'><u>score</u><b>"+r.score+"</b><span>DRIP</span></div></div>";
+  el.classList.remove("hidden");
+  if(r.look) drawLook(el.querySelector("canvas"), r.look, r.relics).catch(()=>{});
+}
+/* Today's daily, on its button: how many have played it, how many survived, the score to beat, and where you stand. */
+let dailyInfo = null;
+async function loadDaily(){
+  const day = today(), res = await api("/api/board?daily="+day+"&limit=100&player="+playerId());
+  if(!res) return;
+  dailyInfo = { day, total:res.total, wins:res.top.filter(e=>e.win).length, top:res.top[0] ? res.top[0].score : 0, you:res.you || null };
+  if($("screen-title").classList.contains("active")) renderDailyButton();
+}
 async function loadKing(){
   const el = $("king-box"); if(!el || !online()) return;
   if(!el.innerHTML.trim()){ // first load: hold the space with the panel's outline, so the menu below doesn't jump when it arrives
@@ -3915,7 +3941,7 @@ async function loadKing(){
   if(!r){ el.classList.add("hidden"); return; }
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
-    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
+    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"
            + "<span>"+si("❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm)+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
@@ -4156,6 +4182,11 @@ async function postScore(body){
 function retryPending(){ if(META.pending && META.pending.run) postScore({...META.pending, session: rnUser() ? rnUser().token : META.pending.session}); }
 function submitRun(run, win, drip){
   const nft = run.base.nft;
+  // kept in this browser too, for the "your last run" card on the title screen
+  META.lastRun = { name:run.name, score:drip, day:run.day, win, tribe:run.tribe, heat:run.heat||0, daily:run.daily||"", killedBy:win ? "" : (run.killedBy||""),
+    relics:run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), look:lookOf(run.base),
+    stats:run.stats ? {hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm} : null, at:Date.now() };
+  saveMeta();
   return postScore({
     run: run.runId,
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
@@ -4447,14 +4478,20 @@ function renderDailyButton(){
   const played = !!(META.dailyAt && META.dailyAt.date===today());
   b.classList.toggle("funnel", !played); b.classList.toggle("big", !played); b.classList.toggle("small", played); b.classList.toggle("played", played);
   const run = streakNow();
-  b.innerHTML = played ? "<b>📅 daily played ✓</b><span>"+(run>1 ? streakTag(run)+" · " : "")+"resets in <i id='daily-left'>"+untilReset(dailyResetAt())+"</i></span>"
-                       : "<b>📅 play today's daily</b><span>"+(run ? streakTag(run)+" · play today to keep it" : "one attempt · the same map for everyone")+"</span>";
+  const d = dailyInfo && dailyInfo.day===today() ? dailyInfo : null, ppl = n => n+" player"+(n===1?"":"s");
+  const field = !d ? "" : !d.total ? "nobody has played today's yet. be the first"
+    : ppl(d.total)+" so far · "+d.wins+" survived · "+(d.wins ? "score to beat" : "furthest so far")+" <u>"+d.top+"</u>";
+  const mine = d && d.you ? "you're <u>#"+d.you.rank+"</u> of "+d.total+" today with "+d.you.score : "";
+  b.innerHTML = played ? "<b>📅 daily played ✓</b>"+(mine ? "<span class='dfield'>"+mine+"</span>" : field ? "<span class='dfield'>"+field+"</span>" : "")
+                           + "<span>"+(run>1 ? streakTag(run)+" · " : "")+"resets in <i id='daily-left'>"+untilReset(dailyResetAt())+"</i></span>"
+                       : "<b>📅 play today's daily</b>"+(field ? "<span class='dfield'>"+field+"</span>" : "")
+                           + "<span>"+(run ? streakTag(run)+" · play today to keep it" : "one attempt · the same map for everyone")+"</span>";
   s.classList.toggle("lead", played); // with the daily done, a free run is the next thing to do
 }
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing();
+  loadPulse(); loadKing(); loadDaily(); renderLast();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
