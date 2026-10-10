@@ -770,6 +770,7 @@ function discover(id){ // first time ever holding a relic: it joins the collecti
   if(META.seen[id]) return;
   META.seen[id]=1; saveMeta(); if(G) G.newSeen++;
   if(Object.keys(META.seen).length>=30) achieve("collector");
+  if(Object.keys(META.seen).length>=70) achieve("collector2");
 }
 /* Achievements persist across runs; each one adds its relic to the loot pool for good. */
 const LOCKED = {}; // relic id -> the achievement that unlocks it
@@ -799,7 +800,7 @@ function statDelta(r){
 function relicPool(){
   return RELICS.filter(r => {
     if(r.tags.includes("blackmarket") && !(perk("blackmarket") && !(G && G.daily))) return false;
-    if(LOCKED[r.id] && !META.ach[LOCKED[r.id]]) return false;
+    if(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !(G && G.daily)) return false; // on the daily everyone draws from the same pool, whatever they have unlocked
     return true;
   });
 }
@@ -927,6 +928,11 @@ function recalcStats(){
   G.tiers = G.relics.map((_,i)=>tierAt(i)); // keep one tier per slot
   if((G.worn||"") !== G.relics.join()){ G.worn = G.relics.join(); refreshAvatar(); }
   if(setRows(G.relics).some(r=>!r.next)) achieve("synergy");
+  if(!G.over && G.fog && G.fog.length && !G.setup){ // the build itself earns things (only a real run in progress: not a preview, not a king's build)
+    if(s.arm>=20) achieve("wall"); if(s.atk>=40) achieve("cannon"); if(s.dodge>=50) achieve("ghost"); if(s.maxhp>=200) achieve("thicc");
+    if(setRows(G.relics).filter(r=>r.on.length).length>=3) achieve("trio");
+    if(G.tiers.some(t=>t>=3)) achieve("diamond");
+  }
 }
 
 /* ---------- map generation ---------- */
@@ -1059,7 +1065,7 @@ function updateFog(){ // you see three steps down every corridor, and the walls 
     const [fx,fy] = k.split(",").map(Number);
     for(let y=fy-1;y<=fy+1;y++) for(let x=fx-1;x<=fx+1;x++){
       if(x<0||y<0||x>=W||y>=H) continue;
-      if(G.fog[y][x]) G.tilesSeen++;
+      if(G.fog[y][x] && ++G.tilesSeen>=400 && !G.setup) achieve("cartographer");
       G.fog[y][x] = false;
     }
   }
@@ -1686,7 +1692,7 @@ function startDay(){
   if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
     G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good");
     if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
-    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
+    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); if((G.flags.meals = (G.flags.meals||0)+1) >= 2) achieve("meals"); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
   }
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
@@ -1754,7 +1760,7 @@ function enterTile(t){
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one. 📌 Pinned.", "bad"); setPin(G.px, G.py, true); break; }
-      G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; sfx("fanfare"); burst("🔐💎✨");
+      G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; achieve("vault"); sfx("fanfare"); burst("🔐💎✨");
       mlog("🔐 The key turns. <b>+100 $CULT</b>, and something better than usual.", "gold");
       openDraft("The vault opens.", richRoll);
       break;
@@ -2291,6 +2297,7 @@ function openFountain(note, cls){
       w.given -= wellNeed(); w.paid++; G.flags.well = true;
       sfx("fanfare"); burst("⛲✨💎");
       mlog("⛲ The fountain overflows. <b>It gives something back.</b>", "gold");
+      achieve("fountain");
       if(!openDraft("The fountain gives something back.", rarePull)) openFountain("The water settles.");
       return;
     }
@@ -2384,7 +2391,7 @@ function openAltar(note){
   $("modal-panel").querySelectorAll("[data-curse]").forEach(b=>{ b.onclick=()=>{
     const c = CURSES[+b.dataset.curse]; if(c.can()) return;
     acquireRelic(r, old=>{
-      c.take(); recalcStats(); clearTile(); delete G.altars[key]; sfx("boss"); burst("🕯️🩸");
+      c.take(); recalcStats(); achieve("altar"); clearTile(); delete G.altars[key]; sfx("boss"); burst("🕯️🩸");
       mlog("🕯️ You took <b>"+r.name+"</b> from the altar"+(old?" <i>(dropped "+old.name+")</i>":"")+". The price: <b>"+c.icon+" "+c.name+"</b>.", "bad");
       closeModal(); renderMap();
     }, ()=>openAltar());
@@ -2408,7 +2415,7 @@ function openScearpo(note, cls){
     const i = +b.dataset.burn, r = relicById(G.relics[i]), t = tierAt(i);
     G.traded = here;
     if(rnd()<0.5){
-      G.tiers[i] = t+1; recalcStats(); sfx("fanfare"); burst("🔥✨"+TIERS[t+1].icon); flyRelic(r.id);
+      G.tiers[i] = t+1; recalcStats(); achieve("scearpo"); sfx("fanfare"); burst("🔥✨"+TIERS[t+1].icon); flyRelic(r.id);
       mlog("🔥 Scearpo's flip came up yours: <b>"+r.name+"</b> is now "+TIERS[t+1].icon+" <b>"+TIERS[t+1].name+"</b> — "+relicText(r, TIERS[t+1].mult), "gold");
       renderMap(); openScearpo("Doubled. "+TIERS[t+1].icon+" "+TIERS[t+1].name+" <b>"+r.name+"</b>: "+relicText(r, TIERS[t+1].mult));
     } else {
@@ -3034,12 +3041,15 @@ function settleWin(F, opts, log){
   const you = F.you, foe = F.foe, boss = opts.boss || null;
   for(const id of Object.keys(MEALS)){ // a meal that went in the fight is called out, in the fight log and in the feed
     const gone = G.relics.filter(x=>x===id).length - F.st.relics.filter(x=>x===id).length;
-    if(gone>0){ const m = "🍴 <b>"+relicById(id).name+"</b> was "+(id==="modelo" ? "drunk" : "eaten")+" in that fight. The slot is free again."; log(m, "gold"); mlog(m, "gold"); }
+    if(gone>0){ if((G.flags.meals = (G.flags.meals||0)+gone) >= 2) achieve("meals"); const m = "🍴 <b>"+relicById(id).name+"</b> was "+(id==="modelo" ? "drunk" : "eaten")+" in that fight. The slot is free again."; log(m, "gold"); mlog(m, "gold"); }
   }
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
   G.kills++;
   if(opts.elite && G.day<3) G.flags.eliteEarly = true;
-  if(G.phase==="night") G.flags.nightWins = (G.flags.nightWins||0)+1;
+  if(G.phase==="night" && (G.flags.nightWins = (G.flags.nightWins||0)+1) >= 4) achieve("night_owl");
+  if(you.hp>0 && you.hp<=3) achieve("clutch");
+  if(boss && !F.took) achieve("flawless");
+  if(opts.elite && (G.flags.elites = (G.flags.elites||0)+1) >= 5) achieve("elites");
   achieve("first");
   if(foe.id==="kumicho") achieve("shark");
   if(F.dodges>=5) achieve("dodge");
@@ -3233,6 +3243,7 @@ function richRoll(){ // three relics tilted hard toward the good stuff, with at 
   return pool;
 }
 function onBossDown(boss, forced, called){
+  if(called && G.calls) achieve("caller");
   G.bossesBeaten++;
   G.bossUnlocked=-1; // the gate seals again until the next one
   G.maxSlots++;
@@ -3281,7 +3292,7 @@ const cultDrip = c => Math.min(CULT_DRIP_MAX, Math.floor(Math.min(c, 1000)/25) +
 function endRun(win){
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
-  if(win) achieve("win");
+  if(win){ achieve("win"); if(G.day<9) achieve("early"); if(!G.flags.rested) achieve("norest"); if(G.heat>=3) achieve("heat3"); }
   document.body.classList.remove("danger"); setDoom();
   const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)]];
   if(win) parts.push(["timeline saved", 300]);
@@ -3301,6 +3312,7 @@ function endRun(win){
   const best = !win && G.day>META.best && META.runs>0;
   META.drip+=d; META.runs++;
   if(win){ META.wins++; META.best=9; } else META.best=Math.max(META.best,G.day);
+  if(META.runs>=25) achieve("veteran"); if(META.wins>=5) achieve("wins5");
   saveMeta(); syncProfile(true);
   const next = UNLOCKS.filter(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req])).sort((a,b)=>a.cost-b.cost)[0];
   let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
@@ -3595,7 +3607,7 @@ async function kingReport(run, won, k, back){
     : res==="took" ? "<b>you took the hill from "+esc(k.name)+".</b> long live the king"
     : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+beaten(r.king.defences)+" now"
     : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
-  if(res==="claimed" || res==="took"){ sfx("fanfare"); burst("👑✨🌸"); }
+  if(res==="claimed" || res==="took"){ achieve("king"); sfx("fanfare"); burst("👑✨🌸"); }
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armour)
@@ -3825,6 +3837,7 @@ function bumpStreak(date){
   const s = META.streak || {n:0, last:"", best:0};
   if(s.last===date) return;
   s.n = s.last===dayBefore(date) ? s.n+1 : 1; s.last = date; s.best = Math.max(s.best||0, s.n);
+  if(s.n>=3) achieve("streak3"); if(s.n>=7) achieve("streak7");
   META.streak = s; saveMeta();
 }
 const streakTag = n => "⚡ "+n+" day streak";
@@ -4256,13 +4269,17 @@ function openRecord(){
 }
 /* ---------- achievements ---------- */
 function openAchievements(){
-  const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
-  openModal("<h2>ACHIEVEMENTS</h2><div class='stat-line'><span>each one adds its relic to the loot pool for good</span><b>"+done+" / "+ACHIEVEMENTS.length+"</b></div><div class='unlock-shop'>"
-    + ACHIEVEMENTS.map(a=>{
-        const r = relicById(a.relic), on = !!META.ach[a.id];
-        return "<div class='ach"+(on?" on":"")+"'>"+(ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''>" : "<div class='relic-ico unknown'>?</div>")
-          + "<div class='uinfo'><b>"+(on?"🏆 ":"")+a.name+"</b><span>"+a.desc+"</span><span class='rew'>unlocks <b class='"+r.rar+"'>"+r.name+"</b> — "+r.desc+"</span></div></div>";
-      }).join("")+"</div>"+backRow);
+  const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length, cats = ["the run","fights","builds","the maze","the timeline","career"];
+  const row = a=>{
+    const r = relicById(a.relic), on = !!META.ach[a.id];
+    return "<div class='ach"+(on?" on":"")+"'>"+(ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''>" : "<div class='relic-ico unknown'>?</div>")
+      + "<div class='uinfo'><b>"+(on?"🏆 ":"")+a.name+"</b><span>"+a.desc+"</span><span class='rew'>unlocks <b class='"+r.rar+"'>"+r.name+"</b> — "+r.desc+"</span></div></div>";
+  };
+  openModal("<h2>ACHIEVEMENTS</h2><div class='stat-line'><span>each one adds its relic to the loot pool for good</span><b>"+done+" / "+ACHIEVEMENTS.length+"</b></div>"
+    + "<div class='bar ach-bar'><div style='width:"+Math.round(100*done/ACHIEVEMENTS.length)+"%'></div></div>"
+    + cats.map(c=>{ const list = ACHIEVEMENTS.filter(a=>(a.cat||"the run")===c), got = list.filter(a=>META.ach[a.id]).length;
+        return list.length ? "<div class='ach-cat'><u>"+c+"</u><em>"+got+" / "+list.length+"</em></div><div class='unlock-shop'>"+list.map(row).join("")+"</div>" : ""; }).join("")
+    + "<div class='note'>on the daily map every relic is in the pool for everyone, unlocked or not</div>"+backRow);
   wireClose();
 }
 /* ---------- the codex: everything in the game, in one place ---------- */
@@ -4480,6 +4497,11 @@ async function init(){
   $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
   $("menu-record").onclick=()=>{ sfx("click"); openRecord(); };
   let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
+  ready.then(()=>{ // achievements added later that a long-time player has already met: theirs without doing it again
+    const st = META.streak||{}, seen = Object.keys(META.seen||{}).length;
+    if((st.best||0)>=3) achieve("streak3"); if((st.best||0)>=7) achieve("streak7");
+    if(seen>=70) achieve("collector2"); if((META.runs||0)>=25) achieve("veteran"); if((META.wins||0)>=5) achieve("wins5"); if((META.heat||0)>=4) achieve("heat3");
+  }).catch(()=>{});
   ready.catch(()=>{});
   $("btn-continue").onclick=async()=>{
     const d = loadRun(); if(!d) return renderTitle();

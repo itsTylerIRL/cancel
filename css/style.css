@@ -1430,3 +1430,7 @@ kbd{font-family:var(--mono);font-size:.85em;padding:0 4px;border:1px solid curre
 #timeline .day .callkey{position:absolute;left:3px;top:3px;z-index:2;font-size:9px;line-height:1.4;padding:0 4px;color:#fff;background:rgba(160,20,20,.85);border-color:#ff8b8b;border-radius:3px;animation:blink 1.6s steps(2) infinite;}
 #doom .callhint{color:#ff8b8b;white-space:nowrap;} #doom .callhint kbd{color:#fff;}
 body.calm #timeline .day .callkey{animation:none;}
+
+/* achievements, in groups */
+.ach-bar{margin:6px 0 4px;} .ach-cat{display:flex;justify-content:space-between;align-items:baseline;margin:14px 2px 6px;border-bottom:1px solid var(--line);padding-bottom:3px;}
+.ach-cat u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.18em;font-size:11px;color:var(--neon);} .ach-cat em{font-style:normal;font-size:11px;color:var(--dim);}
