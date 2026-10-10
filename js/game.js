@@ -2465,9 +2465,11 @@ function bgMood(){
 }
 function bgSize(){
   const d = Math.min(1.5, window.devicePixelRatio||1), cv = BG.cv;
+  const ow = BG.w, oh = BG.h;
   BG.w = window.innerWidth; BG.h = window.innerHeight; BG.d = d;
   cv.width = Math.round(BG.w*d); cv.height = Math.round(BG.h*d);
-  const want = clamp(Math.round(BG.w*BG.h/16000), 44, 130);
+  if(ow && oh) for(const n of BG.nodes){ n.x *= BG.w/ow; n.y *= BG.h/oh; } // the window changed size (fullscreen, a wider monitor): the field spreads to fill it
+  const want = clamp(Math.round(BG.w*BG.h/16000), 44, 260);
   while(BG.nodes.length<want) BG.nodes.push({ x:Math.random()*BG.w, y:Math.random()*BG.h, z:0.35+Math.random()*0.65, vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*5,
     tint:hexRgb(BG_TITLE[BG.nodes.length%BG_TITLE.length]), ph:Math.random()*6.28 });
   BG.nodes.length = want;
