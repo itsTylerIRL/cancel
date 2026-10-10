@@ -4525,21 +4525,26 @@ function renderMenu(){
 const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
 const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
 /* ---------- drip unlocks ---------- */
+let unlShowOwned = false; // like achievements: the shop opens on what is left to buy
 function openUnlocks(from){ // from: the DRIP shown a moment ago, so a purchase is seen being paid for
-  const signed = !!rnUser();
+  const signed = !!rnUser(), ownedN = UNLOCKS.filter(u=>META.unlocks[u.id]).length;
   let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b><span id='drip-num'>"+(from!=null ? from : META.drip)+"</span> DRIP</b></div>"
     + (signed ? "" : "<div class='note unlock-gate'>🔒 unlocks are for verified players. sign in with <b>Remilia SSO</b> or <b>Urbit ID</b> on the title screen to buy them and switch them on."
         + (Object.keys(META.unlocks||{}).length ? " the ones you own are waiting for you." : "")+" your DRIP keeps adding up either way.</div>")
     + (framesOwned() ? "<div class='stat-line frame-line'><span>frame you're wearing</span>"+framePick()+"</div>" : "")
     + "<div class='note'>📅 on the daily map everyone starts equal: unlocks only apply to your other runs (frames always show)</div>"
+    + (ownedN ? "<div class='set-row ach-toggle'><div><b>Show owned</b><span>"+ownedN+" of "+UNLOCKS.length+" owned"+(unlShowOwned ? "" : ", hidden")+"</span></div><button class='tog"+(unlShowOwned?" on":"")+"' id='unl-owned'>"+(unlShowOwned?"on":"off")+"</button></div>" : "")
+    + (ownedN===UNLOCKS.length && !unlShowOwned ? "<div class='note good'>✨ everything is unlocked.</div>" : "")
     + "<div class='unlock-shop'>";
   UNLOCKS.forEach((u,i)=>{
     const owned = !!META.unlocks[u.id], locked = u.req && !META.unlocks[u.req];
+    if(owned && !unlShowOwned) return;
     html += "<div class='unlock"+(owned?" owned":"")+(signed?"":" off")+"'><div class='uinfo'><b>"+u.name+"</b><span>"+u.desc+"</span></div>"
       + "<button class='btn small' data-u='"+i+"'"+(!signed||owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned ? (signed?"OWNED":"OWNED · OFF") : locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
   });
   openModal(html+"</div>"+backRow); wireClose();
   if(from!=null && from!==META.drip) countUp($("drip-num"), from, META.drip, 600);
+  if($("unl-owned")) $("unl-owned").onclick = ()=>{ unlShowOwned = !unlShowOwned; sfx("click"); openUnlocks(); };
   $("modal-panel").querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openUnlocks(); }; });
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
     const u = UNLOCKS[+b.dataset.u]; if(!rnUser() || META.drip<u.cost || META.unlocks[u.id]) return;
