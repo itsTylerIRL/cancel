@@ -1424,3 +1424,9 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
   .combat-panel #combat-log{max-height:none;}
   #screen-combat #boss-intro.show{inset:-34px -44px;} /* a boss's entrance still takes the whole window */
 }
+
+/* calling a boss out: the key is written on the thing it works on */
+kbd{font-family:var(--mono);font-size:.85em;padding:0 4px;border:1px solid currentColor;border-radius:3px;opacity:.9;}
+#timeline .day .callkey{position:absolute;left:3px;top:3px;z-index:2;font-size:9px;line-height:1.4;padding:0 4px;color:#fff;background:rgba(160,20,20,.85);border-color:#ff8b8b;border-radius:3px;animation:blink 1.6s steps(2) infinite;}
+#doom .callhint{color:#ff8b8b;white-space:nowrap;} #doom .callhint kbd{color:#fff;}
+body.calm #timeline .day .callkey{animation:none;}

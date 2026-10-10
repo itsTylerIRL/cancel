@@ -1143,12 +1143,13 @@ function renderTimeline(){
     const next = bi>=0 && bi===G.bossesBeaten; // the one that is coming: click it to stop waiting
     h += "<div class='"+cls+(next?" next":"")+"'"+(bi>=0?" title='"+runBoss(bi).name+(next?" — click to call it out and fight it now":"")+"'":"")+(next?" data-skip='1'":"")+">"
       + (bi>=0 ? (look && look.face ? "<img src='"+look.face+"' alt=''>" : "<span>☠</span>") : "<span>"+d+"</span>")
-      + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+"</div>";
+      + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+(next ? "<kbd class='callkey' aria-hidden='true'>"+(TOUCH ? "tap" : "C")+"</kbd>" : "")+"</div>";
   }
   $("timeline").innerHTML = h;
   const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
   $("doom").title = nb ? "click to call out "+nb.name+" and fight it now" : "";
-  $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends");
+  $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends")
+    + " <span class='callhint'>· "+(TOUCH ? "tap to call it out" : "<kbd>C</kbd> call it out")+"</span>";
 }
 /* ---------- the ground ----------
    Floors, walls and their shadows are painted on one canvas that sits under the tiles. A wall is a raised block: a lit
@@ -1934,8 +1935,12 @@ function openDraft(flavor, pool, luck, gen){
     + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost?" disabled":"")+" title='a new set of relics. the price doubles each time'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
     + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
   openModal(html);
+  // A draft often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
+  // land on a card that has only just appeared: cards take a beat before they can be picked.
+  const armed = performance.now() + 450;
   document.querySelectorAll("#modal-panel .card").forEach(c=>{
     c.onclick = ()=>{
+      if(performance.now() < armed) return;
       const r = pool[+c.dataset.i];
       acquireRelic(r, old=>{
         closeModal();
@@ -4452,6 +4457,7 @@ function onKey(ev){
   if(!G || G.over) return;
   if(ev.key==="Escape"){ openSettings(); return; }
   if(ev.key==="b" || ev.key==="B"){ openBuild(); return; }
+  if((ev.key==="c" || ev.key==="C") && !busy()){ sfx("click"); skipToBoss(); return; } // call out the next boss: the same as clicking it on the timeline
   if((ev.key==="p" || ev.key==="P") && hoverTile && !busy()){ togglePin(hoverTile[0], hoverTile[1]); return; }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
