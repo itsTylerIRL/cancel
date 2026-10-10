@@ -4034,6 +4034,20 @@ async function api(path, body){ // null on any failure: the game never depends o
 }
 /* Sign in with RemiliaNET. The service does the exchange and hands back its own signed session in the page's
    #fragment; scores posted with it are tied to the account instead of this browser. Entirely optional. */
+/* Progress belongs to whoever is playing. This browser keeps one set for the signed-out player and one for each account
+   that has signed in here; signing in or out swaps which set is live, so an account's record, DRIP, unlocks and run
+   cards never stay on screen after its owner has signed out. */
+const PROFILE_BLANK = () => ({ drip:0, wins:0, runs:0, best:0, heat:0, unlocks:{}, seen:{}, ach:{}, streak:null, lastRun:null, history:[], dailyAt:null, frame:null });
+function stashProfile(key){ const p = {}; for(const k in PROFILE_BLANK()) p[k] = META[k]===undefined ? null : META[k]; (META.profiles = META.profiles||{})[key] = JSON.parse(JSON.stringify(p)); }
+function loadProfile(key){
+  const p = { ...PROFILE_BLANK(), ...((META.profiles||{})[key]||{}) };
+  for(const k in p){ if(p[k]===null && (k==="streak" || k==="lastRun" || k==="dailyAt" || k==="frame")) delete META[k]; else META[k] = p[k]; }
+  myRank = null; dailyInfo = null;
+}
+function signOut(){ // put the account's progress away and bring back this browser's own
+  const u = META.rn; if(!u) return;
+  stashProfile(u.player); delete META.rn; loadProfile("anon"); saveMeta();
+}
 function rnUser(){ return META.rn && META.rn.exp*1000 > Date.now() ? META.rn : null; }
 /* A verified name is a RemiliaNET handle (shown green) or an Urbit ship (shown blue; its handle is stored with its ~).
    A player is one or the other: signing in with either replaces the session. */
@@ -4047,7 +4061,10 @@ function rnReturn(){ // back from signing in: keep the session, tidy the address
   try{
     const b = m[2].split(".")[0].replace(/-/g,"+").replace(/_/g,"/");
     const d = JSON.parse(decodeURIComponent(escape(atob(b))));
+    if(META.rn && META.rn.player!==String(d.p)) signOut(); // switching accounts: the old one's progress goes back in its box
+    if(!META.rn) stashProfile("anon");
     META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
+    if((META.profiles||{})[META.rn.player]) loadProfile(META.rn.player); // been here before: pick up where the account left off (a first sign-in keeps what this browser had, and it joins the account)
     if(!META.name && !isShip(META.rn.handle)) META.name = cleanName(META.rn.name);
     saveMeta();
   }catch(e){ return "sign-in didn't go through"; }
@@ -4070,7 +4087,7 @@ async function renderRn(msg){
       + "<span class='dim'>"+(msg || "sign in for a verified name on the leaderboard, unlocks"+(META.drip>0 ? " (you have "+META.drip+" DRIP waiting)" : "")+", and your progress on any device")+"</span>";
   if(u) $("rn-out").onclick = ()=>{ sfx("click");
     confirmBox({ title:"SIGN OUT?", yes:"sign out", body:"Your progress stays on your account. Until you sign back in, your unlocks are switched off and scores post without your verified name." },
-      ()=>{ delete META.rn; saveMeta(); closeModal(); renderRn(); renderTitle(); }); };
+      ()=>{ signOut(); closeModal(); renderRn(); renderTitle(); }); };
   if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
   if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
 }
@@ -4861,6 +4878,10 @@ function onKey(ev){
 /* ---------- init ---------- */
 async function init(){
   loadMeta();
+  if(META.rn && !(META.rn.exp*1000 > Date.now())) signOut(); // a session that ran out is a sign-out
+  else if(!META.rn && !META.profiles && META.sync && META.sync.p){ // signed out before progress was kept per player: what is here is that account's
+    stashProfile(META.sync.p); loadProfile("anon"); saveMeta();
+  }
   if(!META.streak && META.dailyAt) META.streak = {n:1, last:META.dailyAt.date, best:1}; // dailies played before streaks were kept
   renderLegend();
   renderTitle(); setMute(META.mute); applyCalm(); applyBackground();
