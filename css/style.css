@@ -1618,3 +1618,16 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .run-list{display:flex;flex-direction:column;gap:6px;margin:6px 0;} .run-card{text-align:left;}
 #modal-panel:has(.me-head){max-width:620px;}
 @media (max-width:600px){ .run-card .king-relics{display:none;} }
+
+/* the case for signing in, on the card of someone who hasn't */
+.card-pitch{display:flex;align-items:center;gap:12px;margin-top:-1px;padding:9px 12px;border:1px dashed rgba(241,250,140,.55);border-top:0;border-radius:0 0 6px 6px;background:rgba(241,250,140,.05);text-align:left;}
+.card-pitch>div:first-child{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;} .card-pitch b{color:var(--gold);font-size:var(--fs-body);} .card-pitch span{font-size:var(--fs-label);color:#b8c7cc;line-height:1.45;} .card-pitch u{text-decoration:none;color:var(--gold);font-weight:700;}
+.pitch-btns{display:flex;flex-direction:column;gap:5px;flex:none;} .pitch-btns .btn{border-color:var(--gold);color:var(--gold);white-space:nowrap;}
+.last-box:has(.card-pitch) .king-card{border-radius:6px 6px 0 0;}
+@media (max-width:600px){ .card-pitch{flex-direction:column;align-items:stretch;} .pitch-btns{flex-direction:row;} .pitch-btns .btn{flex:1;} }
+/* add to home screen */
+.install-box{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.05);text-align:left;}
+.install-box img{width:38px;height:38px;border-radius:9px;flex:none;} .install-box>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.install-box b{font-size:var(--fs-body);color:#e9f6fa;} .install-box span{font-size:var(--fs-label);color:var(--dim);line-height:1.4;} .install-box u{text-decoration:none;color:var(--neon);} .install-box .ios-share{font-style:normal;display:none;}
+/* opened from the home screen: keep clear of the notch and the home bar */
+@media (display-mode: standalone){ #app{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);} }

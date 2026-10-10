@@ -3916,6 +3916,25 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
 }
 /* the title screen's king panel, with the clock to the next reset (the daily turns over then too) */
 let kingClock = 0;
+/* Add to home screen. On Android and desktop Chrome the browser hands us a prompt to show when we like; on an iPhone
+   there is no prompt, only the Share menu, so we say where it is. Shown on touch devices only, never once installed,
+   and "not now" is remembered. */
+let installAsk = null;
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); installAsk = e; renderInstall(); });
+window.addEventListener("appinstalled", ()=>{ installAsk = null; META.installHide = true; saveMeta(); renderInstall(); });
+function renderInstall(){
+  const el = $("install-box"); if(!el) return;
+  const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  const show = !standalone && !META.installHide && TOUCH && (installAsk || ios) && (META.runs||0) >= 1; // offered once someone has actually played
+  el.classList.toggle("hidden", !show);
+  if(!show) return;
+  el.innerHTML = "<img src='assets/icons/icon-192.png' alt=''><div><b>put it on your home screen</b><span>"
+    + (installAsk ? "opens full-screen, like an app. no store, nothing to download." : "tap <u>Share</u>, then <u>Add to Home Screen</u>. it opens full-screen, like an app.")+"</span></div>"
+    + (installAsk ? "<button class='btn small' id='install-go'>install</button>" : "")+"<button class='btn small' id='install-no' aria-label='not now'>✕</button>";
+  if($("install-go")) $("install-go").onclick = async ()=>{ sfx("click"); const p = installAsk; installAsk = null; try{ p.prompt(); await p.userChoice; }catch(e){} renderInstall(); };
+  $("install-no").onclick = ()=>{ sfx("click"); META.installHide = true; saveMeta(); renderInstall(); };
+}
 /* A tribe is a class now, so it is shown like one: its own colour, its icon and its name, wherever a player's card appears. */
 const TRIBE_COLOR = { hypebeast:"#ffd75e", gyaru:"#a6ff5e", lolita:"#ff9ecb", harajuku:"#8be9fd", prep:"#b7a57a", schizoposter:"#b9a4ff", collector:"#ffb86c" };
 const tribeBadge = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<span class='tribe-badge' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.rule+" "+t.sig+" "+t.cost)+"'><i>"+t.icon+"</i>"+t.name+"</span>" : ""; };
@@ -3941,8 +3960,14 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
     + (r ? "<div class='king-relics'><u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>" : "")
     + "<div class='king-clock you-nums'><u>all-time</u><b class='rank'>"+(rk ? (rk.rank ? "#"+rk.rank : "—") : "…")+"</b><span>"+(rk ? (rk.rank ? "of "+rk.total+" · best "+rk.score : "not on the board yet") : "&nbsp;")+"</span>"
-      + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>to spend on unlocks</span></div></div>";
+      + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>"+(u ? "to spend on unlocks" : "waiting for you")+"</span></div></div>"
+    + (!u && rnOn && (rnOn.rn || rnOn.ur) ? "<div class='card-pitch'><div><b>this card only exists in this browser.</b><span>sign in and it follows you: "
+        + (META.drip>0 ? "spend your <u>"+num(META.drip)+" DRIP</u> on unlocks, " : "unlocks, ")+"a verified name on the boards, your record and achievements on every device"
+        + (META.pid ? ", and the runs you've already posted move to your account" : "")+".</span></div>"
+        + "<div class='pitch-btns'>"+(rnOn.rn ? "<button class='btn small' id='pitch-rn'>Remilia SSO</button>" : "")+(rnOn.ur ? "<button class='btn small' id='pitch-ur'>Urbit ID</button>" : "")+"</div></div>" : "");
   el.classList.remove("hidden");
+  if($("pitch-rn")) $("pitch-rn").onclick = ()=>$("rn-in") && $("rn-in").click();
+  if($("pitch-ur")) $("pitch-ur").onclick = ()=>$("ur-in") && $("ur-in").click();
   if(r && r.look) drawLook(el.querySelector("canvas"), r.look, r.relics).catch(()=>{});
 }
 /* Today's daily, on its button: how many have played it, how many survived, the score to beat, and where you stand. */
@@ -4090,6 +4115,7 @@ async function renderRn(msg){
   const u = rnUser();
   if(!u && rnOn===null){ const h = await api("/api/health"); rnOn = { rn:!!(h && h.rn), ur:!!(h && h.ur) }; }
   if(!u && !(rnOn.rn || rnOn.ur)){ el.innerHTML = ""; return; }
+  setTimeout(renderLast, 0); // the card's sign-in pitch depends on which sign-ins are on offer
   const back = encodeURIComponent(location.origin+location.pathname+location.search);
   el.innerHTML = u ? "<span class='rn-on'>✓ signed in as "+(isShip(u.handle) ? "<b class='ur'>"+esc(u.handle)+"</b>"
         : "<a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>~"+esc(u.handle)+"</a>")+"</span><button class='btn small' id='rn-out'>sign out</button>"
@@ -4558,7 +4584,7 @@ function renderDailyButton(){
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank();
+  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank(); renderInstall();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
