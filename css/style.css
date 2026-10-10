@@ -1392,3 +1392,5 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 .heat-list{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
 .heat-list .choice{text-align:left;} .heat-list .choice.on{border-color:var(--neon);box-shadow:0 0 14px rgba(139,233,253,.25);}
 .heat-list .choice span{display:block;font-size:11px;color:var(--dim);} .heat-list .good{font-style:normal;color:var(--acid);}
+
+.king-clock .king-turns{margin-top:4px;color:var(--gold);font-size:10px;white-space:nowrap;} .king-clock .king-turns b{font-size:inherit;color:#fff;display:inline;}

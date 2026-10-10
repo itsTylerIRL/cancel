@@ -3604,7 +3604,8 @@ async function loadKing(){
            + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
-    + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span></div></div>";
+    + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span>"
+      + (k ? "<span class='king-turns' title='how many times a challenger has taken the hill from a sitting king this week'>👑 "+(r.changes ? "changed hands <b>"+r.changes+"</b> time"+(r.changes===1?"":"s") : "hasn't changed hands yet")+"</span>" : "")+"</div></div>";
   el.classList.remove("hidden");
   if(k) drawLook(el.querySelector("canvas"), k.look, k.relics).catch(()=>{});
   clearInterval(kingClock);

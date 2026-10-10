@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS hill (
   date TEXT PRIMARY KEY, card TEXT NOT NULL, player TEXT NOT NULL, since INTEGER NOT NULL, defences INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS duels (card TEXT PRIMARY KEY, created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS hill_log (week TEXT NOT NULL, card TEXT NOT NULL, player TEXT NOT NULL, at INTEGER NOT NULL, kind TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS hill_log_week ON hill_log(week);
 CREATE TABLE IF NOT EXISTS profiles (player TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS tokens (
   kind TEXT NOT NULL, id INTEGER NOT NULL, attrs TEXT NOT NULL, fetched INTEGER NOT NULL,
@@ -619,6 +621,11 @@ def king_public(con):
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"])}, row["player"]
 
 
+def hill_changes(con):
+    """How many times the hill has been taken from a sitting king this week."""
+    return con.execute("SELECT COUNT(*) FROM hill_log WHERE week=? AND kind='took'", (hill_week(),)).fetchone()[0]
+
+
 def king_challenge(card, player, won, now):
     """Returns (status code, body)."""
     with db() as con:
@@ -639,6 +646,9 @@ def king_challenge(card, player, won, now):
             return 200, {"ok": True, "king": king_public(con)[0], "you": False, "result": "lost"}
         con.execute("INSERT OR REPLACE INTO hill (date, card, player, since, defences) VALUES (?,?,?,?,0)",
                     (hill_week(), card, player, now))
+        # every time the hill is claimed or taken is kept, so a week's story can be told: who held it, and how often it moved
+        con.execute("INSERT INTO hill_log (week, card, player, at, kind) VALUES (?,?,?,?,?)",
+                    (hill_week(), card, player, now, "took" if king else "claimed"))
         return 200, {"ok": True, "king": king_public(con)[0], "you": True, "result": "took" if king else "claimed"}
 
 
@@ -951,7 +961,8 @@ class Handler(BaseHTTPRequestHandler):
             player = one("player") if RE_PLAYER.match(one("player")) else None
             with db() as con:
                 king, king_player = king_public(con)
-            return self.send(200, {"week": hill_week(), "resets": hill_reset(), "dailyResets": next_reset(), "king": king,
+                changes = hill_changes(con)
+            return self.send(200, {"week": hill_week(), "resets": hill_reset(), "dailyResets": next_reset(), "king": king, "changes": changes,
                                    "you": bool(player and king_player == player)})
         if u.path == "/api/pulse":
             return self.send(200, pulse())
