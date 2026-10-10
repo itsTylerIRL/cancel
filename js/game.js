@@ -1571,10 +1571,11 @@ function doomWhisper(){ // something is said in the feed at each dawn and dusk o
 /* Leave the game alone and your character stops standing to attention: she looks about, yawns, and eventually nods off.
    Anything you do wakes her. */
 let lastInput = Date.now();
-for(const ev of ["keydown","pointerdown","pointermove","wheel","touchstart"]) document.addEventListener(ev, ()=>{
+function stirred(){ // any input at all, from anything: she is awake
   lastInput = Date.now();
   const t = $("you-tok"); if(t && t.classList.contains("asleep")){ t.classList.remove("asleep"); const z = t.querySelector(".zzz"); if(z) z.remove(); }
-}, {passive:true, capture:true});
+}
+for(const ev of ["keydown","pointerdown","pointermove","wheel","touchstart"]) document.addEventListener(ev, stirred, {passive:true, capture:true});
 setInterval(()=>{
   const t = $("you-tok"), img = $("you-img");
   if(!t || !img || META.calm || !G || G.over || setupStep || document.hidden || !$("screen-map").classList.contains("active") || !$("modal").classList.contains("hidden")) return;
@@ -4780,6 +4781,7 @@ function padPoll(){
   gp.buttons.forEach((b,i)=>{ if(b.pressed && PAD.keys[i]) want[PAD.keys[i]] = 1; });
   const [x=0, y=0] = gp.axes;
   if(Math.abs(x)>0.6 || Math.abs(y)>0.6) want[Math.abs(x)>Math.abs(y) ? (x>0 ? "ArrowRight" : "ArrowLeft") : (y>0 ? "ArrowDown" : "ArrowUp")] = 1;
+  if(Object.keys(want).length || gp.buttons.some(b=>b.pressed) || gp.axes.some(a=>Math.abs(a)>0.3)) stirred(); // a controller counts as being here: it makes no key or mouse events of its own
   for(const k in want){
     const h = PAD.held[k];
     if(!h){ PAD.held[k] = {t:now, n:0}; padFire(k); }
