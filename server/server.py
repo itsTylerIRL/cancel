@@ -695,7 +695,35 @@ def clean_profile(d):
     st = d.get("streak") if isinstance(d.get("streak"), dict) else {}
     out["streak"] = {"n": num(st, "n", 100000), "best": num(st, "best", 100000), "last": day(st.get("last"))}
     out["daily"] = day(d.get("daily"))  # the last day this player's daily was played, on any device
+    out["prefs"] = clean_prefs(d.get("prefs"))
     return out
+
+
+# Settings follow the account too: how fast fights play, sound, the frame worn, the last character and tribe.
+# The newest change wins as a whole: settings are small and are changed in one place at a time.
+PREF_BOOLS = ("mute", "auto", "quick", "calm", "bg3d")
+
+
+def clean_prefs(p):
+    if not isinstance(p, dict) or not isinstance(p.get("v"), dict):
+        return {"at": 0, "v": {}}
+    v, out = p["v"], {}
+    for k in PREF_BOOLS:
+        if isinstance(v.get(k), bool):
+            out[k] = v[k]
+    if v.get("speed") in (1, 2, 4):
+        out["speed"] = v["speed"]
+    if v.get("frame") in (0, 1, 2, 3):
+        out["frame"] = v["frame"]
+    if isinstance(v.get("tribe"), str) and v["tribe"] in TRIBES:
+        out["tribe"] = v["tribe"]
+    if isinstance(v.get("name"), str):
+        out["name"] = v["name"][:18]
+    last = v.get("last")  # the character on the character screen: a token, or a rolled set of trait layers
+    if isinstance(last, dict) and len(json.dumps(last)) <= 1500:
+        out["last"] = last
+    at = p.get("at")
+    return {"at": int(at) if isinstance(at, (int, float)) and at == at and 0 <= at < 1e14 else 0, "v": out}
 
 
 def merge_profile(old, new, base):
@@ -716,6 +744,7 @@ def merge_profile(old, new, base):
     lead = b if (b["last"], b["n"]) > (a["last"], a["n"]) else a
     out["streak"] = {"n": lead["n"], "last": lead["last"], "best": max(a["best"], b["best"], lead["n"])}
     out["daily"] = max(old["daily"], new["daily"])
+    out["prefs"] = new["prefs"] if new["prefs"]["at"] > old["prefs"]["at"] else old["prefs"]
     return out
 
 
@@ -728,6 +757,32 @@ def profile_sync(player, data, base, now):
         con.execute("INSERT OR REPLACE INTO profiles (player, data, at) VALUES (?,?,?)",
                     (player, json.dumps(merged, separators=(",", ":")), now))
     return merged
+
+
+def recent_runs(con, player, n=5):
+    """A player's latest finished runs, read from the run cards the service already keeps (for about 90 days)."""
+    try:
+        rows = con.execute("SELECT id, created, data FROM cards WHERE json_extract(data,'$.player')=? ORDER BY created DESC LIMIT ?", (player, n)).fetchall()
+    except sqlite3.OperationalError:  # an SQLite without JSON functions: look through the newest cards by hand
+        rows = [r for r in con.execute("SELECT id, created, data FROM cards ORDER BY created DESC LIMIT 600")
+                if json.loads(r["data"]).get("player") == player][:n]
+    out = []
+    for r in rows:
+        d = json.loads(r["data"])
+        st = d.get("stats") or {}
+        out.append({"id": r["id"], "at": r["created"], "name": d["name"], "score": d["score"], "day": d["day"], "win": bool(d["win"]),
+                    "tribe": d["tribe"], "heat": d.get("heat", 0), "daily": d.get("daily") or "", "killedBy": d.get("killedBy") or "",
+                    "relics": d["relics"], "look": d.get("look"),
+                    "stats": {"hp": st.get("hp"), "atk": st.get("atk"), "arm": st.get("arm")} if st else None})
+    return out
+
+
+def account_view(player):
+    """What the game shows about a signed-in player that the service already knows: their runs and where they stand."""
+    with db() as con:
+        rank = rank_of(con, "all", player)
+        total = con.execute("SELECT COUNT(*) FROM scores WHERE board='all'").fetchone()[0]
+        return {"runs": recent_runs(con, player), "rank": dict(rank or {"rank": 0}, total=total)}
 
 
 def claim_rows(anon, player, handle):
@@ -1054,7 +1109,8 @@ class Handler(BaseHTTPRequestHandler):
         if not rate_ok("profile:" + self.client_key(), 240):
             return self.send(429, {"error": "slow down"})
         player = verified_player(handle)
-        self.send(200, {"ok": True, "player": player, "data": profile_sync(player, d["data"], d.get("base"), int(time.time()))})
+        data = profile_sync(player, d["data"], d.get("base"), int(time.time()))
+        self.send(200, dict({"ok": True, "player": player, "data": data}, **account_view(player)))
 
     def claim_post(self):
         try:

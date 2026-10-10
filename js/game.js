@@ -26,7 +26,17 @@ const relicById = id => RELICS.find(r=>r.id===id);
 const META_KEY = "tcc_meta_v1";
 let META = {drip:0, wins:0, runs:0, best:0, unlocks:{}, speed:1, mute:false, seen:{}, tut:false, ach:{}, heat:0, tribe:"", daily:null, nft:null, name:"", auto:true, quick:true, calm:false, bg3d:true};
 function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); if(m) META = {...META, ...m}; }catch(e){} }
-function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
+/* Settings follow a signed-in player from machine to machine: when one changes, the time is noted, and the newest set wins. */
+const PREF_KEYS = ["speed","mute","auto","quick","calm","bg3d","tribe","name","frame","last"];
+const prefsOf = () => { const v = {}; for(const k of PREF_KEYS) if(META[k]!==undefined && META[k]!==null) v[k] = META[k]; return v; };
+function saveMeta(){
+  try{
+    const sig = JSON.stringify(prefsOf());
+    if(META.prefsSig!==undefined && sig!==META.prefsSig) META.prefsAt = Date.now();
+    META.prefsSig = sig;
+    localStorage.setItem(META_KEY, JSON.stringify(META));
+  }catch(e){}
+}
 
 /* ---------- juice: synth sound, particles, shake ---------- */
 const SFX = { beat:["sine",[58,46],0.09,0.16], // [wave, notes (Hz), seconds per note, volume]
@@ -3568,7 +3578,7 @@ function endRun(win){
     }
     rankHtml = res && res.refused ? "<div class='dim'>the leaderboard didn't accept this run ("+esc(res.refused)+")</div>"
       : res ? rankLines(res) : online() ? "<div class='dim'>the leaderboard can't be reached right now. this run is saved and will be sent when it's back</div>" : "";
-    if(res && res.share){ run.cardId = res.share.split("/").pop(); if(win && $("end-king")) kingPanel(run, ()=>{ openModal(html); wireEnd(false); }); }
+    if(res && res.share){ syncProfile(true); run.cardId = res.share.split("/").pop(); if(win && $("end-king")) kingPanel(run, ()=>{ openModal(html); wireEnd(false); }); }
     if($("end-rank")) $("end-rank").innerHTML = rankHtml;
   });
 }
@@ -4043,6 +4053,7 @@ function loadProfile(key){
   const p = { ...PROFILE_BLANK(), ...((META.profiles||{})[key]||{}) };
   for(const k in p){ if(p[k]===null && (k==="streak" || k==="lastRun" || k==="dailyAt" || k==="frame")) delete META[k]; else META[k] = p[k]; }
   myRank = null; dailyInfo = null;
+  META.prefsSig = JSON.stringify(prefsOf()); // swapping whose progress is live isn't a change of settings
 }
 function signOut(){ // put the account's progress away and bring back this browser's own
   const u = META.rn; if(!u) return;
@@ -4066,6 +4077,7 @@ function rnReturn(){ // back from signing in: keep the session, tidy the address
     META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
     if((META.profiles||{})[META.rn.player]) loadProfile(META.rn.player); // been here before: pick up where the account left off (a first sign-in keeps what this browser had, and it joins the account)
     if(!META.name && !isShip(META.rn.handle)) META.name = cleanName(META.rn.name);
+    META.prefsSig = JSON.stringify(prefsOf()); // signing in isn't a change of settings: the account's own are about to arrive
     saveMeta();
   }catch(e){ return "sign-in didn't go through"; }
   return "";
@@ -4139,7 +4151,7 @@ const streakTag = n => "⚡ "+n+" day streak";
    the service adds only what changed since. */
 const profileOf = () => ({ runs:META.runs||0, wins:META.wins||0, drip:META.drip||0, best:META.best||0, heat:META.heat||0,
   unlocks:META.unlocks||{}, seen:META.seen||{}, ach:META.ach||{}, tips:META.tips||{}, tut:!!META.tut,
-  streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "" });
+  streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "", prefs:{ at:META.prefsAt||0, v:prefsOf() } });
 /* Runs posted from this browser before signing in belong to the account once you do: the service moves them over,
    keeping the better of the two where both have a row, so nobody is on a board twice. Once per account. */
 async function claimRows(){
@@ -4167,6 +4179,19 @@ async function syncProfile(force){
     META.streak = (b.last > a.last || (b.last===a.last && b.n > a.n)) ? {n:b.n, last:b.last, best:Math.max(a.best||0, b.best||0)} : {...a, best:Math.max(a.best||0, b.best||0)};
     if(d.daily===today() && !(META.dailyAt && META.dailyAt.date===d.daily)) META.dailyAt = {date:d.daily, run:"elsewhere"}; // played on another device
     META.sync = {p:now.player, runs:d.runs, wins:d.wins, drip:d.drip};
+    if(d.prefs && d.prefs.at > (META.prefsAt||0)){ // settings changed on another machine since this one last changed them
+      for(const k of PREF_KEYS) if(d.prefs.v[k]!==undefined) META[k] = d.prefs.v[k];
+      META.prefsAt = d.prefs.at; META.prefsSig = JSON.stringify(prefsOf());
+      setMute(!!META.mute); applyCalm(); applyBackground(); if($("name-in")) $("name-in").value = META.name || "";
+      if(G) document.body.dataset.frame = frameWorn();
+    }
+    if(r.runs){ // run history is the service's: the same cards on every machine. A run that hasn't finished posting yet stays on top.
+      const mine = r.runs.map(x=>({...x, at:x.at*1000})), newest = mine.length ? mine[0].at : 0;
+      const same = (a,b) => a.name===b.name && a.score===b.score && a.day===b.day && a.tribe===b.tribe;
+      const waiting = (META.history||[]).filter(h=>!h.id && h.at > newest-90000 && !mine.some(x=>same(x,h)));
+      META.history = waiting.concat(mine).slice(0, 5); META.lastRun = META.history[0] || null;
+    }
+    if(r.rank) myRank = { rank:r.rank.rank||0, score:r.rank.score, total:r.rank.total, pid:now.player };
     saveMeta();
     if($("screen-title").classList.contains("active")){ renderMenu(); renderDailyButton(); renderLast(); }
   }
@@ -4264,7 +4289,7 @@ async function openBoard(tab, back, seed, page){
       + recordHTML()
       + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"
       + (runs.length ? "<div class='run-list'>"+runs.map(runCardHTML).join("")+"</div>" : "<div class='note'>finish a run and it shows up here. the last five are kept.</div>")
-      + "<div class='note'>"+(u ? "your record is saved to your account. " : "your record is kept in this browser: sign in to carry it to your other devices. ")+"run cards are kept on this device. an abandoned run counts as cancelled</div>")); wire();
+      + "<div class='note'>"+(u ? "your record is saved to your account. " : "your record is kept in this browser: sign in to carry it to your other devices. ")+(u ? "your runs and settings are too, so every machine you sign in on looks like this one. " : "")+"an abandoned run counts as cancelled</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll("canvas[data-run]")]){ if(!cv.isConnected) return; const r = runs[+cv.dataset.run]; try{ await drawLook(cv, r.look, r.relics); }catch(e){} }
     if(!rk) loadRank().then(()=>{ if($("modal-panel").querySelector(".me-head") && myRank) openBoard("me", back, seed); });
     return;

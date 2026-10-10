@@ -15,7 +15,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
 | `GET /api/hall` | the best run of every daily map, and whoever held the hill as each past week ended |
 | `POST /api/claim` | on sign-in, runs posted earlier from that browser become the account's. Where both have a row on a board, the better one stays |
-| `POST /api/profile` | a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account already holds |
+| `POST /api/profile` | a signed-in player's progress and settings, merged with what the account holds. The reply also carries their last five runs (read from the run cards) and their all-time rank, so every machine shows the same thing |
 | `GET /api/pulse` | games and wins today, this week, ever |
 | `GET /api/stats` | how runs end, in aggregate. Useful for balancing |
 | `GET /api/token` | a Milady or Remilio token's traits, fetched once and cached |
