@@ -566,6 +566,15 @@ let G = null;
 const DAY_MOVES = 34, NIGHT_MOVES = 16, BOSS_DAYS = [3,6,9];
 /* Unlocks belong to an account: they are bought, kept and switched on only while signed in. */
 const perk = id => !!(rnUser() && META.unlocks[id]);
+/* Frames are cosmetic, so which one you wear is yours to pick: any you own, or none. Unset means the best you have. */
+const FRAME_NAMES = ["none", "gold", "diamond", "holographic"];
+const framesOwned = () => perk("frame3") ? 3 : perk("frame2") ? 2 : perk("frame1") ? 1 : 0;
+const frameWorn = () => { const own = framesOwned(); return META.frame==null ? own : Math.min(own, Math.max(0, META.frame|0)); };
+function setFrame(n){ // takes effect at once, in the middle of a run too
+  META.frame = n; saveMeta();
+  if(G) document.body.dataset.frame = frameWorn();
+}
+const framePick = () => !framesOwned() ? "" : "<div class='seg frame-pick'>"+FRAME_NAMES.slice(0, framesOwned()+1).map((n,i)=>"<button class='tog f"+i+(frameWorn()===i?" on":"")+"' data-frame='"+i+"'>"+n+"</button>").join("")+"</div>";
 function baseStats(){
   return { hp:50, maxhp:50, atk:6, arm:0, spd:5, lck:10 };
 }
@@ -600,7 +609,7 @@ function newRun(ava, opt){
   G.keys = pk("key1") ? 1 : 0;
   G.perks = { hp:pk("hp2") ? 20 : pk("hp1") ? 10 : 0, reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
     vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
-    frame:perk("frame3") ? 3 : perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
+    }; // fixed for the run (the frame isn't kept here: it is whatever is switched on in settings)
   G.flags = {}; G.curses = {}; G.altars = {};
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
@@ -1322,7 +1331,7 @@ function renderMap(){
   m.style.gridTemplateColumns = "repeat("+W+", 1fr)"; m.style.gridTemplateRows = "repeat("+H+", 1fr)";
   $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
-  document.body.dataset.frame = (G.perks||{}).frame || 0;
+  document.body.dataset.frame = frameWorn(); // whichever unlocked frame is switched on right now
   { const w = $("weather"); if(w) w.className = "weather w"+districtAt(G.px,G.py)+(G.phase==="night" ? " night" : ""); }
   setDoom();
   m.innerHTML = ""; tileEl = {};
@@ -2447,6 +2456,7 @@ function openSettings(){
     + row("Skip easy fights", "settle fights you can't lose on the map", tog("quick", META.quick!==false))
     + row("Calm mode", "no screen shake, flashing or confetti", tog("calm", !!META.calm))
     + row("Animated backdrop", "the drifting field behind the game. it follows where you are, not your mouse", tog("bg3d", META.bg3d!==false))
+    + (framesOwned() ? row("Frame", "the frame on your map token and portrait. any you've unlocked, or none", framePick()) : "")
     + (inRun ? "<div class='row'><button class='btn small danger' id='set-quit'>abandon this run</button></div>" : "")
     + "<div class='row'><button class='btn' id='set-close'>done</button></div>");
   const p = $("modal-panel");
@@ -2456,6 +2466,7 @@ function openSettings(){
     applyCalm(); applyBackground(); sfx("click"); openSettings();
   };});
   p.querySelectorAll(".tog[data-speed]").forEach(b=>{ b.onclick=()=>{ META.speed = +b.dataset.speed; saveMeta(); sfx("click"); openSettings(); }; });
+  p.querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openSettings(); }; });
   $("set-close").onclick=()=>{ sfx("click"); closeModal(); };
   if(inRun) $("set-quit").onclick=()=>{
     const b = $("set-quit");
@@ -4244,6 +4255,7 @@ function openUnlocks(){
   let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div>"
     + (signed ? "" : "<div class='note unlock-gate'>🔒 unlocks are for verified players. sign in with <b>Remilia SSO</b> or <b>Urbit ID</b> on the title screen to buy them and switch them on."
         + (Object.keys(META.unlocks||{}).length ? " the ones you own are waiting for you." : "")+" your DRIP keeps adding up either way.</div>")
+    + (framesOwned() ? "<div class='stat-line frame-line'><span>frame you're wearing</span>"+framePick()+"</div>" : "")
     + "<div class='note'>📅 on the daily map everyone starts equal: unlocks only apply to your other runs (frames always show)</div>"
     + "<div class='unlock-shop'>";
   UNLOCKS.forEach((u,i)=>{
@@ -4252,9 +4264,11 @@ function openUnlocks(){
       + "<button class='btn small' data-u='"+i+"'"+(!signed||owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned ? (signed?"OWNED":"OWNED · OFF") : locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
   });
   openModal(html+"</div>"+backRow); wireClose();
+  $("modal-panel").querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openUnlocks(); }; });
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
     const u = UNLOCKS[+b.dataset.u]; if(!rnUser() || META.drip<u.cost || META.unlocks[u.id]) return;
-    META.drip -= u.cost; META.unlocks[u.id] = 1; saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks();
+    META.drip -= u.cost; META.unlocks[u.id] = 1; if(/^frame/.test(u.id)) delete META.frame; // a new frame goes straight on
+    saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks();
   };});
 }
 /* ---------- your record ---------- */

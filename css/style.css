@@ -1441,3 +1441,8 @@ body[data-frame="3"] #hud-avatar{border-color:#fff;box-shadow:0 0 0 2px #ff79c6,
 @keyframes holo{to{filter:hue-rotate(360deg);}}
 body.calm[data-frame="3"] #you-tok img,body.calm[data-frame="3"] #hud-avatar{animation:none;}
 @media (min-width:600px){ .draft-cards.four:has(.card:nth-child(5)){grid-template-columns:repeat(5,1fr);} #modal-panel:has(.draft-cards.four .card:nth-child(5)){max-width:760px;} }
+
+/* choosing which unlocked frame to wear */
+.frame-pick{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;} .frame-line{align-items:center;gap:10px;}
+.frame-pick .tog.f1.on{border-color:#ffd166;color:#ffd166;} .frame-pick .tog.f2.on{border-color:#8be9fd;color:#e8fbff;box-shadow:0 0 10px rgba(139,233,253,.5);}
+.frame-pick .tog.f3.on{border-color:#fff;color:#fff;box-shadow:0 0 0 1px #ff79c6,0 0 0 2px #8be9fd;}
