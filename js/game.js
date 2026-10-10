@@ -145,7 +145,7 @@ const SINGLE = ["hat","glasses","shirt","hair","eyes","costume"];
 const REMILIO_FIT = { base:[-70,-32,762,762],
   onMilady:{ shirt:[-179,-85,1006,838],   // wider, to her shoulders, and a little longer
              hat:[-130,-37,876,876],      // her head is bigger: hats grow and sit lower
-             glasses:[-203,-162,990,990], // sized to her eyes, and up to meet them
+             glasses:[-137,-102,876,876], // a little bigger, and up to meet her eyes
              deco:[-157,-129,914,914],    // face paint and scars spread across her cheeks
              smoke:[-116,-78,838,838],    // whatever is in her mouth
              ear:[-120,-42,762,762] } };  // out to where her ear actually is
