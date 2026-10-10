@@ -1601,3 +1601,10 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .king-card.last-card .king-clock b{color:var(--gold);font-size:20px;} .king-card.last-card .bad{color:#ff8b8b;}
 /* today's daily, on its button */
 #btn-daily .dfield{display:block;font-size:11px;letter-spacing:.02em;opacity:.95;margin:1px 0;} #btn-daily .dfield u{text-decoration:none;font-weight:800;}
+
+/* your card: the king's layout, about you */
+.king-card .badge-row{display:block;margin:2px 0 1px;}
+.king-card.last-card .lscore{color:var(--gold);font-size:inherit;}
+.king-card.last-card .you-nums b{font-size:18px;line-height:1.15;} .king-card.last-card .you-nums .rank{color:var(--neon);} .king-card.last-card .you-nums .drip{color:var(--gold);}
+.king-card.last-card .you-nums .gap{margin-top:7px;}
+@media (max-width:600px){ .king-card.last-card .you-nums{flex-direction:row !important;flex-wrap:wrap;align-items:baseline;gap:4px 8px !important;} .king-card.last-card .you-nums .gap{margin-top:0;margin-left:10px;} .king-card.last-card .you-nums span{display:none;} }

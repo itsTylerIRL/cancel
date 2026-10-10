@@ -3909,19 +3909,30 @@ let kingClock = 0;
 const TRIBE_COLOR = { hypebeast:"#ffd75e", gyaru:"#a6ff5e", lolita:"#ff9ecb", harajuku:"#8be9fd", prep:"#b7a57a", schizoposter:"#b9a4ff", collector:"#ffb86c" };
 const tribeBadge = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<span class='tribe-badge' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.rule+" "+t.sig+" "+t.cost)+"'><i>"+t.icon+"</i>"+t.name+"</span>" : ""; };
 const agoText = at => { const m = Math.max(0, Math.round((Date.now()-at)/60000)); return m<1 ? "just now" : m<60 ? m+"m ago" : m<1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
-function renderLast(){ // your last run, above the king: the same card, in your colours instead of gold
-  const el = $("last-box"), r = META.lastRun; if(!el) return;
-  if(!r || !TRIBES.some(t=>t.id===r.tribe)){ el.classList.add("hidden"); return; }
-  el.innerHTML = "<div class='phead'>your last run</div><div class='king-card last-card"+(r.win ? " won" : "")+"'>"
-    + (r.look ? "<canvas class='bpfp big' width='4' height='4'></canvas>" : "")
-    + "<div><b>"+esc(r.name)+" "+tribeBadge(r.tribe)+"</b>"
-      + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
-      + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
-      + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
-    + "<div class='king-relics'><u>carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>"
-    + "<div class='king-clock'><u>score</u><b>"+r.score+"</b><span>DRIP</span></div></div>";
+let myRank = null; // where you stand on the all-time board, once the service has said
+async function loadRank(){
+  const res = await api("/api/board?all=1&limit=1&player="+playerId());
+  if(!res) return;
+  myRank = res.you ? { rank:res.you.rank, score:res.you.score, total:res.total, pid:playerId() } : { rank:0, total:res.total, pid:playerId() };
+  if($("screen-title").classList.contains("active")) renderLast();
+}
+function renderLast(){ // your card, above the king's: the same shape, in the interface's colour instead of gold, and about you
+  const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
+  if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
+  const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
+  el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card"+(r && r.win ? " won" : "")+"'>"
+    + (r && r.look ? "<canvas class='bpfp big' width='4' height='4'></canvas>" : "")
+    + "<div><b>"+esc(u ? u.name : (r ? r.name : META.name || "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
+      + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
+      + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
+      + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
+           + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
+           : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
+    + (r ? "<div class='king-relics'><u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>" : "")
+    + "<div class='king-clock you-nums'><u>all-time</u><b class='rank'>"+(rk ? (rk.rank ? "#"+rk.rank : "—") : "…")+"</b><span>"+(rk ? (rk.rank ? "of "+rk.total+" · best "+rk.score : "not on the board yet") : "&nbsp;")+"</span>"
+      + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>to spend on unlocks</span></div></div>";
   el.classList.remove("hidden");
-  if(r.look) drawLook(el.querySelector("canvas"), r.look, r.relics).catch(()=>{});
+  if(r && r.look) drawLook(el.querySelector("canvas"), r.look, r.relics).catch(()=>{});
 }
 /* Today's daily, on its button: how many have played it, how many survived, the score to beat, and where you stand. */
 let dailyInfo = null;
@@ -4139,7 +4150,7 @@ async function syncProfile(force){
     if(d.daily===today() && !(META.dailyAt && META.dailyAt.date===d.daily)) META.dailyAt = {date:d.daily, run:"elsewhere"}; // played on another device
     META.sync = {p:now.player, runs:d.runs, wins:d.wins, drip:d.drip};
     saveMeta();
-    if($("screen-title").classList.contains("active")){ renderMenu(); renderDailyButton(); }
+    if($("screen-title").classList.contains("active")){ renderMenu(); renderDailyButton(); renderLast(); }
   }
   if(syncAgain){ syncAgain = false; syncProfile(true); }
 }
@@ -4491,7 +4502,7 @@ function renderDailyButton(){
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing(); loadDaily(); renderLast();
+  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
@@ -4508,7 +4519,7 @@ function renderMenu(){
   const afford = !!rnUser() && UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
   $("menu-codex").innerHTML = "📖 codex <small>"+have+" / "+pool.length+"</small>";
   $("menu-ach").innerHTML = "🏆 achievements <small>"+done+" / "+ACHIEVEMENTS.length+"</small>";
-  $("menu-unlocks").innerHTML = "✨ unlocks <small>"+META.drip+" drip</small>";
+  $("menu-unlocks").innerHTML = "✨ unlocks <small>"+UNLOCKS.filter(u=>META.unlocks[u.id]).length+" / "+UNLOCKS.length+"</small>"; // how much DRIP you have is on your card above
   $("menu-unlocks").classList.toggle("ready", afford); // something is affordable
 }
 const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
