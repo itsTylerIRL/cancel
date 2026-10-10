@@ -1569,3 +1569,19 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 @media (min-width:1280px){ .board{--board:calc(100vh / var(--ui) - 306px);} #boss-banner:not(.hidden) ~ .play .board{--board:calc(100vh / var(--ui) - 387px);} }
 @media (min-width:1280px) and (max-height:820px) and (min-aspect-ratio:5/4){ .board{--board:calc(100vh - 324px);} #boss-banner:not(.hidden) ~ .play .board{--board:calc(100vh - 405px);} }
 @media (min-width:1280px) and (max-aspect-ratio:5/4){ .board{--board:calc(100vh / var(--ui) - 276px);} }
+
+/* choosing a tribe: a row each, with what it changes, what it does in a fight, and what it costs */
+#modal-panel:has(.tribe-list){max-width:720px;}
+.tribe-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;}
+.tribe-list .pick.tribe{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:10px;text-align:left;padding:8px 10px;height:auto;white-space:normal;text-transform:none;letter-spacing:0;line-height:1.35;min-height:0;}
+.tribe-list .pick.tribe>i{font-size:24px;text-align:center;filter:grayscale(.6);} .tribe-list .pick.tribe.on>i,.tribe-list .pick.tribe:hover>i{filter:none;}
+.tribe-list .tinfo{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.tribe-list .tinfo b{font-family:var(--label);font-size:12px;letter-spacing:.12em;color:#e9f6fa;white-space:normal;max-width:none;} .tribe-list .tinfo b small{font-family:var(--mono);letter-spacing:0;font-weight:400;color:var(--dim);text-transform:lowercase;margin-left:4px;}
+.tribe-list .tinfo span{font-size:11px;color:#b8c7cc;} .tsig{color:var(--gold)!important;} .tcost{color:#ff8b8b!important;}
+.tribe-list .pick.tribe em{font-style:normal;font-size:10px;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:3px;width:78px;text-align:center;margin:0;}
+.tribe-list .pick.tribe em .relic-ico{width:30px;height:30px;}
+.cx-row .tsig,.cx-row .tcost{font-size:11px;}
+@media (max-width:600px){ .tribe-list .pick.tribe{grid-template-columns:30px minmax(0,1fr);} .tribe-list .pick.tribe em{display:none;} }
+.tribe-list{gap:4px;margin:6px 0;} .tribe-list .pick.tribe{padding:5px 10px;line-height:1.28;gap:8px;grid-template-columns:30px minmax(0,1fr) 34px;}
+.tribe-list .pick.tribe>i{font-size:20px;} .tribe-list .tinfo span{font-size:10.5px;} .tribe-list .tinfo b{font-size:11px;}
+.tribe-list .pick.tribe em{width:34px;font-size:0;} #modal-panel:has(.tribe-list){max-width:780px;padding-top:12px;padding-bottom:10px;} #modal-panel:has(.tribe-list) h2{margin:0 0 4px;} #modal-panel:has(.tribe-list) .note{margin:4px 0;}

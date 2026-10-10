@@ -31,7 +31,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **The last three days.** From day 7 the interface itself starts to give: red at the edges, cracks in the timeline, things said in the feed. By day 9 you know something is arriving.
 - **Nights.** Hunters path toward you. Campfires only work after dark: sleep at one to heal and skip to dawn, and it burns out. Every boss you beat makes the nights worse: the hunters come back tougher, faster, and eventually in greater number.
 - **Done waiting?** Click the next boss on the timeline to fight it now. Win and it never shows up, so the days it would have taken are yours. It isn't free: a boss called out early hits harder for every day you skipped, and every call-out leaves the rest of the timeline tougher. Beat THE CANCEL itself before day 9 and every day you saved is worth points.
-- **Tribes.** Hypebeast, Degen Trader, Lovebomber, Accelerationist, Wartime Poster. Each starts with its own relic.
+- **Tribes.** Seven classes, and each one is a different way to play: Hypebeast (crit chains), Degen Trader ($CULT is power), Lovebomber (healing and shields), Accelerationist (first strike, shorter days), Wartime Poster (armour that hits back), Schizoposter (lives at night), Collector (more slots, easier sets). Each has a rule, a signature in fights, and a cost.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 
 A few things that keep you from playing blind: every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.

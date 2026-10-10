@@ -564,6 +564,9 @@ async function buildIcon(rel){
 /* ---------- run state ---------- */
 let G = null;
 const DAY_MOVES = 34, NIGHT_MOVES = 16, BOSS_DAYS = [3,6,9];
+const tribeIs = id => !!G && G.tribe===id; // the run's class; each tribe's rules are marked with its id where they apply
+const dayMoves = () => DAY_MOVES - (tribeIs("harajuku") ? 6 : 0);
+const nightMoves = () => NIGHT_MOVES - (tribeIs("harajuku") ? 4 : 0) + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
 /* Unlocks belong to an account: they are bought, kept and switched on only while signed in. */
 const perk = id => !!(rnUser() && META.unlocks[id]);
 /* Frames are cosmetic, so which one you wear is yours to pick: any you own, or none. Unset means the best you have. */
@@ -592,8 +595,8 @@ function newRun(ava, opt){
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (pk("slot1")?1:0) + (pk("slot2")?1:0) - (heat>=5?1:0),
-    day: 1, phase: "day", movesLeft: DAY_MOVES,
+    maxSlots: 4 + (pk("slot1")?1:0) + (pk("slot2")?1:0) + (tribe.id==="collector"?1:0) - (heat>=5?1:0),
+    day: 1, phase: "day", movesLeft: DAY_MOVES - (tribe.id==="harajuku" ? 6 : 0),
     px: SX, py: SY,
     map: [], fog: [],
     hunters: [], shops: {}, foes: {}, seen: [], bossLook: [],
@@ -820,6 +823,7 @@ function setCounts(relics){
   const n = {};
   for(const id of new Set(relics)) for(const k of relicById(id).set) n[k] = (n[k]||0)+1; // a duplicate doesn't count twice
   if(relics.includes("webring")) for(const k in n) n[k]++; // the webring links in to every set you already hold
+  if(tribeIs("collector")) for(const k in n) if(n[k]>=2) n[k]++; // COLLECTOR: a synergy you have started counts one more, so its higher tiers come early
   return n;
 }
 function computeStats(relics){
@@ -858,6 +862,8 @@ function rawStats(relics, setsAs){
   if(R("pickaxe")){ s.atk+=5; s.arm+=2; }
   if(R("hk416")){ s.atk+=7; s.arm+=2; }
   if(G && G.phase==="night"){ if(R("crescent")) s.atk+=4; if(S("night",2)) s.atk+=3; }
+  if(tribeIs("schizoposter") && G.phase) s.atk += G.phase==="night" ? 4 : -1;
+  if(tribeIs("collector")) s.atk += Math.floor(SETS.filter(t=>(sets[t.id]||0) >= t.tiers[0][0]).length/2);
   if(S("armed",2)) s.atk+=4;
   if(R("ss_drip")) s.atk *= 1.5;
   if(R("diamond_stud")) s.maxhp+=30;
@@ -894,15 +900,18 @@ function rawStats(relics, setsAs){
   if(R("hypebeast")) s.arm+=6;
   if(S("bonkler",2)) s.arm+=3;
   if(R("punisher")) s.atk += Math.floor(Math.max(0, s.arm)/2); // after every source of ARM
+  if(tribeIs("prep")) s.maxhp += Math.max(0, s.arm-10); // WARTIME POSTER: armour past 10 is health too
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
     + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0)
-    + (R("bluetooth")?5:0) + (R("shooting_glasses")?15:0) + (R("cherry")?6:0);
+    + (R("bluetooth")?5:0) + (R("shooting_glasses")?15:0) + (R("cherry")?6:0)
+    + (tribeIs("hypebeast") ? 5*(relics.length - new Set(relics).size) : 0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
-  s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0)
-    + (R("bluetooth")?8:0) + (R("goth_headband")?6:0) + (R("black_niqab")?12:0) + (R("safety_glasses")?5:0) + (G && G.phase==="night" && S("night",2) ? 10 : 0);
+  s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0) + (tb.dodge||0)
+    + (R("bluetooth")?8:0) + (R("goth_headband")?6:0) + (R("black_niqab")?12:0) + (R("safety_glasses")?5:0) + (G && G.phase==="night" && S("night",2) ? 10 : 0)
+    + (tribeIs("schizoposter") && G.phase==="night" ? 15 : 0);
   s.dodgeRaw = s.dodge;
-  s.shopDisc = (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
+  s.shopDisc = (tribeIs("gyaru") ? 1.15 : tribeIs("collector") ? 1.25 : 1) * (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
   return s;
 }
 /* synergy rows for the sidebar, the build sheet and draft cards */
@@ -1105,6 +1114,9 @@ function renderHUD(){
       s.dodge ? ["💨 counter "+Math.max(1,Math.round(s.atk/2)), "every dodge ("+Math.round(s.dodge)+"%) hits back for half your ATK"] : 0,
       hf ? ["💪 heft +"+hf, "every 12 max HP above 50 adds 1 to your hits"] : 0,
       over ? ["✨ crit dmg +"+Math.round(over*BAL.critOver*100)+"%", "crit chance past 100% becomes crit damage"] : 0,
+      tribeIs("gyaru") ? ["📈 +"+Math.min(8, Math.floor(G.cult/100))+" ATK", "Degen Trader: +1 ATK for every 100 $CULT you hold, up to +8"] : 0,
+      tribeIs("schizoposter") ? [G.phase==="night" ? "📡 awake" : "📡 daylight", "Schizoposter: +4 ATK and +15% dodge at night, −1 ATK by day"] : 0,
+      tribeIs("hypebeast") && G.relics.length>new Set(G.relics).size ? ["👟 +"+5*(G.relics.length-new Set(G.relics).size)+"% crit", "Hypebeast: +5% crit for every duplicate relic"] : 0,
       dot && gr ? ["🔥 +"+gr+"%", "your burn, bleed, poison, shocks, companions and healing have grown this much with the days"] : 0 ].filter(Boolean);
     $("hud-build").innerHTML = si(bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join(""));
     if(hf) tip("heft"); if(over) tip("crit");
@@ -1142,7 +1154,7 @@ function renderHUD(){
   $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : "");
   $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day;
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
-  const total = G.phase==="day" ? DAY_MOVES : NIGHT_MOVES + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
+  const total = G.phase==="day" ? dayMoves() : nightMoves();
   let pips = "";
   for(let i=0;i<total;i++) pips += "<i"+(i<G.movesLeft?"":" class='spent'")+"></i>";
   const mv = $("hud-moves"); mv.innerHTML = pips; mv.title = G.movesLeft+" moves left"; mv.className = G.phase;
@@ -1758,7 +1770,7 @@ function endPhase(){
   G.day++; startDay();
 }
 function startDay(){
-  G.phase="day"; G.movesLeft=DAY_MOVES; G.hunters=[];
+  G.phase="day"; G.movesLeft=dayMoves(); G.hunters=[];
   mlog("☀️ <b>DAY "+G.day+"</b> dawns over the timeline.", "gold");
   if(G.curses && G.curses.dawn && G.stats.hp>1){ // the altar's price
     const d = Math.min(G.curses.dawn, G.stats.hp-1); G.stats.hp -= d;
@@ -1789,7 +1801,7 @@ function showBanner(){
   if(b) bb.innerHTML = "⚠️ "+b.name+" IS COMING<small>"+b.mechanic+"<br>face it at the ⛩️ gate — or it finds you at dawn</small>";
 }
 function startNight(){
-  G.phase="night"; G.movesLeft=NIGHT_MOVES + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
+  G.phase="night"; G.movesLeft=nightMoves();
   recalcStats();
   mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
   splash("NIGHT FALLS<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
@@ -1899,7 +1911,8 @@ function foeBase(def){
   const lvl = boss ? 1 + d*0.085 : 1 + d*0.1 + d*d*0.006;
   // rushing has a price: every boss called out early leaves the whole timeline tougher, and the boss being called
   // out is tougher again, by how many have been called and by how many days early this one is
-  const rush = (1 + CALL.world*(G.calls||0)) * (boss && G.calling ? 1 + CALL.boss*((G.calls||0)+1) + CALL.day*G.calling : 1);
+  const ck = tribeIs("harajuku") ? 0.5 : 1; // ACCELERATIONIST: rushing costs half
+  const rush = (1 + CALL.world*ck*(G.calls||0)) * (boss && G.calling ? 1 + ck*(CALL.boss*((G.calls||0)+1) + CALL.day*G.calling) : 1);
   const hpx = lvl * rush * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
   const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
@@ -2019,7 +2032,7 @@ function openDraft(flavor, pool, luck, gen){
   let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
   html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button>"
-    + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost?" disabled":"")+" title='a new set of relics. the price doubles each time'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
+    + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost || tribeIs("collector")?" disabled":"")+" title='"+(tribeIs("collector") ? "a Collector takes what is offered: no rerolls" : "a new set of relics. the price doubles each time")+"'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
     + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
   openModal(html);
   // A draft often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
@@ -2037,7 +2050,7 @@ function openDraft(flavor, pool, luck, gen){
   });
   $("draft-skip").onclick=()=>{ closeModal(); renderMap(); };
   $("draft-reroll").onclick=()=>{
-    if(G.cult<cost) return;
+    if(G.cult<cost || tribeIs("collector")) return;
     G.cult -= cost; G.rerolls = (G.rerolls||0)+1; sfx("coin"); renderHUD();
     mlog("🎲 Rerolled the draft for "+cost+" $CULT.", "");
     openDraft(flavor, gen, luck);
@@ -2057,6 +2070,10 @@ function openShop(note){
   if(G.curses && G.curses.shunned){ mlog("🚫 The shutters come down as you walk up. <b>The shops won't serve you.</b>", "bad"); mapFloat("🚫 shunned", "loot"); sfx("bad"); return; }
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
+  if(tribeIs("hypebeast") && !shop.dupe && G.relics.length){ // HYPEBEAST: there is always another one of something you're wearing
+    shop.dupe = true;
+    if(!shop.stock.some(it=>G.relics.includes(it.id))){ const r = relicById(choice(G.relics)); shop.stock[0] = {id:r.id, base:RARITY[r.rar].price}; }
+  }
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
@@ -2132,8 +2149,9 @@ function openShrine(){
       sfx(win?"win":"bad");
       if(win && b.dataset.b==="all" && bet>=100) achieve("allin");
       if(win){
-        G.cult+=bet*2; clearTile();
-        mlog("Shrine flip: WIN. +"+bet+" $CULT. The shrine goes dark.", "good");
+        const again = tribeIs("gyaru") && !(G.flags.shrineTwice||{})[G.px+","+G.py]; // DEGEN TRADER: a shrine pays out twice
+        G.cult+=bet*2; if(again) (G.flags.shrineTwice = G.flags.shrineTwice||{})[G.px+","+G.py] = 1; else clearTile();
+        mlog("Shrine flip: WIN. +"+bet+" $CULT. "+(again ? "It has one more payout in it for a Degen Trader." : "The shrine goes dark."), "good");
         $("shrine-cult").textContent = G.cult; renderHUD();
         setTimeout(()=>{ if(!openDraft("The shrine provides.", null, 1)) closeModal(); },800);
       } else {
@@ -2221,11 +2239,12 @@ function openFire(){
     mlog("🔥 A campfire. It isn't dark yet: <b>you can only sleep here at night.</b>", ""); mapFloat("🔥 night only", "loot"); sfx("click"); tip("night");
     return;
   }
-  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Sleep until dawn? You heal to full and skip the rest of this night safely — no loot, no fights. The fire burns out once you've used it."
+  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Sleep until dawn? "+(tribeIs("schizoposter") ? "A Schizoposter doesn't heal here, but you" : "You heal to full and")+" skip the rest of this night safely — no loot, no fights. The fire burns out once you've used it."
     + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
     + "</div><div class='row'><button class='btn' id='fire-yes'>SLEEP</button><button class='btn small' id='fire-no'>keep moving</button></div>");
   $("fire-yes").onclick=()=>{
-    G.stats.hp=G.stats.maxhp; clearTile(); G.flags.rested = true; mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal");
+    if(tribeIs("schizoposter")){ clearTile(); G.flags.rested = true; mlog("You sit by the fire and don't sleep. The night passes. <i>A Schizoposter doesn't rest.</i>", ""); sfx("click"); }
+    else { G.stats.hp=G.stats.maxhp; clearTile(); G.flags.rested = true; mlog("Rested. HP restored. The fire burns out behind you.", "good"); sfx("heal"); }
     G.queue = G.queue.filter(f=>f!==endPhase); G.queue.push(endPhase);
     closeModal();
   };
@@ -2261,10 +2280,10 @@ function skipToBoss(){
   const to = BOSS_DAYS[bi], early = to>G.day, was = G.day;
   G.day = Math.max(G.day, to); G.calling = to-was > 0 ? to-was : 0; oddsCache = {}; adaptCache = {}; // show its numbers, and your odds, as they will be in the fight
   try{ bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
-  const up = Math.round(100*(CALL.boss*((G.calls||0)+1) + CALL.day*(to-was)));
+  const ck = tribeIs("harajuku") ? 0.5 : 1, up = Math.round(100*ck*(CALL.boss*((G.calls||0)+1) + CALL.day*(to-was)));
   $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note'>"
     + (early ? "it fights at its day-"+to+" strength, and <b class='bad'>+"+up+"% stronger</b> for being called out "+(to-was)+" day"+(to-was>1?"s":"")+" early"+(G.calls ? " (your "+["second","third"][G.calls-1]+" call-out)" : "")
-               + ". win, and it never comes, but everything left in the timeline gets <b class='bad'>"+Math.round(CALL.world*100)+"% tougher</b>"
+               + ". win, and it never comes, but everything left in the timeline gets <b class='bad'>"+Math.round(CALL.world*ck*100)+"% tougher</b>"
              : "you fight it right here, without walking to the gate")+"</div>");
   $("boss-wait").onclick=()=>closeModal();
   $("boss-fight").onclick=()=>{
@@ -2290,7 +2309,7 @@ function openBuild(){
   let html = "<h2>YOUR BUILD</h2><div class='build-top'><canvas id='build-ava'></canvas><div class='stat-grid'>"
     + cell("HP", s.hp+" / "+s.maxhp)+cell("ATK", s.atk)+cell("ARM", s.arm)+cell("SPD", s.spd)
     + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
-    + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
+    + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip tribe-chip' title='"+esc(tr.rule+" "+tr.sig+" "+tr.cost)+"'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (thornsOf(G.stats.arm) ? "<span class='chip' title='every enemy swing that reaches you costs it a quarter of your ARM'>🛡️ thorns "+thornsOf(G.stats.arm)+"</span>" : "")
     + (G.stats.crit>100 ? "<span class='chip' title='crit chance past 100% becomes crit damage'>✨ crits deal +"+Math.round((G.stats.crit-100)*BAL.critOver*100)+"% more</span>" : "")
     + (G.day>1 ? "<span class='chip' title='burn, bleed, poison, shocks and companions grow "+Math.round(BAL.growth*100)+"% a day'>🔥🧸 statuses and companions +"+Math.round(BAL.growth*(G.day-1)*100)+"%</span>" : "")
@@ -2770,6 +2789,7 @@ function fightEngine(foeDef, opts, io){
     base = {...s, hp: clamp(Math.round(G.stats.hp/G.stats.maxhp*s.maxhp), 1, s.maxhp)};
     io.log("📵 THE CANCEL has cancelled <b>"+relicById(gone).name+"</b>. It is gone.", "bad");
   }
+  const tribe = G.tribe; // the class fighting this fight (the king's, on their side of a duel)
   const you = {...base, stun:0, wartime:true, blunt:true, compTick:0, shield:0, suppressed:new Set()};
   const foe = {...foeDef, poison:0, stun:0, stolen:0, burn:0, bleed:0, chill:0};
   const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0, dealt:{}, took:0, hurt:{}, guarded:0 };
@@ -2790,11 +2810,12 @@ function fightEngine(foeDef, opts, io){
     F.over=true; F.win=win;
   };
   const heal = n => {
+    if(tribe==="lolita") n *= 1.5; // LOVEBOMBER
     n = grow(n); // healing keeps pace with the days, like burn and companions do: a heal sized for day 1 was a rounding error by day 6
     const before = you.hp, want = you.hp + n*(act("heart_tattoo")?2:1);
     you.hp = Math.min(you.maxhp, want);
     if(you.hp>before) io.float("you", "+"+(you.hp-before), "heal");
-    if(want>you.maxhp && set("grass",3)){ const over = Math.round(want-you.maxhp); you.shield += over; io.float("you","+"+over+" shield","heal"); } // TOUCH GRASS: nothing healed is wasted
+    if(want>you.maxhp && (set("grass",3) || tribe==="lolita")){ const over = Math.round(want-you.maxhp); you.shield += over; io.float("you","+"+over+" shield","heal"); } // TOUCH GRASS: nothing healed is wasted
   };
   const eat = id => { // a meal is used up when it is eaten, unless FAST FOOD keeps it on the plate
     if(set("food",3) && rnd()<0.4){ io.log("🍔 Still some left. <b>"+relicById(id).name+"</b> stays.", "good"); return; }
@@ -2806,6 +2827,7 @@ function fightEngine(foeDef, opts, io){
     if(set("squad",3)) heal(3);
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
+  you.guard = tribe==="prep" ? 1 : 0; you.opener = tribe==="harajuku"; you.bail = tribe==="gyaru";
   const hunter = foe.id==="fud";
   you.helmet = act("bike_helmet"); you.stored = 0;
   if(set("agency",3)) you.sure = true;
@@ -2839,6 +2861,7 @@ function fightEngine(foeDef, opts, io){
     if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")) atk += tv("blood_splatter",5);
     if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
+    if(isYou && tribe==="gyaru") atk += Math.min(8, Math.floor(st.cult/100)); // DEGEN TRADER: money hits
     if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0) + heftOf(you.maxhp);
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
@@ -2879,18 +2902,19 @@ function fightEngine(foeDef, opts, io){
       if(act("vampire")) heal(2);
       if(foe.hp<=0) return;
     }
+    if(!isYou && you.guard){ you.guard=0; io.log("🪖 Dug in. The first one doesn't land.", "good"); io.float("you","blocked","heal"); return; }
     if(!isYou && you.block){ you.block=0; io.log("🐯 Hobbes takes the hit for you.", "good"); io.float("you","blocked","heal"); return; }
     // dodge
     if(!isYou && rnd()*100 < (you.dodge||0)){
       io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
       if(act("cat_ears")) heal(tv("cat_ears",5));
-      if(act("matrix")) you.sure = true;
+      if(act("matrix") || tribe==="schizoposter") you.sure = true;
       if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
       else { const d = counterDmg(you, foe); foe.hp-=d; credit("💨 counters", d); io.log("💨 You slip it and counter for "+d+".", "good"); io.hit("foe",d,false); } // every dodge answers back
       return;
     }
     if(!isYou){ // armour bites back: a swing that reaches you costs the attacker a quarter of your ARM
-      const th = thornsOf(you.arm) * (act("cactus_shirt") ? 2 : 1);
+      const th = thornsOf(you.arm) * (act("cactus_shirt") ? 2 : 1) * (tribe==="prep" ? 2 : 1);
       if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
@@ -2906,6 +2930,7 @@ function fightEngine(foeDef, opts, io){
       if(dmg > lim){ dmg = lim; guarded = true; }
     }
     def.hp-=dmg;
+    if(isYou && crit) F.crits = (F.crits||0)+1;
     if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else { F.took += dmg; hurtBy(crit ? "✨ its crits" : "⚔️ its hits", dmg); }
     if(guarded) F.guarded++;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : ""), crit?"crit":(isYou?"good":"bad"));
@@ -2934,6 +2959,11 @@ function fightEngine(foeDef, opts, io){
   }
   function lethalCheck(){
     if(you.hp>0) return false;
+    if(you.bail && st.cult>=150){ // DEGEN TRADER: everything has a price
+      you.bail = false; st.cult -= 150; you.hp = 1;
+      io.log("📈 <b>Bought the dip.</b> 150 $CULT, and you're still here.", "good"); io.float("you","−150 $CULT","heal");
+      return false;
+    }
     if(you.wartime && act("wartime_pfp")){
       you.wartime=false; you.hp=1; io.log("🕊️ <b>WARTIME PFP</b> saves you!", "good");
       io.float("you","saved!","heal");
@@ -2986,6 +3016,8 @@ function fightEngine(foeDef, opts, io){
     const regen = (act("cult_robe")?tv("cult_robe",4):0) + (act("lollipop")?tv("lollipop",2):0) + (set("kawaii",4)?4:0);
     if(regen) heal(regen);
     if(set("cult",3) && F.tick%4===0){ you.shield+=4; io.float("you","+4 shield","heal"); }
+    if(tribe==="lolita" && F.tick%4===0 && you.hp>0){ // LOVEBOMBER: 8% of max HP, whatever the day (undoing the multipliers every other heal gets)
+      heal(Math.max(1, you.maxhp*0.08/1.5/(1+BAL.growth*Math.max(0,((G&&G.day)||1)-1)))); io.log("💌 Love bomb. You feel held.", "good"); }
     // poison ticks
     if(foe.burn>0){ const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
@@ -3007,15 +3039,18 @@ function fightEngine(foeDef, opts, io){
     }
     if(foe.hp<=0) return done(true);
     if(lethalCheck()) return done(false);
-    const order = you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true];
+    const order = tribe==="harajuku" || you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true]; // ACCELERATIONIST always goes first
     for(const isYou of order){
       const att = isYou?you:foe, def = isYou?foe:you;
       F.fxDelay = isYou===order[0] ? 0 : 270; // the second striker's visuals land a beat later
       if(att.stun>0 && !(!isYou && foe.puppet)){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned.", ""); continue; } // a duel's stand-in keeps its stun for the fighter it stands for
       if(!isYou && foe.puppet && !(foe.nextDmg>0)) continue; // nothing to land this round
+      const critsBefore = F.crits||0;
       strike(att,def,isYou);
       if(foe.hp<=0) return done(true);
       if(lethalCheck()) return done(false);
+      if(isYou && you.opener){ you.opener = false; io.log("⚡ Already there. Your first hit lands twice.", "good"); strike(you,foe,true); if(foe.hp<=0) return done(true); }
+      else if(isYou && tribe==="hypebeast" && (F.crits||0)>critsBefore && rnd()<0.3){ io.log("👟 Another one. The crit chains.", "crit"); strike(you,foe,true); if(foe.hp<=0) return done(true); }
       if(isYou && ((set("armed",3) && ++you.swings%3===0) || (set("bonkler",4) && rnd()<0.25))){
         io.log("⚡ You strike again!", "good");
         strike(you,foe,true);
@@ -3154,7 +3189,7 @@ function settleWin(F, opts, log){
   if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
   if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
   let c = randi(foe.cult[0], foe.cult[1]);
-  c = Math.round(c * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
+  c = Math.round(c * (tribeIs("schizoposter") && foe.id==="fud" ? 2 : 1) * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
   if(hasRelic("no_meme") && rnd()<0.2){ c*=3; log("💌 There is no meme. I love you. The floor triples.", "crit"); }
   G.cult += c + foe.stolen;
   log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
@@ -3162,7 +3197,7 @@ function settleWin(F, opts, log){
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
   for(const [id,n,label] of [["birthday_hat",18,"🎂 Birthday Hat"],["maid",10,"🧹 Maid Outfit"],["strawberry",6,"🍓 Strawberry Earring"],["flower_clip",5,"🌸 Flower Clip"]]
       .concat(hasRelic("mcdonalds") && rnd()<0.3 ? [["mcdonalds",12,"🍟 McDonalds"]] : []))
-    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id))); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); }
+    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id)*(tribeIs("lolita") ? 1.5 : 1))); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); }
   const hp = clamp(Math.round(you.hp),1,you.maxhp);
   recalcStats(); // kills and burned relics change the build
   G.stats.hp = Math.min(hp, G.stats.maxhp);
@@ -3176,7 +3211,7 @@ function trivial(foeDef, opts){
   const o = fightOdds(def, opts);
   return o.p===1 && o.hp >= G.stats.hp*0.85;
 }
-const dropOdds = (foe, opts) => foe.id==="fud" && ((G.stats.sets||{}).night||0)>=4 ? 1 : opts.elite ? 0.6 : 0.25; // NIGHT SHIFT: a beaten hunter always drops something
+const dropOdds = (foe, opts) => foe.id==="fud" && ((G.stats.sets||{}).night||0)>=4 ? 1 : opts.elite ? (tribeIs("prep") ? 1 : 0.6) : 0.25; // NIGHT SHIFT: a beaten hunter always drops something
 function quickFight(foeDef, opts){
   const keep = SEED, F = fightEngine(foeDef, opts, NOIO);
   for(let n=0; !F.over && n<3000; n++) F.step();
@@ -4272,11 +4307,12 @@ function beginSetup(){
   const pickTribe = ()=>{
     setupStep = pickTribe;
     const kit = (AVA && AVA.picks.kit) || {};
-    openModal("<h2>CHOOSE YOUR TRIBE</h2><div class='tribe-grid'>"+TRIBES.map(t=>{ const tr = relicById(kit.relic || t.relic);
-        return "<button class='pick tribe"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'><i>"+t.icon+"</i><b>"+t.name+"</b><span>"+t.desc+"</span>"
+    openModal("<h2>CHOOSE YOUR TRIBE</h2><div class='tribe-list'>"+TRIBES.map(t=>{ const tr = relicById(kit.relic || t.relic);
+        return "<button class='pick tribe"+(t.id===PICK.tribe?" on":"")+"' data-t='"+t.id+"'><i>"+t.icon+"</i><div class='tinfo'><b>"+t.name+" <small>"+t.desc+"</small></b>"
+          + "<span class='trule'>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span></div>"
           + "<em><img class='relic-ico' src='"+(ICONS[tr.id]||"")+"' alt=''>"+tr.name+"</em></button>"; }).join("")+"</div>"
       + (kit.note && kit.note.length ? "<div class='note good'>token kit: "+kit.note.join(" · ")+"</div>" : "")
-      + "<div class='note'>each tribe starts with its own relic and bonus"+(kit.relic ? ". your token wears "+relicById(kit.relic).name+", so you start with that whichever you pick" : "")+"</div>"
+      + "<div class='note'>a tribe is how you play the whole run: <span class='tsig'>its signature</span> shows up in every fight, and <span class='tcost'>its cost</span> never goes away"+(kit.relic ? ". your token wears "+relicById(kit.relic).name+", so you start with that whichever you pick" : "")+"</div>"
       + "<div class='row'><button class='btn small' id='setup-back'>← character</button></div>");
     $("modal-panel").querySelectorAll("[data-t]").forEach(b=>{ b.onclick=()=>{ PICK.tribe = b.dataset.t; META.tribe = PICK.tribe; saveMeta(); sfx("click"); backdrop(); pickHeat(); }; });
     $("setup-back").onclick = ()=>{ sfx("click"); setupStep = null; leaveRun(); show("screen-avatar"); };
@@ -4492,7 +4528,7 @@ function openCodex(tab, pick){
     const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO];
     body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
-      + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+t.desc+" · starts with "+relicById(t.relic).name+"</span></div>").join("");
+      + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");
   }
   openModal("<h2>CODEX</h2><div class='pick-row'>"+CODEX_TABS.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div><div class='codex-body'>"+body+"</div>"+backRow);
   wireClose();

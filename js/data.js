@@ -25,15 +25,26 @@ const TOKEN_MAP = {
    exclusions:{"Race":{"Oni Dark":["Hair", "Hat"], "Oni Light":["Hair", "Hat"], "Alien":["Eyes"], "Reptilian":["Eyes"], "Zombie":["Eyes"]}, "Hat":{"Strawberry Hat":["Earrings"]}, "Eyes":{"Southpark":["Brows"]}}, layerExclusions:{"Costume":["Shirt", "Hat", "Glasses", "Hair", "Face"]} },
 };
 
-/* Starting classes. The names are types of poster, so they fit a Milady or a Remilio alike; the ids are the Milady
-   "Core" traits they grew out of (a token's Core still picks its tribe), and saves and the leaderboard use the ids.
-   relic = what you start holding; stat = flat bonuses. */
+/* Classes. A tribe is a way of playing, not a starting bonus: each has a rule that bends the whole run, a signature
+   that shows up in fights, and a cost. The names are types of poster, so they fit a Milady or a Remilio alike; the
+   first five ids are the Milady "Core" traits they grew out of (a token's Core still picks its tribe), and saves and
+   the leaderboard use the ids. relic = what you start holding; stat/cult = flat numbers; the rest is in game.js under
+   the tribe's id. desc is the one-line version; rule, sig and cost are what the picker shows. */
 const TRIBES = [
- {id:"hypebeast", name:"HYPEBEAST", icon:"👟", relic:"chrome_hearts",  desc:"+6% crit chance",        stat:{crit:6}},
- {id:"gyaru",     name:"DEGEN TRADER", icon:"📈", relic:"silver_coin",    desc:"+60 starting $CULT",     cult:60},
- {id:"lolita",    name:"LOVEBOMBER", icon:"💌", relic:"strawberry",     desc:"+15 max HP",             stat:{maxhp:15}},
- {id:"harajuku",  name:"ACCELERATIONIST", icon:"⚡", relic:"cobain_glasses", desc:"+1 SPD",                 stat:{spd:1}},
- {id:"prep",      name:"WARTIME POSTER", icon:"🪖", relic:"knife",          desc:"+1 ATK, +2 ARM",         stat:{atk:1, arm:2}},
+ {id:"hypebeast", name:"HYPEBEAST", icon:"👟", relic:"chrome_hearts", stat:{crit:8, maxhp:-4}, desc:"crit chains and duplicates",
+  rule:"+8% crit, and +5% more for every duplicate relic you hold. Shops always stock one relic you already own.", sig:"A crit has a 30% chance to swing again.", cost:"−4 max HP."},
+ {id:"gyaru", name:"DEGEN TRADER", icon:"📈", relic:"silver_coin", cult:60, desc:"$CULT is power",
+  rule:"+60 starting $CULT. +1 ATK for every 100 $CULT you hold, up to +8. A shrine pays out twice before it goes dark.", sig:"Once per fight, a killing blow costs you 150 $CULT instead of your life.", cost:"Shops charge 15% more."},
+ {id:"lolita", name:"LOVEBOMBER", icon:"💌", relic:"strawberry", stat:{maxhp:15, atk:-2}, desc:"healing, and shields from it",
+  rule:"+15 max HP. All healing is 50% stronger, and in a fight healing past full becomes shield.", sig:"Every 4th round you heal 8% of your max HP.", cost:"−2 ATK."},
+ {id:"harajuku", name:"ACCELERATIONIST", icon:"⚡", relic:"cobain_glasses", stat:{spd:1}, desc:"first strike, and no time",
+  rule:"+1 SPD. Calling a boss out early costs half the usual penalty. Nights are 4 moves shorter.", sig:"You always strike first, and your first hit of every fight lands twice.", cost:"Days are 6 moves shorter."},
+ {id:"prep", name:"WARTIME POSTER", icon:"🪖", relic:"knife", stat:{atk:1, arm:2, spd:-2}, desc:"armour that hits back",
+  rule:"+1 ATK, +2 ARM. Every point of ARM past 10 is also +1 max HP. Elites always drop a relic.", sig:"Your armour bites back twice as hard, and the first hit of every fight is blocked.", cost:"−2 SPD: you rarely strike first."},
+ {id:"schizoposter", name:"SCHIZOPOSTER", icon:"📡", relic:"goth_headband", stat:{dodge:5}, desc:"lives at night",
+  rule:"+5% dodge. At night: +4 ATK and +15% more dodge, and hunters pay double $CULT.", sig:"Every dodge makes your next hit a sure crit.", cost:"By day: −1 ATK. Campfires skip the night but don't heal you."},
+ {id:"collector", name:"COLLECTOR", icon:"🗃️", relic:"swag_score", desc:"more slots, easier sets",
+  rule:"+1 relic slot. Once you hold two relics of a synergy, it counts as one more: its higher tiers come a relic early.", sig:"+1 ATK for every two synergies you have switched on.", cost:"Shops charge 25% more, and you can't reroll a draft."},
 ];
 /* Heat: optional difficulty, one level unlocked per win. Level n applies the first n lines. */
 const HEAT = [
