@@ -1400,3 +1400,19 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 /* the character screen sits in the middle of the window */
 #screen-avatar.active{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;}
 #screen-avatar .panel{width:100%;margin:0 auto;}
+/* a window taller than the game needs: the run sits in the middle of it instead of hugging the top */
+@media (min-width:900px){
+  #screen-map.active{display:flex;flex-direction:column;justify-content:safe center;min-height:100vh;min-height:100dvh;}
+  #screen-map.active>*{flex:none;}
+}
+@media (min-width:1280px){
+  .board{--board:calc(100vh - 294px);} #boss-banner:not(.hidden) ~ .play .board{--board:calc(100vh - 375px);} /* leaves room for the key and the hint line: no page scroll */
+  #app:has(#screen-map.active){max-width:min(97vw, max(1560px, calc(100vh + 440px)));} /* a big monitor: wide enough for the map to use the height it has */
+}
+/* a wide but tall window (nearly square): three columns would squeeze the map, so it keeps two and a bigger map */
+@media (min-width:1280px) and (max-aspect-ratio:5/4){
+  .play{grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:auto auto auto minmax(0,1fr);grid-template-areas:"board hud" "board relics" "board obj" "board log";}
+  #relic-box{contain:none;overflow:visible;} #log-box{contain:none;}
+  .board{--board:calc(100vh - 264px);}
+}
+@media (min-width:1280px) and (max-height:820px) and (min-aspect-ratio:5/4){ .board{--board:calc(100vh - 312px);} #boss-banner:not(.hidden) ~ .play .board{--board:calc(100vh - 393px);} }
