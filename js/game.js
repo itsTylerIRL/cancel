@@ -4571,6 +4571,7 @@ function openRecord(){
   wireClose();
 }
 /* ---------- achievements ---------- */
+let achShowDone = false; // the list opens on what is still to do; earned ones are a toggle away
 function openAchievements(){
   const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length, cats = ["the run","fights","builds","the maze","the timeline","career"];
   const row = a=>{
@@ -4578,12 +4579,16 @@ function openAchievements(){
     return "<div class='ach"+(on?" on":"")+"'>"+(ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''>" : "<div class='relic-ico unknown'>?</div>")
       + "<div class='uinfo'><b>"+(on?"🏆 ":"")+a.name+"</b><span>"+a.desc+"</span><span class='rew'>unlocks <b class='"+r.rar+"'>"+r.name+"</b> — "+r.desc+"</span></div></div>";
   };
+  const groups = cats.map(c=>{ const all = ACHIEVEMENTS.filter(a=>(a.cat||"the run")===c), got = all.filter(a=>META.ach[a.id]).length, list = achShowDone ? all : all.filter(a=>!META.ach[a.id]);
+      return !all.length ? "" : "<div class='ach-cat'><u>"+c+"</u><em>"+got+" / "+all.length+"</em></div>"
+        + (list.length ? "<div class='unlock-shop'>"+list.map(row).join("")+"</div>" : "<div class='note good ach-done'>all "+all.length+" earned</div>"); }).join("");
   openModal("<h2>ACHIEVEMENTS</h2><div class='stat-line'><span>each one adds its relic to the loot pool for good</span><b>"+done+" / "+ACHIEVEMENTS.length+"</b></div>"
     + "<div class='bar ach-bar'><div style='width:"+Math.round(100*done/ACHIEVEMENTS.length)+"%'></div></div>"
-    + cats.map(c=>{ const list = ACHIEVEMENTS.filter(a=>(a.cat||"the run")===c), got = list.filter(a=>META.ach[a.id]).length;
-        return list.length ? "<div class='ach-cat'><u>"+c+"</u><em>"+got+" / "+list.length+"</em></div><div class='unlock-shop'>"+list.map(row).join("")+"</div>" : ""; }).join("")
+    + (done ? "<div class='set-row ach-toggle'><div><b>Show completed</b><span>"+done+" earned"+(achShowDone ? "" : ", hidden")+"</span></div><button class='tog"+(achShowDone?" on":"")+"' id='ach-done'>"+(achShowDone?"on":"off")+"</button></div>" : "")
+    + (done===ACHIEVEMENTS.length && !achShowDone ? "<div class='note good'>🏆 every achievement earned.</div>" : groups)
     + "<div class='note'>on the daily map every relic is in the pool for everyone, unlocked or not</div>"+backRow);
   wireClose();
+  if($("ach-done")) $("ach-done").onclick = ()=>{ achShowDone = !achShowDone; sfx("click"); openAchievements(); };
 }
 /* ---------- the codex: everything in the game, in one place ---------- */
 const codexPool = () => RELICS.filter(r=>!r.tags.includes("blackmarket") || perk("blackmarket"));
@@ -4633,7 +4638,8 @@ function openCodex(tab, pick){
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
       + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");
   }
-  openModal("<h2>CODEX</h2><div class='pick-row'>"+CODEX_TABS.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div><div class='codex-body'>"+body+"</div>"+backRow);
+  const tabBtn = ([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>";
+  openModal("<h2>CODEX</h2><div class='pick-row codex-tabs'>"+CODEX_TABS.slice(0,3).map(tabBtn).join("")+"</div><div class='pick-row codex-tabs'>"+CODEX_TABS.slice(3).map(tabBtn).join("")+"</div><div class='codex-body'>"+body+"</div>"+backRow);
   wireClose();
   $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openCodex(b.dataset.tab); }; });
   $("modal-panel").querySelectorAll("[data-r]").forEach(b=>{ b.onclick=()=>{ sfx("click"); const y = $("modal-panel").scrollTop; openCodex("relics", b.dataset.r); $("modal-panel").scrollTop = y; navSet($("modal-panel").querySelector(".cx.on")); }; });

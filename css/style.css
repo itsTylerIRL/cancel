@@ -1608,3 +1608,6 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .king-card.last-card .you-nums b{font-size:18px;line-height:1.15;} .king-card.last-card .you-nums .rank{color:var(--neon);} .king-card.last-card .you-nums .drip{color:var(--gold);}
 .king-card.last-card .you-nums .gap{margin-top:7px;}
 @media (max-width:600px){ .king-card.last-card .you-nums{flex-direction:row !important;flex-wrap:wrap;align-items:baseline;gap:4px 8px !important;} .king-card.last-card .you-nums .gap{margin-top:0;margin-left:10px;} .king-card.last-card .you-nums span{display:none;} }
+
+.codex-tabs{margin:4px 0;flex-wrap:nowrap;} .codex-tabs+.codex-tabs{margin-bottom:10px;} .codex-tabs .pick{flex:1 1 0;max-width:190px;white-space:nowrap;}
+.ach-toggle{margin:8px 0 2px;} .ach-done{margin:4px 0;font-size:var(--fs-label);}
