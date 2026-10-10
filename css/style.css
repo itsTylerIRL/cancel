@@ -1394,3 +1394,5 @@ body.calm .combat-panel .fighter::before,body.calm .combat-panel .vs{animation:n
 .heat-list .choice span{display:block;font-size:11px;color:var(--dim);} .heat-list .good{font-style:normal;color:var(--acid);}
 
 .king-clock .king-turns{margin-top:4px;color:var(--gold);font-size:10px;white-space:nowrap;} .king-clock .king-turns b{font-size:inherit;color:#fff;display:inline;}
+/* a narrow screen: the king panel stays two tidy rows. What they carry is left off rather than stacking the card tall. */
+@media (max-width:600px){ .king-box .king-card .king-relics{display:none;} .king-clock .king-turns{flex-basis:100%;text-align:center;margin-top:0;} .king-clock{flex-wrap:wrap;} }
