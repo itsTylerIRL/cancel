@@ -29,7 +29,7 @@ function loadMeta(){ try{ const m = JSON.parse(localStorage.getItem(META_KEY)); 
 function saveMeta(){ try{ localStorage.setItem(META_KEY, JSON.stringify(META)); }catch(e){} }
 
 /* ---------- juice: synth sound, particles, shake ---------- */
-const SFX = { // [wave, notes (Hz), seconds per note, volume]
+const SFX = { beat:["sine",[58,46],0.09,0.16], // [wave, notes (Hz), seconds per note, volume]
   step:["triangle",[440],0.04,0.03], click:["triangle",[700],0.03,0.04],
   hit:["square",[190,130],0.05,0.04], hurt:["square",[120,90],0.06,0.05], crit:["sawtooth",[440,660,880],0.05,0.06],
   coin:["triangle",[988,1319],0.07,0.06], heal:["sine",[523,784],0.09,0.06], relic:["triangle",[523,659,784,1047],0.08,0.07],
@@ -3145,15 +3145,16 @@ function startCombat(foeDef, opts={}){
   (opts.portrait || foePortrait(foeDef, cosmetic(()=>pinnedPicks(foeDef)), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
   sfx(boss ? "boss" : "fight");
 
-  let quiet=false, timer=null, F=null;
+  let quiet=false, timer=null, F=null, stall=0; // stall: extra time before the next round, bought by a crit's hit-stop
+  STAGE.reset();
   const fx = fn => {
     if(quiet) return;
     const run = ()=>{ if(tok===combatTok) fn(); }, d = F ? F.fxDelay/META.speed : 0;
     d ? setTimeout(run, d) : run();
   };
   const io = {
-    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); },
-    hit: (side,dmg,crit)=>fx(()=>{ clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
+    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); },
+    hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); if(crit) stall += 110; clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
     strip: f=>{
@@ -3177,7 +3178,8 @@ function startCombat(foeDef, opts={}){
   };
   function finish(){
     clearTimeout(timer);
-    combatBars(you,foe);
+    combatBars(you,foe); STAGE.peril({hp:0,maxhp:1}, {hp:0,maxhp:1});
+    if(STAGE.best>=4) clog("🔥 best combo: <b>×"+STAGE.best+"</b>", "sum");
     $("combat-ctl").classList.add("hidden"); $("combat-choice").classList.add("hidden");
     $("boss-intro").className = ""; $("port-foe").classList.remove("slam");
     const win = F.win;
@@ -3239,10 +3241,11 @@ function startCombat(foeDef, opts={}){
     };});
   }
   function loop(){
+    stall = 0;
     F.step(); combatBars(you,foe); fightTips(F, foeDef);
-    if(F.over) return finish();
+    if(F.over){ timer = setTimeout(()=>STAGE.finisher(F.win, F.win ? (boss ? "CANCELLED" : "DOWN") : "RATIO'D", finish), 300/META.speed); return; }
     if(boss && !asked && foe.hp<=foe.maxhp/2) return ask();
-    timer=setTimeout(loop, 600/META.speed);
+    timer=setTimeout(loop, (600*STAGE.peril(you, foe)+stall)/META.speed);
   }
   const intro = $("boss-intro");
   intro.className = "";
@@ -3637,6 +3640,46 @@ async function kingReport(run, won, k, back){
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armour)
 const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
+/* ---------- what makes a fight worth watching ----------
+   Shared by every fight on the stage (ordinary ones and the hill). None of it changes a number.
+   - a crit stops everything for a moment, and the killing blow gets a beat of its own
+   - a relic's icon lights up when it does its thing
+   - hits landed in a row without being hit back are counted
+   - when either side is nearly gone the stage tightens and slows down */
+const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
+  [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armour bites back/i, ["cactus_shirt"]],
+  [/strike again/i, ["bonkler"]], [/shocks/i, ["pikachu"]], [/hits itself/i, ["bonkler"]], [/takes the hit for you/i, ["hobbes"]], [/patches you up/i, ["gnome"]], [/caught (off guard|flat)/i, ["vibe_shift","airtag"]] ];
+const STAGE = { combo:0, best:0,
+  reset(){ this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
+  hit(side, crit){ // side: who was hit
+    if(side==="foe"){ this.combo++; this.best = Math.max(this.best, this.combo); } else this.combo = 0;
+    const c = $("combo"); if(!c) return;
+    if(this.combo>=2 && !META.calm){ c.textContent = "×"+this.combo; c.className = "on c"+Math.min(6, this.combo); void c.offsetWidth; c.classList.add("pop"); if(this.combo===5 || this.combo===8) sfx("crit"); }
+    else if(c.className){ c.className = this.combo ? "" : "broke"; if(!this.combo) setTimeout(()=>{ if(c.className==="broke"){ c.className = ""; c.textContent = ""; } }, 420); }
+    if(crit && !META.calm){ const sc = $("screen-combat"); sc.classList.remove("hitstop"); void sc.offsetWidth; sc.classList.add("hitstop"); setTimeout(()=>sc.classList.remove("hitstop"), 150); }
+  },
+  proc(msg, relics){ // light the icon of whatever just did something: by its name in the line, or by what the line describes
+    if(META.calm) return;
+    const t = msg.replace(/<[^>]+>/g, ""), ids = new Set();
+    for(const id of relics){ const r = relicById(id); if(r && t.includes(r.name)) ids.add(id); }
+    for(const [rx, list] of PROC_WORDS) if(rx.test(t)) for(const id of list) if(relics.includes(id)) ids.add(id);
+    if(/strikes|spins in|bites|Companion/i.test(t)) for(const id of relics) if(t.toLowerCase().includes(relicById(id).name.toLowerCase().split(" ")[0])) ids.add(id);
+    for(const id of ids) for(const el of $("combat-relics").querySelectorAll("[data-rid='"+id+"']")){ el.classList.remove("proc"); void el.offsetWidth; el.classList.add("proc"); }
+  },
+  peril(you, foe){ // returns how much slower the next beat should be
+    const sc = $("screen-combat"), py = you.hp>0 && you.hp<=you.maxhp*0.25, pf = foe.hp>0 && foe.hp<=foe.maxhp*0.2;
+    sc.classList.toggle("peril-you", py && !META.calm); sc.classList.toggle("peril-foe", pf && !META.calm);
+    if(py && !META.calm && !this.beat){ this.beat = setInterval(()=>{ if(!$("screen-combat").classList.contains("peril-you") || !$("screen-combat").classList.contains("active")){ clearInterval(this.beat); this.beat = 0; return; } sfx("beat"); }, 760); }
+    return (py || pf) && !META.calm ? 1.35 : 1;
+  },
+  finisher(win, word, then){ // the last blow: everything else waits for it
+    if(META.calm) return then();
+    const sc = $("screen-combat"), port = $("port-"+(win ? "foe" : "you"));
+    sc.classList.remove("peril-you","peril-foe"); sc.classList.add("finisher"); port.classList.add("finished");
+    const w = document.createElement("div"); w.id = "finish-word"; w.className = win ? "won" : "lost"; w.textContent = word; sc.appendChild(w);
+    critFlash(); quake(); sfx(win ? "crit" : "hurt");
+    setTimeout(()=>{ sc.classList.remove("finisher"); port.classList.remove("finished"); w.remove(); then(); }, 820);
+  } };
 function kingDuel(run, k, back){ // the hill is fought on the same stage as every other fight, with the same blows, numbers and pace
   const keep = SEED; SEED = null; // the run is over: this fight is its own luck
   const tok = ++combatTok;
@@ -3655,16 +3698,17 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   // blows in one round land one after another, as they do in any fight
   const fx = fn => { if(quiet) return; const d = lag; lag += 250/META.speed; setTimeout(()=>{ if(tok===combatTok) fn(); }, d); };
   const V = {
-    hit: (side,dmg,crit)=>fx(()=>{ clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
+    hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
   };
-  const D = makeDuel(run, k, clog, V), you = D.you, king = D.king;
+  STAGE.reset();
+  const D = makeDuel(run, k, (m,c)=>{ clog(m,c); if(!quiet) STAGE.proc(m, run.relics); }, V), you = D.you, king = D.king;
   // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
   const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, stun:king.stun||0 });
   const bars = ()=>combatBars(you, view());
   const finish = ()=>{
-    if(ended) return; ended = true; clearTimeout(timer); SEED = keep; bars();
+    if(ended) return; ended = true; clearTimeout(timer); SEED = keep; bars(); STAGE.peril({hp:0,maxhp:1}, {hp:0,maxhp:1});
     $("combat-ctl").classList.add("hidden"); $("boss-intro").className = ""; $("port-foe").classList.remove("slam");
     $("port-"+(D.win ? "foe" : "you")).classList.add("dead");
     clog(D.win ? "👑 <b>"+esc(k.name)+" falls.</b> The hill is yours to take." : "💀 <b>"+esc(k.name)+" keeps the hill.</b>", D.win ? "crit" : "bad");
@@ -3676,8 +3720,8 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   const loop = ()=>{
     if(ended || tok!==combatTok) return;
     lag = 0; D.step(); bars();
-    if(D.over){ timer = setTimeout(finish, quiet ? 0 : lag+150); return; }
-    timer = setTimeout(loop, Math.max(600/META.speed, lag+120));
+    if(D.over){ timer = setTimeout(()=>quiet ? finish() : STAGE.finisher(D.win, D.win ? "DETHRONED" : "DENIED", finish), quiet ? 0 : lag+150); return; }
+    timer = setTimeout(loop, Math.max(600*STAGE.peril(you, king)/META.speed, lag+120));
   };
   const speedBtn = $("btn-speed");
   speedBtn.textContent = META.speed+"X";
