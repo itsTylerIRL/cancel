@@ -612,21 +612,21 @@ body::after{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0
    Shared: one corner radius, one border weight, three heights. Every kind has the same four states (hover, pressed,
    keyboard focus, disabled). Colour means one thing: cyan an ordinary action or the chosen option, green "on" or go,
    gold costs or pays, red destroys. Only the big primary buttons fill solid on hover. */
-:root{--r:5px;--bh-s:32px;--bh:40px;--bh-l:50px;--bt:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .08s,filter .08s;}
-.btn,.pick,.tog,.choice,.mute,.icon-btn{font-family:var(--mono);border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:var(--bt);-webkit-tap-highlight-color:transparent;}
+:root{--r:5px;--btnh-s:32px;--btnh:40px;--btnh-l:50px;--btn-t:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .08s,filter .08s;}
+.btn,.pick,.tog,.choice,.mute,.icon-btn{font-family:var(--mono);border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:var(--btn-t);-webkit-tap-highlight-color:transparent;}
 .btn:focus-visible,.pick:focus-visible,.tog:focus-visible,.choice:focus-visible,.mute:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--neon2);outline-offset:2px;}
 .btn:active,.pick:active,.tog:active,.choice:active,.mute:active,.icon-btn:active{transform:translateY(1px);filter:brightness(.88);}
 .btn:disabled,.pick:disabled,.tog:disabled,.choice:disabled,.mute:disabled,.icon-btn:disabled{cursor:not-allowed;transform:none;filter:none;box-shadow:none;}
 /* the standard button */
-.btn{min-height:var(--bh);padding:10px 20px;font-size:14px;font-weight:500;text-transform:lowercase;letter-spacing:.06em;background:#0d1418;border-color:var(--neon);color:var(--neon);box-shadow:none;}
+.btn{min-height:var(--btnh);padding:10px 20px;font-size:14px;font-weight:500;text-transform:lowercase;letter-spacing:.06em;background:#0d1418;border-color:var(--neon);color:var(--neon);box-shadow:none;}
 .btn:hover{background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.22);}
 .btn:disabled,.btn:disabled:hover{background:#0d1418;color:#3d4a4f;border-color:#243036;opacity:1;}
-.btn.big{min-height:var(--bh-l);font-size:15px;padding:13px 26px;background:rgba(139,233,253,.12);letter-spacing:.12em;text-shadow:none;
+.btn.big{min-height:var(--btnh-l);font-size:15px;padding:13px 26px;background:rgba(139,233,253,.12);letter-spacing:.12em;text-shadow:none;
   box-shadow:0 0 22px rgba(139,233,253,.25),inset 0 0 18px rgba(139,233,253,.08);}
 .btn.big:hover{background:var(--neon);color:#000;box-shadow:0 0 30px rgba(139,233,253,.5);} /* the primary action is the one that fills */
 .btn.big:active{box-shadow:none;}
 .btn.big:disabled,.btn.big:disabled:hover{background:rgba(139,233,253,.04);color:#3d4a4f;box-shadow:none;}
-.btn.small{min-height:var(--bh-s);font-size:11px;padding:6px 12px;border-color:#333;color:#8a979c;background:transparent;}
+.btn.small{min-height:var(--btnh-s);font-size:11px;padding:6px 12px;border-color:#333;color:#8a979c;background:transparent;}
 .btn.small:hover{border-color:var(--neon);color:var(--neon);background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.2);}
 .btn.price{color:var(--gold);border-color:rgba(241,250,140,.5);} .btn.price:hover{background:rgba(241,250,140,.12);color:var(--gold);border-color:var(--gold);box-shadow:0 0 18px rgba(241,250,140,.2);}
 .btn.fuse,.btn.fuse:hover{background:var(--acid);color:#000;border-color:var(--acid);}
@@ -639,7 +639,7 @@ body::after{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0
 #btn-link:hover{background:var(--acid);color:#000;}
 .pick,.tog,.chip,.mute,.icon-btn,.meta-stat,.tier-tag,.rar-tag,.sets i,.delta i,.card em,.card u,.nft-row select,.nft-row input,.name-in,.meme-in{border-radius:4px;}
 /* one of several (a tab, a tribe): cyan when chosen. on or off: green when on. Otherwise they are the same button. */
-.pick,.tog{min-height:var(--bh-s);padding:6px 12px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:lowercase;background:transparent;color:#8a979c;}
+.pick,.tog{min-height:var(--btnh-s);padding:6px 12px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:lowercase;background:transparent;color:#8a979c;}
 .tog{min-width:54px;}
 .pick:hover,.tog:hover{border-color:var(--neon);color:var(--neon);}
 .pick.on{background:rgba(139,233,253,.14);color:var(--neon);border-color:var(--neon);box-shadow:0 0 14px rgba(139,233,253,.25);}
@@ -1512,7 +1512,7 @@ body[data-phase="night"] .box-h{color:#8f96d8;}
 body.calm #grade{display:none;}
 
 /* icon buttons are the small button's size, square, with the same corners */
-.top-right .mute,.icon-btn{width:var(--bh-s);height:var(--bh-s);min-height:0;padding:0;margin-left:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;background:transparent;border-color:#333;color:var(--txt);border-radius:var(--r);}
+.top-right .mute,.icon-btn{width:var(--btnh-s);height:var(--btnh-s);min-height:0;padding:0;margin-left:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;background:transparent;border-color:#333;color:var(--txt);border-radius:var(--r);}
 .top-right .mute:hover,.icon-btn:hover{border-color:var(--neon);background:rgba(139,233,253,.1);box-shadow:0 0 18px rgba(139,233,253,.2);}
 .top-right{gap:6px;}
 /* nothing you press with a finger is smaller than 40px */
