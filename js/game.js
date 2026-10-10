@@ -2458,6 +2458,25 @@ const BG_SCRIPTS = [
   "https://tylerirl.com/js/background3d.js",
 ];
 let bgState = "idle"; // idle | loading | on | failed
+/* On the main site the scene swings to follow the mouse. In the game that reads as the screen lurching whenever the
+   pointer moves, and does nothing at all for someone on a keyboard or controller. So here the mouse is unplugged and
+   the camera drifts slowly on its own instead. The site's script is untouched: this only detaches its listener on
+   this page. If its internals ever change, this quietly does nothing and the background behaves as the site's does. */
+function bgOwnMotion(){
+  try{
+    const g = (0, eval); // the script's own top-level names
+    if(typeof g("onMouseMove")!=="function") return;
+    document.removeEventListener("mousemove", g("onMouseMove"), {passive:true});
+    document.removeEventListener("mousemove", g("onMouseMove"));
+    g("mouseX = 0; mouseY = 0;");
+    const t0 = performance.now();
+    setInterval(()=>{ // a slow figure of eight, the same for everyone
+      if(window._bgPaused || document.hidden) return;
+      const t = (performance.now()-t0)/1000, calm = document.body.classList.contains("calm") ? 0.25 : 1;
+      try{ g("mouseX = "+(Math.sin(t*0.11)*9*calm).toFixed(3)+"; mouseY = "+(Math.sin(t*0.07+1)*5*calm).toFixed(3)+";"); }catch(e){}
+    }, 60);
+  }catch(e){}
+}
 function applyBackground(){
   const want = META.bg3d!==false;
   window._bgPaused = !want; // the site script stops its per-frame work while this is set
@@ -2467,6 +2486,7 @@ function applyBackground(){
   const next = i => {
     if(i>=BG_SCRIPTS.length){
       bgState = document.getElementById("bg3d-canvas") ? "on" : "failed"; // no canvas means no WebGL here
+      if(bgState==="on") bgOwnMotion();
       return applyBackground();
     }
     const el = document.createElement("script");
