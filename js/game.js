@@ -1537,13 +1537,19 @@ function placeHunters(){ // one sliding token per demon you can see
    doom-1 on day 7, doom-2 on day 8, doom-3 on day 9, for as long as THE CANCEL is still out there. */
 const callName = () => { const u = rnUser(); return u ? (isShip(u.handle) ? u.handle : "~"+u.handle) : ""; }; // how the timeline addresses you, when it knows who you are
 const DOOM_NAMED = [
-  n=>["someone just quote-posted "+n+".", "\""+n+"\" is being typed into a lot of search bars.", "a screenshot of "+n+" is going around."],
-  n=>["people are being asked to \"address\" "+n+".", n+"'s mentions are loading slowly. there are a lot of them.", "a document about "+n+" has been compiled. it has headings."],
-  n=>["the thread about "+n+" has a part two.", n+" is trending.", "everyone "+n+" knows has seen it."] ];
+  n=>["someone just quote-posted "+n+".", "\""+n+"\" is being typed into a lot of search bars.", "a screenshot of "+n+" is going around.",
+      "the timeline is happening. "+n+" is in it."],
+  n=>["people are being asked to \"address\" "+n+".", n+"'s mentions are loading slowly. there are a lot of them.", "a document about "+n+" has been compiled. it has headings.",
+      "someone is flooding the search results with "+n+"'s name. it isn't burying anything.", "the consensus on "+n+" is still forming. it is forming quickly."],
+  n=>["the thread about "+n+" has a part two.", n+" is trending.", "everyone "+n+" knows has seen it.",
+      "the consensus on "+n+" has reached a verdict.", "the Wired has finished eating the Real. "+n+" was in the Real."] ];
 const DOOM_LINES = [
-  ["someone you don't follow just quote-posted you.", "the notifications tab has a number on it. you didn't post anything.", "a screenshot is going around. you haven't seen it yet."],
-  ["people are being asked to \"address\" you.", "your mentions are loading slowly. there are a lot of them.", "a document has been compiled. it has headings."],
-  ["the thread has a part two.", "it's trending.", "everyone you know has seen it."] ];
+  ["someone you don't follow just quote-posted you.", "the notifications tab has a number on it. you didn't post anything.", "a screenshot is going around. you haven't seen it yet.",
+   "the timeline is happening. you are in it.", "a groupchat you aren't in has gone quiet all at once."],
+  ["people are being asked to \"address\" you.", "your mentions are loading slowly. there are a lot of them.", "a document has been compiled. it has headings.",
+   "someone is flooding the search results with your name. it isn't burying anything.", "the consensus is still forming. it is forming quickly.", "nobody credentialed has weighed in. nobody needs to."],
+  ["the thread has a part two.", "it's trending.", "everyone you know has seen it.",
+   "the consensus has reached a verdict.", "the Wired has finished eating the Real. you were in the Real.", "the curse is real. it has stopped being about other people."] ];
 let doomLevel = 0, doomTimer = 0;
 function setDoom(){
   const live = G && !G.over && G.bossesBeaten<3 && !$("screen-title").classList.contains("active") && !$("screen-avatar").classList.contains("active");
@@ -1560,7 +1566,7 @@ function setDoom(){
 function doomWhisper(){ // something is said in the feed at each dawn and dusk of the last three days
   if(!doomLevel || !G || G.over) return;
   const n = callName(), lines = n && Math.random()<0.6 ? DOOM_NAMED[doomLevel-1](esc(n)) : DOOM_LINES[doomLevel-1];
-  mlog("<i class='whisper'>"+lines[Math.floor(Math.random()*3)]+"</i>", "bad");
+  mlog("<i class='whisper'>"+lines[Math.floor(Math.random()*lines.length)]+"</i>", "bad");
 }
 /* Leave the game alone and your character stops standing to attention: she looks about, yawns, and eventually nods off.
    Anything you do wakes her. */
@@ -2102,7 +2108,7 @@ function openShop(note){
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
-  let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
+  let html = "<h2>🏪 REMILIO MART</h2><div class='shop-sign'>"+spotLine(SHOP_LINES, "shop")+"</div><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
     + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")
     + (infl>1 ? "<span class='chip markup' title='shop prices rise "+Math.round(SHOP_INFLATION*100)+"% for every boss you beat'>📈 "+G.bossesBeaten+" boss"+(G.bossesBeaten>1?"es":"")+" down</span>" : "")+"</div>";
@@ -2422,11 +2428,16 @@ function rarePull(){ // three relics, nothing common
   if(best.length && rnd()<0.35) out[out.length ? out.length-1 : 0] = best[0];
   return out;
 }
+const JADE = ["jade water lantern hour, coin sleeping carp, nobody's wish", "silk fog pavilion, thousand small moons in the basin", "plum rain, cold copper, the patient dragon counts",
+  "white crane leaving, wet stone remembering", "tea gone cold beside the well, the well not minding", "lacquer dusk, one coin, ten thousand ripples"];
+const SHOP_LINES = ["minted fresh. no royalties. artist-owned.", "everything here is a derivative of something. that's the point.", "abundance mindset. prices as marked.", "open late. it's always late.",
+  "no refunds. the timeline doesn't do refunds.", "proliferate responsibly."];
+const spotLine = (list, salt) => list[Math.abs(seedFrom(salt+"|"+G.px+","+G.py+"|"+(G.daily||G.seedCode||""))) % list.length]; // a place always says the same thing
 function openFountain(note, cls){
   const w = G.well = G.well || {given:0, paid:0}, need = wellNeed(), f = w.given/need;
   const mood = f<=0 ? "The water is still." : f<0.34 ? "A ripple. It's listening." : f<0.67 ? "The water has started to glow." : "It hums. It is very close to something.";
   openModal("<h2>THE FOUNTAIN</h2><div class='npc-face well'>⛲</div>"
-    + "<div class='note'><i>Coins on the bottom, none of them yours. Nobody remembers who built it, or what it wants.</i><br>"+mood+"</div>"
+    + "<div class='note'><span class='jade'>"+spotLine(JADE, "jade")+"</span><br><i>Coins on the bottom, none of them yours. Nobody remembers who built it, or what it wants.</i><br>"+mood+"</div>"
     + (note ? "<div class='note "+(cls||"good")+"'>"+note+"</div>" : "")
     + "<div class='stat-line'><span>you hold</span><b>"+G.cult+" $CULT</b></div>"
     + ((G.stats.sets.agency||0)>=2 ? "<div class='stat-line'><span>🕶️ the file on this fountain</span><b>"+Math.max(0, need-w.given)+" $CULT more</b></div>" : "")

@@ -1585,3 +1585,6 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .tribe-list{gap:4px;margin:6px 0;} .tribe-list .pick.tribe{padding:5px 10px;line-height:1.28;gap:8px;grid-template-columns:30px minmax(0,1fr) 34px;}
 .tribe-list .pick.tribe>i{font-size:20px;} .tribe-list .tinfo span{font-size:10.5px;} .tribe-list .tinfo b{font-size:11px;}
 .tribe-list .pick.tribe em{width:34px;font-size:0;} #modal-panel:has(.tribe-list){max-width:780px;padding-top:12px;padding-bottom:10px;} #modal-panel:has(.tribe-list) h2{margin:0 0 4px;} #modal-panel:has(.tribe-list) .note{margin:4px 0;}
+
+.jade{display:block;font-family:var(--label);letter-spacing:.12em;text-transform:lowercase;color:#7fd8c4;font-size:10.5px;margin-bottom:4px;}
+.shop-sign{text-align:center;font-family:var(--label);letter-spacing:.14em;text-transform:lowercase;color:var(--dim);font-size:10px;margin:-2px 0 8px;}
