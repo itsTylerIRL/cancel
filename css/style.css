@@ -1611,3 +1611,10 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 
 .codex-tabs{margin:4px 0;flex-wrap:nowrap;} .codex-tabs+.codex-tabs{margin-bottom:10px;} .codex-tabs .pick{flex:1 1 0;max-width:190px;white-space:nowrap;}
 .ach-toggle{margin:8px 0 2px;} .ach-done{margin:4px 0;font-size:var(--fs-label);}
+
+/* leaderboard > you */
+.me-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 14px;margin:10px 2px 4px;} .me-head b{font-size:var(--fs-strong);color:#e9f6fa;} .me-head span{font-size:var(--fs-label);color:var(--dim);} .me-head u{text-decoration:none;color:var(--neon);font-weight:700;}
+.record-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;} @media (max-width:560px){ .record-grid{grid-template-columns:1fr;} }
+.run-list{display:flex;flex-direction:column;gap:6px;margin:6px 0;} .run-card{text-align:left;}
+#modal-panel:has(.me-head){max-width:620px;}
+@media (max-width:600px){ .run-card .king-relics{display:none;} }

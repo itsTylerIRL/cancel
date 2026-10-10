@@ -4195,9 +4195,10 @@ function retryPending(){ if(META.pending && META.pending.run) postScore({...META
 function submitRun(run, win, drip){
   const nft = run.base.nft;
   // kept in this browser too, for the "your last run" card on the title screen
-  META.lastRun = { name:run.name, score:drip, day:run.day, win, tribe:run.tribe, heat:run.heat||0, daily:run.daily||"", killedBy:win ? "" : (run.killedBy||""),
+  const rec = META.lastRun = { name:run.name, score:drip, day:run.day, win, tribe:run.tribe, heat:run.heat||0, daily:run.daily||"", killedBy:win ? "" : (run.killedBy||""),
     relics:run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), look:lookOf(run.base),
     stats:run.stats ? {hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm} : null, at:Date.now() };
+  META.history = [rec].concat((META.history||[]).filter(h=>h.at!==rec.at)).slice(0, 5); // the last five, newest first, for the leaderboard's "you" tab
   saveMeta();
   return postScore({
     run: run.runId,
@@ -4232,13 +4233,25 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 let boardGot = null; // the board last fetched, so turning a page doesn't ask again
 const BOARD_PAGE = 10;
 async function openBoard(tab, back, seed, page){
-  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"]]);
+  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
   const wire = ()=>{
     $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openBoard(b.dataset.tab, back, seed); }; });
     $("board-close").onclick=()=>{ sfx("click"); back ? back() : closeModal(); };
   };
+  if(tab==="me"){ // personal: your record, where you stand, and your last few runs
+    const runs = runHistory(), rk = myRank && myRank.pid===playerId() ? myRank : null, u = rnUser();
+    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : META.name || "you")+(u ? " "+whoTag(u.handle) : "")+"</b>"
+        + "<span>"+(rk ? (rk.rank ? "all-time <u>#"+rk.rank+"</u> of "+rk.total+" · best "+rk.score : "not on the all-time board yet") : "")+"</span></div>"
+      + recordHTML()
+      + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"
+      + (runs.length ? "<div class='run-list'>"+runs.map(runCardHTML).join("")+"</div>" : "<div class='note'>finish a run and it shows up here. the last five are kept.</div>")
+      + "<div class='note'>"+(u ? "your record is saved to your account. " : "your record is kept in this browser: sign in to carry it to your other devices. ")+"run cards are kept on this device. an abandoned run counts as cancelled</div>")); wire();
+    for(const cv of [...$("modal-panel").querySelectorAll("canvas[data-run]")]){ if(!cv.isConnected) return; const r = runs[+cv.dataset.run]; try{ await drawLook(cv, r.look, r.relics); }catch(e){} }
+    if(!rk) loadRank().then(()=>{ if($("modal-panel").querySelector(".me-head") && myRank) openBoard("me", back, seed); });
+    return;
+  }
   const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
   const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
   if(!turning){ // the shape of what is on its way, instead of the word "loading"
@@ -4513,8 +4526,6 @@ function renderTitle(){
   renderDailyButton(); // after the line above, which resets the start button's classes
 }
 function renderMenu(){
-  { const w = META.wins||0, l = Math.max(0, (META.runs||0)-w); // your record, at a glance; the button opens the rest
-    $("menu-record").innerHTML = "📈 record <small>"+(w+l ? w+"W · "+l+"L · "+Math.round(100*w/(w+l))+"%" : "no runs yet")+"</small>"; }
   // the collections live behind three buttons; each says how far along you are
   const pool = codexPool(), have = pool.filter(r=>META.seen[r.id]).length, done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length;
   const afford = !!rnUser() && UNLOCKS.some(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req]) && META.drip>=u.cost);
@@ -4559,23 +4570,32 @@ function openUnlocks(from){ // from: the DRIP shown a moment ago, so a purchase 
   };});
 }
 /* ---------- your record ---------- */
-function openRecord(){
+function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
   const w = META.wins||0, runs = META.runs||0, l = Math.max(0, runs-w), pool = codexPool();
   const line = (k, v) => "<div class='stat-line'><span>"+k+"</span><b>"+v+"</b></div>";
-  openModal("<h2>YOUR RECORD</h2>"
-    + "<div class='record-big'><div><b class='good'>"+w+"</b><u>timelines saved</u></div><div><b class='bad'>"+l+"</b><u>cancelled</u></div><div><b>"+(runs ? Math.round(100*w/runs)+"%" : "—")+"</b><u>win rate</u></div></div>"
+  return "<div class='record-big'><div><b class='good'>"+w+"</b><u>timelines saved</u></div><div><b class='bad'>"+l+"</b><u>cancelled</u></div><div><b>"+(runs ? Math.round(100*w/runs)+"%" : "—")+"</b><u>win rate</u></div></div>"
+    + "<div class='record-grid'>"
     + line("runs played", runs)
     + line("furthest", w ? "beat THE CANCEL" : META.best ? "day "+META.best : "—")
     + line("highest heat unlocked", META.heat ? "🔥 "+META.heat : "none yet")
     + line("relics discovered", pool.filter(r=>META.seen[r.id]).length+" / "+pool.length)
     + line("achievements", ACHIEVEMENTS.filter(a=>META.ach[a.id]).length+" / "+ACHIEVEMENTS.length)
-    + line("DRIP to spend", META.drip)
+    + line("DRIP to spend", (META.drip||0).toLocaleString("en-US"))
     + line("daily streak", streakNow() ? streakTag(streakNow()).replace(" streak","s").replace("1 days","1 day") : "—")
     + line("longest daily streak", (META.streak||{}).best ? META.streak.best+" day"+(META.streak.best===1?"":"s") : "—")
-    + "<div class='note'>"+(rnUser() ? "saved to your account: sign in on another device and it's all there"
-        : "kept in this browser. sign in to carry it to your other devices")+". an abandoned run counts as cancelled</div>"+backRow);
-  wireClose();
+    + "</div>";
 }
+function runCardHTML(r, i){ // one finished run, as a card: who, which tribe, how it ended, what was carried
+  return "<div class='king-card last-card run-card"+(r.win ? " won" : "")+"'>"
+    + (r.look ? "<canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>" : "")
+    + "<div><b>"+esc(r.name)+"</b><span class='badge-row'>"+tribeBadge(r.tribe)+"</span>"
+      + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
+      + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
+      + "<span class='dim'>"+(r.daily ? "📅 daily "+esc(r.daily)+" · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
+    + "<div class='king-relics'><u>carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>"
+    + "<div class='king-clock'><u>score</u><b>"+r.score+"</b><span>DRIP</span></div></div>";
+}
+const runHistory = () => (META.history && META.history.length ? META.history : META.lastRun ? [META.lastRun] : []).filter(r=>r && TRIBES.some(t=>t.id===r.tribe));
 /* ---------- achievements ---------- */
 let achShowDone = false; // the list opens on what is still to do; earned ones are a toggle away
 function openAchievements(){
@@ -4850,7 +4870,6 @@ async function init(){
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
   $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
   $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
-  $("menu-record").onclick=()=>{ sfx("click"); openRecord(); };
   let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
   ready.then(()=>{ // achievements added later that a long-time player has already met: theirs without doing it again
     const st = META.streak||{}, seen = Object.keys(META.seen||{}).length;
