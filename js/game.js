@@ -4514,6 +4514,7 @@ async function init(){
     document.addEventListener("fullscreenchange", ()=>{ paint(); if(G && !G.over && $("screen-map").classList.contains("active")){ groundSig = ""; renderMap(); } });
   }
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
+  $("btn-ava-back").onclick=()=>{ sfx("click"); avaTok++; show("screen-title"); renderTitle(); }; // back to the title; whatever was loading is dropped
   $("name-in").value = META.name || "";
   $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
   if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
