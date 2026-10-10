@@ -1446,3 +1446,7 @@ body.calm[data-frame="3"] #you-tok img,body.calm[data-frame="3"] #hud-avatar{ani
 .frame-pick{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;} .frame-line{align-items:center;gap:10px;}
 .frame-pick .tog.f1.on{border-color:#ffd166;color:#ffd166;} .frame-pick .tog.f2.on{border-color:#8be9fd;color:#e8fbff;box-shadow:0 0 10px rgba(139,233,253,.5);}
 .frame-pick .tog.f3.on{border-color:#fff;color:#fff;box-shadow:0 0 0 1px #ff79c6,0 0 0 2px #8be9fd;}
+
+/* health going up */
+.hpbar.healed{animation:healed .7s ease-out;} @keyframes healed{0%{box-shadow:0 0 0 2px #50fa7b,0 0 22px 6px rgba(80,250,123,.75);filter:brightness(1.5);}100%{box-shadow:none;filter:none;}}
+.float.heal{text-shadow:0 2px 0 #000,0 0 12px rgba(80,250,123,.9);}
