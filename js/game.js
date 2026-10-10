@@ -616,7 +616,7 @@ function newRun(ava, opt){
   addRelic(first); discover(first);
   if(pk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
   if(pk("care1")){ const c = rollRelics(1, 0)[0]; if(c){ addRelic(c.id); discover(c.id); G.care = c.id; } } // Care Package
-  oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null;
+  oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null; shownHp = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
   genMap();
@@ -1091,7 +1091,7 @@ function mlog(msg, cls){
   while(el.childElementCount > 80) el.firstElementChild.remove();
   el.scrollTop=el.scrollHeight;
 }
-let shownCult = 0, shownStats = null;
+let shownCult = 0, shownStats = null, shownHp = null;
 function renderHUD(){
   const s = G.stats;
   $("hp-fill").style.width = clamp(100*s.hp/s.maxhp,0,100)+"%";
@@ -1109,7 +1109,15 @@ function renderHUD(){
     $("hud-build").innerHTML = bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join("");
     if(hf) tip("heft"); if(over) tip("crit");
   }
-  $("hp-text").textContent = s.hp+" / "+s.maxhp;
+  { const el = $("hp-text"), from = shownHp;
+    if(from!=null && from!==s.hp && !G.setup){
+      const t0 = performance.now(), tok = el._roll = (el._roll||0)+1, to = s.hp, max = s.maxhp;
+      const f = now => { if(el._roll!==tok) return; const k = Math.min(1,(now-t0)/420); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k,3)))+" / "+max; if(k<1) requestAnimationFrame(f); };
+      requestAnimationFrame(f); setTimeout(()=>{ if(el._roll===tok) el.textContent = to+" / "+max; }, 500);
+      const g = document.createElement("span"); g.className = "hpgain "+(to>from ? "up" : "down"); g.textContent = (to>from ? "+" : "−")+Math.abs(to-from);
+      el.parentNode.appendChild(g); setTimeout(()=>g.remove(), 1000);
+    } else if(from===s.hp || from==null || G.setup) el.textContent = s.hp+" / "+s.maxhp;
+    shownHp = s.hp; }
   if(shownCult!==G.cult){
     const d = G.cult-shownCult, c = $("hud-cult");
     countUp(c, shownCult, G.cult, 450); shownCult = G.cult;
@@ -1333,6 +1341,7 @@ function renderMap(){
   $("map-inner").style.width = (W/viewTiles()*100)+"%"; // that many tiles fit across the window; the rest scrolls
   m.classList.toggle("night", G.phase==="night");
   document.body.dataset.frame = frameWorn(); // whichever unlocked frame is switched on right now
+  document.body.dataset.phase = G.phase; // the whole interface warms by day and cools by night
   { const w = $("weather"); if(w) w.className = "weather w"+districtAt(G.px,G.py)+(G.phase==="night" ? " night" : ""); }
   setDoom();
   m.innerHTML = ""; tileEl = {};
@@ -1455,6 +1464,11 @@ function placeHunters(){ // one sliding token per demon you can see
 }
 /* ---------- THE CANCEL is coming: from day 7 the interface itself starts to give ----------
    doom-1 on day 7, doom-2 on day 8, doom-3 on day 9, for as long as THE CANCEL is still out there. */
+const callName = () => { const u = rnUser(); return u ? (isShip(u.handle) ? u.handle : "~"+u.handle) : ""; }; // how the timeline addresses you, when it knows who you are
+const DOOM_NAMED = [
+  n=>["someone just quote-posted "+n+".", "\""+n+"\" is being typed into a lot of search bars.", "a screenshot of "+n+" is going around."],
+  n=>["people are being asked to \"address\" "+n+".", n+"'s mentions are loading slowly. there are a lot of them.", "a document about "+n+" has been compiled. it has headings."],
+  n=>["the thread about "+n+" has a part two.", n+" is trending.", "everyone "+n+" knows has seen it."] ];
 const DOOM_LINES = [
   ["someone you don't follow just quote-posted you.", "the notifications tab has a number on it. you didn't post anything.", "a screenshot is going around. you haven't seen it yet."],
   ["people are being asked to \"address\" you.", "your mentions are loading slowly. there are a lot of them.", "a document has been compiled. it has headings."],
@@ -1474,8 +1488,23 @@ function setDoom(){
 }
 function doomWhisper(){ // something is said in the feed at each dawn and dusk of the last three days
   if(!doomLevel || !G || G.over) return;
-  mlog("<i class='whisper'>"+DOOM_LINES[doomLevel-1][Math.floor(Math.random()*3)]+"</i>", "bad");
+  const n = callName(), lines = n && Math.random()<0.6 ? DOOM_NAMED[doomLevel-1](esc(n)) : DOOM_LINES[doomLevel-1];
+  mlog("<i class='whisper'>"+lines[Math.floor(Math.random()*3)]+"</i>", "bad");
 }
+/* Leave the game alone and your character stops standing to attention: she looks about, yawns, and eventually nods off.
+   Anything you do wakes her. */
+let lastInput = Date.now();
+for(const ev of ["keydown","pointerdown","pointermove","wheel","touchstart"]) document.addEventListener(ev, ()=>{
+  lastInput = Date.now();
+  const t = $("you-tok"); if(t && t.classList.contains("asleep")){ t.classList.remove("asleep"); const z = t.querySelector(".zzz"); if(z) z.remove(); }
+}, {passive:true, capture:true});
+setInterval(()=>{
+  const t = $("you-tok"), img = $("you-img");
+  if(!t || !img || META.calm || !G || G.over || setupStep || document.hidden || !$("screen-map").classList.contains("active") || !$("modal").classList.contains("hidden")) return;
+  const idle = Date.now()-lastInput;
+  if(idle>55000){ if(!t.classList.contains("asleep")){ t.classList.add("asleep"); t.insertAdjacentHTML("beforeend", "<span class='zzz'>z<i>z</i><b>z</b></span>"); } return; }
+  if(idle>16000){ const a = ["idle-look","idle-yawn","idle-sway"][Math.floor(Math.random()*3)]; img.classList.remove("idle-look","idle-yawn","idle-sway"); void img.offsetWidth; img.classList.add(a); setTimeout(()=>img.classList.remove(a), 2600); }
+}, 6000);
 function mapFloat(text, cls){ // a line of text that rises off the player's tile
   const t = $("you-tok"), d = document.createElement("div"); d.className = "map-float "+(cls||""); d.textContent = text;
   d.style.left = t.style.left; d.style.top = t.style.top; d.style.width = t.style.width;
@@ -1559,8 +1588,14 @@ function tileInfo(x,y){
   return T_DESC[t] || DISTRICTS[districtAt(x,y)].name+" district.";
 }
 function show(id){
+  const was = document.querySelector(".screen.active");
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
+  if(was && was.id!==id && !META.calm){ // changing screens is a channel change: a flick of static, then the new picture
+    const w = $("wipe"); w.classList.remove("go"); void w.offsetWidth; w.classList.add("go");
+    $(id).classList.remove("tune"); void $(id).offsetWidth; $(id).classList.add("tune");
+  }
+  if(id==="screen-title" || id==="screen-avatar") delete document.body.dataset.phase; // the day and night grade belongs to a run
   document.body.classList.toggle("on-title", id==="screen-title");
   setTimeout(setDoom, 0);
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
@@ -1712,7 +1747,7 @@ function startDay(){
   if(bi>=0 && bi>=G.bossesBeaten){ // one you already beat early doesn't come
     const b = runBoss(bi);
     G.bossUnlocked = bi;
-    mlog("⚠️ <b>"+b.name+" IS COMING.</b> "+b.intro+"<br><i>"+b.mechanic+"</i>", "bad");
+    mlog("⚠️ <b>"+b.name+" IS COMING.</b> "+b.intro+(callName() ? " It has <b>"+esc(callName())+"</b>'s name on it." : "")+"<br><i>"+b.mechanic+"</i>", "bad");
     sfx("boss"); quake(); splash("⚠️ "+b.name+"<small>is coming</small>", "boss");
   } else splash("☀️ DAY "+G.day, "day");
   showBanner();
@@ -3252,7 +3287,7 @@ function startCombat(foeDef, opts={}){
   const entrance = boss && !META.calm ? (BOSS_ENTRANCE[boss.id] || BOSS_ENTRANCE.default) : null;
   if(entrance){ // every boss arrives its own way, before the first blow
     const rain = Array.from({length:entrance.rain ? 22 : 0}, (_,i)=>"<i style='left:"+Math.round(Math.random()*96)+"%;animation-delay:"+(Math.random()*0.9).toFixed(2)+"s;font-size:"+(18+Math.round(Math.random()*20))+"px'>"+entrance.rain[i%entrance.rain.length]+"</i>").join("");
-    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div><div class='bi-name'>"+(entrance.title || boss.name)+"</div>"
+    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div>"+(callName() ? "<div class='bi-to'>re: "+esc(callName())+"</div>" : "")+"<div class='bi-name'>"+(entrance.title || boss.name)+"</div>"
       + (entrance.line ? "<div class='bi-line'>"+entrance.line+"</div>" : "")+"<div class='bi-mech'>"+boss.mechanic+"</div>";
     intro.className = "show bi-"+entrance.cls;
     intro.style.animationDuration = entrance.ms+"ms";
@@ -3998,11 +4033,13 @@ function submitRun(run, win, drip){
     session: rnUser() ? rnUser().token : undefined,
   });
 }
+const hereId = () => { try{ return playerId(); }catch(e){ return ""; } };
+setInterval(()=>{ if(!document.hidden && online()) api("/api/pulse?here="+hereId()).then(p=>{ const n = $("pulse-now"); if(p && n && p.now) n.textContent = p.now; }); }, 60000); // "I'm here", once a minute while the tab is in front
 async function loadPulse(){ // everyone's games and wins, on the title screen
-  const p = await api("/api/pulse"), el = $("pulse");
+  const p = await api("/api/pulse?here="+hereId()), el = $("pulse");
   if(!p || !el || !p.lifetime.games){ if(el) el.classList.add("hidden"); return; }
   const cell = (label, d)=>"<div class='pcell'><u>"+label+"</u><b>"+d.games.toLocaleString()+"</b><span>game"+(d.games===1?"":"s")+" · "+d.wins.toLocaleString()+" win"+(d.wins===1?"":"s")+"</span></div>";
-  el.innerHTML = "<div class='phead'>the timeline, worldwide</div><div class='pgrid'>"+cell("today", p.today)+cell("this week", p.week)+cell("all time", p.lifetime)
+  el.innerHTML = "<div class='phead'>the timeline, worldwide"+(p.now ? " <span class='pnow' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+p.now+"</b> playing now</span>" : "")+"</div><div class='pgrid'>"+cell("today", p.today)+cell("this week", p.week)+cell("all time", p.lifetime)
     + "<div class='pcell'><u>all time</u><b>"+p.players.toLocaleString()+"</b><span>player"+(p.players===1?"":"s")+" · "+p.lifetime.kills.toLocaleString()+" kills</span></div></div>";
   el.classList.remove("hidden");
 }
@@ -4169,6 +4206,7 @@ function beginSetup(){
     startDay();
     startDaily(G);
     sfx("relic"); saveRun();
+    if(!META.calm){ const pl = document.querySelector("#screen-map .play"); pl.classList.remove("boot"); void pl.offsetWidth; pl.classList.add("boot"); setTimeout(()=>pl.classList.remove("boot"), 1300); } // the panels come online
     if(!META.tut) openTutorial();
   };
   const pickHeat = ()=>{
@@ -4301,9 +4339,9 @@ function renderMenu(){
 const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
 const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
 /* ---------- drip unlocks ---------- */
-function openUnlocks(){
+function openUnlocks(from){ // from: the DRIP shown a moment ago, so a purchase is seen being paid for
   const signed = !!rnUser();
-  let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b>"+META.drip+" DRIP</b></div>"
+  let html = "<h2>UNLOCKS</h2><div class='stat-line'><span>spend the DRIP your runs earn</span><b><span id='drip-num'>"+(from!=null ? from : META.drip)+"</span> DRIP</b></div>"
     + (signed ? "" : "<div class='note unlock-gate'>🔒 unlocks are for verified players. sign in with <b>Remilia SSO</b> or <b>Urbit ID</b> on the title screen to buy them and switch them on."
         + (Object.keys(META.unlocks||{}).length ? " the ones you own are waiting for you." : "")+" your DRIP keeps adding up either way.</div>")
     + (framesOwned() ? "<div class='stat-line frame-line'><span>frame you're wearing</span>"+framePick()+"</div>" : "")
@@ -4315,11 +4353,12 @@ function openUnlocks(){
       + "<button class='btn small' data-u='"+i+"'"+(!signed||owned||locked||META.drip<u.cost?" disabled":"")+">"+(owned ? (signed?"OWNED":"OWNED · OFF") : locked?"LOCKED":u.cost+" DRIP")+"</button></div>";
   });
   openModal(html+"</div>"+backRow); wireClose();
+  if(from!=null && from!==META.drip) countUp($("drip-num"), from, META.drip, 600);
   $("modal-panel").querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openUnlocks(); }; });
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
     const u = UNLOCKS[+b.dataset.u]; if(!rnUser() || META.drip<u.cost || META.unlocks[u.id]) return;
     META.drip -= u.cost; META.unlocks[u.id] = 1; if(/^frame/.test(u.id)) delete META.frame; // a new frame goes straight on
-    saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks();
+    saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks(META.drip+u.cost);
   };});
 }
 /* ---------- your record ---------- */

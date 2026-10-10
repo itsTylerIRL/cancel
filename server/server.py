@@ -551,6 +551,23 @@ def run_stats():
             "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25], "finalStats": final}
 
 
+# Who is here right now. Nothing is stored: a browser says "here" once a minute, and anyone heard from in the last
+# two and a half minutes counts. Kept in memory only, keyed by a hash, and forgotten on restart.
+_here = {}
+_here_lock = threading.Lock()
+
+
+def here(who, fallback):
+    now = time.time()
+    key = hashlib.sha256((who if who and RE_PLAYER.match(who) else "ip:" + fallback).encode()).hexdigest()[:16] if (who or fallback) else None
+    with _here_lock:
+        if who and key:  # only a browser that announced itself is counted; a bare request just reads the number
+            _here[key] = now
+        for k in [k for k, t in _here.items() if now - t > 150]:
+            del _here[k]
+        return len(_here)
+
+
 def pulse():
     """Headline numbers for the title screen: games and wins today (Eastern), over the last 7 days, and ever."""
     now = daily_now()
@@ -965,7 +982,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"week": hill_week(), "resets": hill_reset(), "dailyResets": next_reset(), "king": king, "changes": changes,
                                    "you": bool(player and king_player == player)})
         if u.path == "/api/pulse":
-            return self.send(200, pulse())
+            return self.send(200, dict(pulse(), now=here(one("here"), self.client_key())))
         if u.path == "/api/hall":
             return self.send(200, hall(120))
         if u.path == "/api/token":

@@ -1488,3 +1488,42 @@ body.calm #screen-combat::after,body.calm #combo,body.calm #finish-word{display:
 /* the title screen floats in the middle of the window, whatever its size or zoom */
 #screen-title.active{display:flex;flex-direction:column;justify-content:safe center;min-height:100vh;min-height:100dvh;}
 #screen-title .title-wrap{padding-top:0;width:100%;}
+
+/* ---------- interface polish ---------- */
+/* changing screens: a flick of static, then the picture tunes in */
+#wipe{position:fixed;inset:0;z-index:180;pointer-events:none;opacity:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.10) 0 2px,rgba(0,0,0,.25) 2px 5px),linear-gradient(180deg,transparent 46%,rgba(139,233,253,.9) 49.5% 50.5%,transparent 54%);}
+#wipe.go{animation:wipe .3s steps(6) forwards;} @keyframes wipe{0%{opacity:.85;transform:scaleY(.04);filter:brightness(3);}35%{opacity:.6;transform:scaleY(1);}70%{opacity:.25;background-position:0 9px,0 0;}100%{opacity:0;}}
+.screen.tune{animation:tune .34s cubic-bezier(.2,.9,.3,1);} @keyframes tune{0%{opacity:0;transform:scaleY(.93);filter:brightness(2) saturate(.4) blur(2px);}55%{opacity:1;filter:brightness(1.25) saturate(.9);}100%{transform:none;filter:none;}}
+#screen-combat.tune{animation:none;} /* a fight has its own arrival */
+/* the day is warm and the night is cool, everywhere */
+#grade{position:fixed;inset:0;z-index:140;pointer-events:none;opacity:0;transition:opacity 1.6s,background 1.6s;}
+body[data-phase="day"] #grade{opacity:1;background:linear-gradient(180deg,rgba(255,196,120,.055),rgba(255,140,60,.03));}
+body[data-phase="night"] #grade{opacity:1;background:linear-gradient(180deg,rgba(50,60,170,.11),rgba(24,12,80,.16));}
+body[data-phase="night"] .box,body[data-phase="night"] #hud,body[data-phase="night"] #map-wrap,body[data-phase="night"] #tile-info{border-color:rgba(150,150,255,.34);transition:border-color 1.6s;}
+body[data-phase="day"] .box,body[data-phase="day"] #hud,body[data-phase="day"] #map-wrap,body[data-phase="day"] #tile-info{transition:border-color 1.6s;}
+body[data-phase="night"] .box-h{color:#8f96d8;}
+/* numbers that move */
+#hud .hpbar{overflow:visible;} .hpgain{position:absolute;right:6px;top:-13px;font-weight:700;font-size:13px;pointer-events:none;white-space:nowrap;animation:gainup 1s ease-out forwards;text-shadow:0 1px 0 #000;z-index:3;}
+.hpgain.up{color:var(--acid);} .hpgain.down{color:var(--red);} @keyframes gainup{0%{opacity:0;transform:translateY(6px);}20%{opacity:1;}100%{opacity:0;transform:translateY(-12px);}}
+/* the run's panels come online */
+.play.boot #hud,.play.boot .box{animation:bootin .55s cubic-bezier(.2,.9,.3,1) backwards;}
+.play.boot #hud{animation-delay:.05s;} .play.boot #relic-box{animation-delay:.18s;} .play.boot #obj-box{animation-delay:.3s;} .play.boot #log-box{animation-delay:.12s;}
+.play.boot .box-h{animation:boottype .5s steps(14) backwards;animation-delay:.45s;overflow:hidden;white-space:nowrap;}
+.play.boot .board{animation:bootmap .6s ease-out backwards;animation-delay:.08s;}
+@keyframes bootin{0%{clip-path:inset(0 100% 0 0);opacity:.2;box-shadow:0 0 0 1px var(--neon),0 0 30px rgba(139,233,253,.5);}60%{clip-path:inset(0 0 0 0);opacity:1;box-shadow:0 0 0 1px var(--neon),0 0 18px rgba(139,233,253,.3);}100%{clip-path:inset(0 0 0 0);}}
+@keyframes boottype{from{max-width:0;opacity:.3;}to{max-width:100%;opacity:1;}} @keyframes bootmap{0%{opacity:0;filter:brightness(2.2) blur(3px);}100%{opacity:1;filter:none;}}
+/* who is here */
+.pnow{margin-left:8px;color:var(--acid);letter-spacing:.08em;white-space:nowrap;} .pnow b{color:#fff;font-weight:700;}
+.pnow i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acid);margin-right:5px;box-shadow:0 0 8px var(--acid);animation:blink 1.6s steps(2) infinite;vertical-align:1px;}
+/* it knows your name */
+.bi-to{font-family:var(--mono);font-size:clamp(13px,2vw,20px);letter-spacing:.12em;color:#fff;opacity:.85;}
+/* left alone */
+#you-img.idle-look{animation:idlelook 2.6s ease-in-out;} #you-img.idle-yawn{animation:idleyawn 2.6s ease-in-out;} #you-img.idle-sway{animation:idlesway 2.6s ease-in-out;}
+@keyframes idlelook{20%{transform:translateX(-7%) rotate(-5deg);}35%{transform:translateX(-7%) rotate(-5deg);}60%{transform:translateX(7%) rotate(5deg);}78%{transform:translateX(7%) rotate(5deg);}}
+@keyframes idleyawn{25%{transform:scale(1.06,.92);}55%{transform:scale(.95,1.1) translateY(-4%);}80%{transform:scale(1.02,.97);}}
+@keyframes idlesway{25%{transform:rotate(-6deg);}50%{transform:rotate(5deg);}75%{transform:rotate(-3deg);}}
+#you-tok.asleep img{transform:rotate(-14deg) translateY(8%) scale(.94);filter:brightness(.75);transition:transform .8s,filter .8s;}
+#you-tok .zzz{position:absolute;right:-6%;top:-26%;font-family:var(--mono);font-weight:700;font-size:11px;color:#cfd6ff;text-shadow:0 1px 0 #000;animation:zzz 2.4s ease-in-out infinite;pointer-events:none;}
+#you-tok .zzz i{font-style:normal;font-size:14px;margin-left:1px;} #you-tok .zzz b{font-size:18px;margin-left:1px;}
+@keyframes zzz{0%{opacity:0;transform:translate(-4px,6px);}30%{opacity:1;}100%{opacity:0;transform:translate(6px,-10px);}}
+body.calm #wipe,body.calm #grade{display:none;}
