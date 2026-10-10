@@ -918,7 +918,7 @@ function setsHTML(relics, full){
   if(!rows.length) return "<div class='syn none'>hold 2 relics of the same set to switch on a synergy</div>";
   return rows.map(({t,c,on,next})=>
     "<div class='syn"+(on.length?" on":"")+"' style='--sc:"+t.color+"' title='"+t.tiers.map(([k,d])=>k+": "+d).join(" · ")+"'>"
-    + "<b>"+t.icon+" "+t.name+(t.id==="night" && on.length && G ? (G.phase==="night" ? " <i class='rstate on'>awake</i>" : " <i class='rstate'>waits for night</i>") : "")+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
+    + "<b>"+setIco(t)+" "+t.name+(t.id==="night" && on.length && G ? (G.phase==="night" ? " <i class='rstate on'>awake</i>" : " <i class='rstate'>waits for night</i>") : "")+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
     + "<span>"+(on.length ? on.map(([k,d])=>d).join(" · ") : "")+(next && (full || !on.length) ? (on.length?" · ":"")+"<i>"+next[0]+": "+next[1]+"</i>" : "")+"</span></div>").join("");
 }
 /* weighted relic roll: rarer is scarcer, luck tilts toward rare, and sets you already hold come up more */
@@ -1106,7 +1106,7 @@ function renderHUD(){
       hf ? ["💪 heft +"+hf, "every 12 max HP above 50 adds 1 to your hits"] : 0,
       over ? ["✨ crit dmg +"+Math.round(over*BAL.critOver*100)+"%", "crit chance past 100% becomes crit damage"] : 0,
       dot && gr ? ["🔥 +"+gr+"%", "your burn, bleed, poison, shocks, companions and healing have grown this much with the days"] : 0 ].filter(Boolean);
-    $("hud-build").innerHTML = bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join("");
+    $("hud-build").innerHTML = si(bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join(""));
     if(hf) tip("heft"); if(over) tip("crit");
   }
   { const el = $("hp-text"), from = shownHp;
@@ -1129,7 +1129,7 @@ function renderHUD(){
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
-  $("hud-chips").innerHTML = chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):"")+(G.keys?chip("🗝️","keys",G.keys):"")
+  $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))+(G.keys?chip("🗝️","keys",G.keys):"")
     + (G.curses ? (G.curses.dawn?"<span class='chip curse' title='cursed: you lose this much HP every dawn'>🩸 −"+G.curses.dawn+"/dawn</span>":"")
       + (G.curses.shunned?"<span class='chip curse' title='cursed: no shop will serve you'>🚫 shunned</span>":"")
       + (G.curses.sealed?"<span class='chip curse' title='cursed: relic slots sealed'>🔒 −"+G.curses.sealed+" slot</span>":"")
@@ -1150,7 +1150,7 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && shown(relicById(G.relics[i]));
-    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+relicState(rel.id)+" <small>"+rel.set.map(k=>SETS.find(t=>t.id===k).icon).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
+    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+relicState(rel.id)+" <small>"+rel.set.map(k=>setIco(SETS.find(t=>t.id===k))).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
@@ -1178,6 +1178,40 @@ function renderTimeline(){
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends")
     + " <span class='callhint'>· "+(TOUCH && !PAD.on ? "tap to call it out" : "<kbd>"+padGlyph("C")+"</kbd> call it out")+"</span>";
 }
+/* ---------- one icon language ----------
+   The six stats and the seventeen sets are drawn, like the things on the map, so they look the same on every device.
+   Emoji stay where the game is writing a sentence (the feed, the fight log, shared results): there they are punctuation. */
+const svgS = (b, cls) => "<svg class='si"+(cls ? " "+cls : "")+"' viewBox='0 0 16 16' aria-hidden='true'>"+b+"</svg>";
+const STAT_SVG = {
+  "❤️": svgS("<path d='M8 14 C3 10.4 1.6 8 1.6 5.6 A3.2 3.2 0 0 1 8 4.2 A3.2 3.2 0 0 1 14.4 5.6 C14.4 8 13 10.4 8 14 Z' fill='#ff5d73'/><path d='M4.2 4.6 A1.9 1.9 0 0 1 6 3.9' fill='none' stroke='#ffd0d6' stroke-width='1' stroke-linecap='round'/>"),
+  "⚔️": svgS("<path d='M13.2 2.8 L6 10' stroke='#e6f6fb' stroke-width='2' stroke-linecap='round'/><path d='M13.4 2.6 L11 3.2 L12.8 5 Z' fill='#e6f6fb'/><path d='M4.2 8.2 L7.8 11.8' stroke='#8be9fd' stroke-width='1.8' stroke-linecap='round'/><path d='M5.4 10.6 L3 13' stroke='#c9975c' stroke-width='2.2' stroke-linecap='round'/>"),
+  "🛡️": svgS("<path d='M8 1.6 L13.2 3.5 V7.8 C13.2 11 11 13.3 8 14.5 C5 13.3 2.8 11 2.8 7.8 V3.5 Z' fill='#4f7890' stroke='#d6eef7' stroke-width='1.1' stroke-linejoin='round'/><path d='M8 3.4 V12.6' stroke='#d6eef7' stroke-width='1' opacity='.6'/>"),
+  "💨": svgS("<path d='M2.5 4 L6.5 8 L2.5 12 M8 4 L12 8 L8 12' fill='none' stroke='#8be9fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>"),
+  "✨": svgS("<path d='M8 1.2 L9.7 6.3 L14.8 8 L9.7 9.7 L8 14.8 L6.3 9.7 L1.2 8 L6.3 6.3 Z' fill='#f1fa8c'/>"),
+  "🌀": svgS("<circle cx='10.6' cy='8' r='3.4' fill='none' stroke='#b9a4ff' stroke-width='1.6'/><path d='M1.6 5.6 H5.4 M1 8 H4.6 M1.6 10.4 H5.4' stroke='#b9a4ff' stroke-width='1.4' stroke-linecap='round' opacity='.75'/>"),
+};
+STAT_SVG["🍃"] = STAT_SVG["🌀"];
+const si = html => String(html).replace(/❤️|⚔️|🛡️|💨|✨|🌀|🍃/g, m=>STAT_SVG[m]); // swap the stat emoji in a piece of interface for their drawings
+const SET_SVG = {
+  armed:"<path d='M13.2 2.8 L6 10' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M4.2 8.2 L7.8 11.8 M5.4 10.6 L3 13' stroke='currentColor' stroke-width='1.9' stroke-linecap='round'/>",
+  hype:"<path d='M2 11 V6.6 H4.8 L7.4 9 L12.2 9.7 Q14 10.1 14 11.6 V12.6 H2 Z' fill='currentColor'/>",
+  degen:"<rect x='2.6' y='2.6' width='10.8' height='10.8' rx='2.2' fill='none' stroke='currentColor' stroke-width='1.6'/><circle cx='5.6' cy='5.6' r='1.1' fill='currentColor'/><circle cx='8' cy='8' r='1.1' fill='currentColor'/><circle cx='10.4' cy='10.4' r='1.1' fill='currentColor'/>",
+  kawaii:"<path d='M8 8 L2.4 4.4 V11.6 Z M8 8 L13.6 4.4 V11.6 Z' fill='currentColor'/><circle cx='8' cy='8' r='1.9' fill='currentColor'/>",
+  cult:"<rect x='6.4' y='7.2' width='3.2' height='6.6' fill='currentColor'/><path d='M8 1.6 C9.8 3.8 9.8 5.4 8 6.4 C6.2 5.4 6.2 3.8 8 1.6 Z' fill='currentColor'/>",
+  schizo:"<circle cx='8' cy='8.6' r='1.6' fill='currentColor'/><path d='M5.2 5.6 A4.2 4.2 0 0 0 5.2 11.6 M10.8 5.6 A4.2 4.2 0 0 1 10.8 11.6 M3 3.6 A7 7 0 0 0 3 13.6 M13 3.6 A7 7 0 0 1 13 13.6' fill='none' stroke='currentColor' stroke-width='1.3' stroke-linecap='round'/>",
+  squad:"<circle cx='8' cy='9' r='4.6' fill='currentColor'/><circle cx='4.2' cy='4.6' r='1.9' fill='currentColor'/><circle cx='11.8' cy='4.6' r='1.9' fill='currentColor'/>",
+  bonkler:"<rect x='3.2' y='5.2' width='9.6' height='8' rx='1.6' fill='none' stroke='currentColor' stroke-width='1.6'/><rect x='5.3' y='7.6' width='1.9' height='1.9' fill='currentColor'/><rect x='8.8' y='7.6' width='1.9' height='1.9' fill='currentColor'/><path d='M8 5 V2.8' stroke='currentColor' stroke-width='1.4'/><circle cx='8' cy='2.2' r='1' fill='currentColor'/>",
+  flame:"<path d='M8 1.4 C10 4.4 12.6 6 12.1 9.6 C11.8 12.6 10 14.4 8 14.4 C6 14.4 4.2 12.6 3.9 9.6 C3.7 7.6 5 7 5.4 5.4 C6.4 6.4 6.8 7 7 7.9 C7.4 5.6 7.4 3.5 8 1.4 Z' fill='currentColor'/>",
+  blood:"<path d='M8 1.6 C10.6 5.4 12.3 7.6 12.3 10 A4.3 4.3 0 0 1 3.7 10 C3.7 7.6 5.4 5.4 8 1.6 Z' fill='currentColor'/>",
+  ice:"<path d='M8 1.8 V14.2 M2.6 4.9 L13.4 11.1 M13.4 4.9 L2.6 11.1' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'/>",
+  cheese:"<path fill-rule='evenodd' d='M1.8 11.4 L13.8 4.8 V12.8 H1.8 Z M5.6 10.6 a1.1 1.1 0 1 0 2.2 0 a1.1 1.1 0 1 0 -2.2 0 Z M10 8.6 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 Z' fill='currentColor'/>",
+  agency:"<path d='M1.4 5.8 H7 V8.6 A2.8 2.8 0 0 1 1.8 9.6 Z M9 5.8 H14.6 L14.2 9.6 A2.8 2.8 0 0 1 9 8.6 Z' fill='currentColor'/><path d='M6.8 6.6 H9.2' stroke='currentColor' stroke-width='1.2'/>",
+  night:"<path d='M11.2 2 A6.4 6.4 0 1 0 14 10.6 A5.2 5.2 0 0 1 11.2 2 Z' fill='currentColor'/>",
+  grass:"<path d='M13.8 2.2 C6 2.2 2.8 5.8 2.8 10.6 V13.4 H5.4 C10.2 13.4 13.8 10.2 13.8 2.2 Z' fill='currentColor'/>",
+  food:"<path d='M2.4 7 A5.6 4.6 0 0 1 13.6 7 Z' fill='currentColor'/><rect x='2.4' y='8.2' width='11.2' height='2' rx='.6' fill='currentColor'/><path d='M2.4 11.4 H13.6 A2.2 2.4 0 0 1 11.4 13.8 H4.6 A2.2 2.4 0 0 1 2.4 11.4 Z' fill='currentColor'/>",
+  war:"<path d='M2.6 10.4 A5.4 6.4 0 0 1 13.4 10.4 V11.4 H2.6 Z' fill='currentColor'/><rect x='1.4' y='11.6' width='13.2' height='1.8' rx='.6' fill='currentColor'/>",
+};
+const setIco = t => SET_SVG[t.id] ? "<svg class='si set' viewBox='0 0 16 16' aria-hidden='true' style='color:"+t.color+"'>"+SET_SVG[t.id]+"</svg>" : t.icon;
 /* ---------- the ground ----------
    Floors, walls and their shadows are painted on one canvas that sits under the tiles. A wall is a raised block: a lit
    top, and a front face wherever there is floor to the south of it. Each district has its own floor. The canvas is
@@ -1547,7 +1581,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
-  return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — ❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd+" · "+oddsText(fightOdds(def, opts))
+  return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
     + (f.adapt ? " · <span class='adapt' title='your build would walk through this, so the timeline raised it. it pays more'>📈 pushed back +"+Math.round(f.adapt*100)+"%</span>" : "");
 }
 /* Pins: a mark on a tile you mean to come back to. Right-click (or long-press, or P while pointing at it) to
@@ -1892,7 +1926,7 @@ function setChips(r, preview){ // which sets a relic feeds, and whether taking i
   const n = setCounts(G.relics.filter(id=>id!==r.id));
   return "<div class='sets'>"+r.set.map(k=>{
     const t = SETS.find(x=>x.id===k), c = (n[k]||0)+1, hit = t.tiers.find(([q])=>q===c), next = t.tiers.find(([q])=>c<q);
-    return "<i style='--sc:"+t.color+"'"+(preview && hit ? " class='hit' title='"+hit[1]+"'" : "")+">"+t.icon+" "+t.name
+    return "<i style='--sc:"+t.color+"'"+(preview && hit ? " class='hit' title='"+hit[1]+"'" : "")+">"+setIco(t)+" "+t.name
       + (preview ? " "+c+(hit ? " ✓" : next ? "/"+next[0] : "") : "")+"</i>"
       + (preview && hit ? "<span class='syn-hit'>"+hit[1]+"</span>" : "");
   }).join("")+"</div>";
@@ -2202,7 +2236,7 @@ function openFire(){
 function bossModal(b, title, fightLabel, canWait){
   const face = G.bossLook[G.bossIds.indexOf(b.id)].face;
   openModal("<h2>"+title+"</h2>"+(face?"<img class='boss-face' src='"+face+"' alt=''>":"")+"<div class='note'><i>"+b.intro+"</i></div><div class='stat-line'><span>mechanic</span><b>"+b.mechanic+"</b></div>"
-    + "<div class='stat-line'><span>"+b.name+"</span><b>❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+"</b></div>"
+    + "<div class='stat-line'><span>"+b.name+"</span><b>"+si("❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd)+"</b></div>"
     + (hasRelic("modelo") ? "<div class='note good'>🍺 your <b>Modelo</b> gets drunk in this fight: +"+Math.round(60*tm("modelo"))+"% ATK, and then it's gone</div>" : "")
     + (foeInstance(b).adapt ? "<div class='note adapt'>📈 the timeline is pushing back: it is "+Math.round(foeInstance(b).adapt*100)+"% stronger against a build like yours</div>" : "")
     + "<div class='stat-line'><span>your odds right now</span><b>"+oddsText(fightOdds(b, {boss:b}))+"</b></div>"
@@ -2621,9 +2655,9 @@ function openModal(html){
 }
 function runStrip(){
   const s = G.stats;
-  return "<div class='mstats'><div class='mnum'><span>❤️ "+Math.round(s.hp)+"/"+s.maxhp+"</span><span>⚔️ "+s.atk+"</span><span>🛡️ "+s.arm+"</span><span>💨 "+s.spd+"</span><span>✨ "+Math.round(s.crit)+"%</span><span>🌀 "+Math.round(s.dodge)+"%</span></div>"
+  return si("<div class='mstats'><div class='mnum'><span>❤️ "+Math.round(s.hp)+"/"+s.maxhp+"</span><span>⚔️ "+s.atk+"</span><span>🛡️ "+s.arm+"</span><span>💨 "+s.spd+"</span><span>✨ "+Math.round(s.crit)+"%</span><span>🌀 "+Math.round(s.dodge)+"%</span></div>"
     + "<div class='mrel'>"+G.relics.map((id,i)=>ICONS[id] ? "<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>" : "").join("")
-    + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+r.t.icon+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>";
+    + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+setIco(r.t)+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>");
 }
 /* During a run on a wide screen, a draft, shop or event opens over the map and leaves the right-hand column in view:
    your stats, relics and synergies are what the decision is made from. Everywhere else it is centred as before. */
@@ -2660,7 +2694,7 @@ function combatBars(you, foe){
   }
   $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
   { // the match-up in numbers, both sides, kept current as the fight changes them
-    const chip = (ico, label, v, extra, cls) => "<span title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+ico+" <b>"+v+"</b>"+(extra||"")+"</span>";
+    const chip = (ico, label, v, extra, cls) => "<span title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+si(ico)+" <b>"+v+"</b>"+(extra||"")+"</span>";
     const hard = you.hard||0, heft = heftOf(you.maxhp);
     $("you-stats").innerHTML = chip("⚔️","attack"+(heft ? " (plus "+heft+" from heft on every hit)" : ""), Math.round(you.atk)+(hard ? "<i>+"+hard+"</i>" : ""), "", hard ? "up" : "")
       + chip("🛡️","armour", you.arm) + chip("💨","speed: the faster side strikes first", you.spd, "", you.spd>=foe.spd ? "lead" : "")
@@ -3659,7 +3693,7 @@ async function kingPanel(run, back){
   if(r.you){ box.innerHTML = run.kingDone = "<div class='king-line'>👑 <b>you hold the hill.</b> "+(k.defences ? k.defences+" challenger"+(k.defences>1?"s":"")+" turned away. " : "")+"<span class='dim'>resets in "+untilReset(r.resets)+"</span></div>"; return; }
   // a win earns one shot at the hill: this is the loudest thing on the page until it is used
   box.innerHTML = "<div class='king-call'><div class='king-shout'>"+(k ? "⚔️ YOU'VE EARNED A SHOT AT THE KING" : "👑 THE HILL IS EMPTY")+"</div>"
-    + (k ? "<div class='king-vs'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 💨 "+k.stats.dodge+"%</span><span class='dim'>"+beaten(k.defences)+"</span></div></div>"
+    + (k ? "<div class='king-vs'><canvas class='bpfp big' width='4' height='4'></canvas><div><b>"+esc(k.name)+"</b><span>"+si("❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+" · 🌀 "+k.stats.dodge+"%")+"</span><span class='dim'>"+beaten(k.defences)+"</span></div></div>"
          : "<div class='king-vs'><div><span>you beat THE CANCEL. nobody is up there. walk up and it's yours.</span></div></div>")
     + "<button class='btn big' id='king-go'>"+(k ? "⚔️ CHALLENGE THE KING" : "👑 CLAIM THE HILL")+"</button>"
     + "<div class='dim king-terms'>"+(k ? "your build against theirs · one shot · " : "")+"hill resets in "+untilReset(r.resets)+"</div></div>";
@@ -3792,7 +3826,7 @@ async function loadKing(){
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
-           + "<span>❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
+           + "<span>"+si("❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm)+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
     + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span>"
@@ -4428,7 +4462,7 @@ function openCodex(tab, pick){
           : lockA ? "<div class='relic-ico unknown locked'>🔒</div><div><b>locked</b><span>"+lockA.name+": "+lockA.desc+"</span></div>"
           : !seen ? "<div class='relic-ico unknown'>?</div><div><b>undiscovered</b><span>hold it in a run and it's written down here</span></div>"
           : "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''><div><b class='"+r.rar+"'>"+r.name+" <small class='rar-tag'>"+r.rar+"</small></b><span>"+r.desc+"</span>"
-            + "<span class='dim'>"+r.set.map(k=>{ const s = SETS.find(t=>t.id===k); return s.icon+" "+s.name; }).join(" · ")
+            + "<span class='dim'>"+r.set.map(k=>{ const s = SETS.find(t=>t.id===k); return setIco(s)+" "+s.name; }).join(" · ")
             + "</span><span class='cx-tiers'><i class='gold'>🥇 "+tierChange(r, 2)+"</i><i class='diamond'>💎 "+tierChange(r, 4)+"</i></span></div>")+"</div>"
       + ["common","rare","legendary","cursed"].map(rar=>{ const list = pool.filter(x=>x.rar===rar); if(!list.length) return "";
           return "<div class='kicker cx-h'>"+rar+"</div><div class='codex-grid'>"+list.map(x=>{
@@ -4438,18 +4472,18 @@ function openCodex(tab, pick){
   } else if(tab==="sets"){
     body = "<div class='note'>hold enough relics of a set and it switches on</div>" + SETS.map(s=>{
       const mine = RELICS.filter(r=>r.set.includes(s.id));
-      return "<div class='cx-row' style='--sc:"+s.color+"'><b>"+s.icon+" "+s.name+"</b><span>"+s.tiers.map(([n,d])=>"<i>"+n+"</i> "+d).join(" &nbsp;·&nbsp; ")+"</span>"
+      return "<div class='cx-row' style='--sc:"+s.color+"'><b>"+setIco(s)+" "+s.name+"</b><span>"+s.tiers.map(([n,d])=>"<i>"+n+"</i> "+d).join(" &nbsp;·&nbsp; ")+"</span>"
         + "<div class='codex-grid left'>"+mine.map(r=>META.seen[r.id] && ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt='' title='"+esc(r.name)+"'>" : "<span class='relic-ico unknown'>?</span>").join("")+"</div></div>"; }).join("");
   } else if(tab==="foes"){
     const tiers = [["mon","monsters","they hold the rooms and corridors"],["elite","elites","gold ring on the map. most stay away until the first boss falls"],["hunter","night hunters","they come out after dark and walk toward you"]];
     body = tiers.map(([t,name,note])=>"<div class='kicker cx-h'>"+name+" <small>"+note+"</small></div>"+ENEMIES.filter(e=>e.tier===t).map(e=>
-      "<div class='cx-row'><b>"+e.name+"</b><span>❤️ "+e.hp+" · ⚔️ "+e.atk+" · 🛡️ "+e.arm+" · 💨 "+e.spd+(e.nft && NFT[e.nft] ? " · "+NFT[e.nft].name : "")
+      "<div class='cx-row'><b>"+e.name+"</b><span>"+si("❤️ "+e.hp+" · ⚔️ "+e.atk+" · 🛡️ "+e.arm+" · 💨 "+e.spd)+(e.nft && NFT[e.nft] ? " · "+NFT[e.nft].name : "")
       + (e.home && e.home.length ? " · "+e.home.map(i=>DISTRICTS[i].name.toLowerCase()).join(", ") : "")+"</span>"
       + (e.trait ? "<span class='dim'>"+TRAIT_TEXT[e.trait]+"</span>" : "")+"</div>").join("")).join("")
       + "<div class='note'>numbers are for day 1. everything grows by the day, and elites and bosses push back against a strong build</div>";
   } else if(tab==="bosses"){
     body = [0,1,2].map(slot=>"<div class='kicker cx-h'>day "+BOSS_DAYS[slot]+"</div>"+BOSSES.filter(b=>b.slot===slot).map(b=>
-      "<div class='cx-row boss'><b>"+b.name+"</b><span><i>"+b.intro+"</i></span><span>"+b.mechanic+"</span><span class='dim'>❤️ "+b.hp+" · ⚔️ "+b.atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd+" on day 1</span></div>").join("")).join("")
+      "<div class='cx-row boss'><b>"+b.name+"</b><span><i>"+b.intro+"</i></span><span>"+b.mechanic+"</span><span class='dim'>"+si("❤️ "+b.hp+" · ⚔️ "+b.atk+" · 🛡️ "+b.arm)+" · "+STAT_SVG["💨"]+" "+b.spd+" on day 1</span></div>").join("")).join("")
       + "<div class='note'>a run draws one boss for day 3 and one for day 6. THE CANCEL always closes</div>";
   } else if(tab==="lore"){
     body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
