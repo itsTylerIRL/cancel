@@ -831,12 +831,12 @@ img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}
 @keyframes breathe{50%{transform:scale(1.012,1.022);}}
 .pfx{position:absolute;inset:0;border-radius:10px;overflow:hidden;pointer-events:none;z-index:2;}
 .pfx i{position:absolute;inset:0;opacity:0;transition:opacity .3s;font-style:normal;}
-.portrait.burning .fx-burn{opacity:1;transform-origin:50% 100%;mix-blend-mode:screen;animation:flame .45s ease-in-out infinite alternate;
+.portrait.burning .pfx .fx-burn{opacity:1;transform-origin:50% 100%;mix-blend-mode:screen;animation:flame .45s ease-in-out infinite alternate;
   background:radial-gradient(60% 46% at 28% 100%,rgba(255,150,0,.85),transparent 70%),radial-gradient(55% 58% at 72% 100%,rgba(255,60,0,.8),transparent 70%),
     radial-gradient(40% 40% at 50% 100%,rgba(255,230,120,.8),transparent 70%),linear-gradient(0deg,rgba(255,90,0,.4),transparent 60%);}
 @keyframes flame{from{transform:scaleY(1) skewX(-2deg);}to{transform:scaleY(1.16) skewX(3deg);}}
 .portrait.burning canvas{border-color:#ff8a3c;box-shadow:0 0 24px rgba(255,120,0,.6);}
-.portrait.bleeding .fx-bleed{opacity:1;animation:drip 1.7s ease-in infinite;
+.portrait.bleeding .pfx .fx-bleed{opacity:1;animation:drip 1.7s ease-in infinite;
   background:linear-gradient(90deg,transparent 12%,rgba(170,0,20,.9) 12% 14%,transparent 14% 31%,rgba(200,0,30,.85) 31% 32.5%,transparent 32.5% 58%,rgba(150,0,15,.9) 58% 60.5%,transparent 60.5% 79%,rgba(190,0,25,.85) 79% 80.5%,transparent 80.5%);
   -webkit-mask-image:linear-gradient(180deg,#000 30%,transparent 78%);mask-image:linear-gradient(180deg,#000 30%,transparent 78%);}
 @keyframes drip{from{transform:translateY(-70%);}to{transform:translateY(8%);}}
