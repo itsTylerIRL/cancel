@@ -1517,3 +1517,16 @@ body.calm #grade{display:none;}
 .top-right{gap:6px;}
 /* nothing you press with a finger is smaller than 40px */
 @media (pointer:coarse){ .btn.small,.pick,.tog{min-height:40px;} .top-right .mute,.icon-btn{width:40px;height:40px;} }
+
+/* confirmations */
+.confirm-body{font-size:13px;line-height:1.55;color:var(--txt);text-align:left;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:rgba(139,233,253,.03);}
+.confirm-body b{color:#fff;}
+/* loading: the outline of what is coming, with a slow shimmer */
+.skel,.skel-wrap .hcard.skel>*,.skel-wrap .brow.skel>*{background:linear-gradient(110deg,#0c1a20 30%,#17313a 50%,#0c1a20 70%) 0 0/250% 100%;animation:shimmer 1.2s linear infinite;border-radius:4px;color:transparent;}
+.skel-wrap .hcard.skel,.skel-wrap .brow.skel{background:rgba(139,233,253,.02);animation:none;}
+.skel-wrap .hcard.skel i{width:84px;height:84px;border-radius:8px;display:block;margin-bottom:4px;} .skel-wrap .hcard.skel u{width:60%;height:8px;display:block;} .skel-wrap .hcard.skel b{width:75%;height:11px;display:block;margin-top:3px;} .skel-wrap .hcard.skel em{width:40%;height:10px;display:block;margin-top:3px;}
+.skel-wrap .brow.skel{min-height:52px;} .skel-wrap .brow.skel i{height:12px;} .skel-wrap .brow.skel .sq{width:40px;height:40px;border-radius:6px;} .skel-wrap .brow.skel b{height:12px;width:55%;} .skel-wrap .brow.skel span{height:20px;width:120px;} .skel-wrap .brow.skel em{height:16px;width:60px;justify-self:end;}
+.lineup.skel-wrap .bpfp.skel{display:block;aspect-ratio:1;border:0;}
+.king-card.skel-wrap .bpfp.skel{display:block;width:56px;height:56px;flex:none;border:0;} .skel-lines{flex:1;display:flex;flex-direction:column;gap:6px;} .skel-lines .skel{display:block;height:11px;width:70%;} .skel-lines b.skel{height:14px;width:45%;} .skel-lines .short{width:40%;}
+.king-card.skel-wrap .king-clock .skel{display:block;height:9px;width:80px;margin:3px auto;} .king-card.skel-wrap .king-clock b.skel{height:16px;width:100px;}
+body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}

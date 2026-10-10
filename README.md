@@ -60,7 +60,7 @@ Optional. Sign in with RemiliaNET or an Urbit ID and your name on the boards is 
 
 ## Controls
 
-Arrow keys do everything, including menus. Enter picks, Esc backs out, `B` opens your build. Mouse and touch work too: click a tile to walk there, swipe to step on a phone.
+Arrow keys do everything, including menus. A gamepad works the same way: d-pad or stick, A to pick, B to back out, X for your build, Y to call out a boss. Enter picks, Esc backs out, `B` opens your build. Mouse and touch work too: click a tile to walk there, swipe to step on a phone.
 
 ## Running it yourself
 

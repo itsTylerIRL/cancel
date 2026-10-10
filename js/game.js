@@ -1170,13 +1170,13 @@ function renderTimeline(){
     const next = bi>=0 && bi===G.bossesBeaten; // the one that is coming: click it to stop waiting
     h += "<div class='"+cls+(next?" next":"")+"'"+(bi>=0?" title='"+runBoss(bi).name+(next?" — click to call it out and fight it now":"")+"'":"")+(next?" data-skip='1'":"")+">"
       + (bi>=0 ? (look && look.face ? "<img src='"+look.face+"' alt=''>" : "<span>☠</span>") : "<span>"+d+"</span>")
-      + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+(next ? "<kbd class='callkey' aria-hidden='true'>"+(TOUCH ? "tap" : "C")+"</kbd>" : "")+"</div>";
+      + (bi>=0 ? "<em>"+runBoss(bi).name+"</em>" : "")+(next ? "<kbd class='callkey' aria-hidden='true'>"+(TOUCH && !PAD.on ? "tap" : padGlyph("C"))+"</kbd>" : "")+"</div>";
   }
   $("timeline").innerHTML = h;
   const nb = runBoss(G.bossesBeaten), left = nb ? BOSS_DAYS[G.bossesBeaten]-G.day : 0;
   $("doom").title = nb ? "click to call out "+nb.name+" and fight it now" : "";
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends")
-    + " <span class='callhint'>· "+(TOUCH ? "tap to call it out" : "<kbd>C</kbd> call it out")+"</span>";
+    + " <span class='callhint'>· "+(TOUCH && !PAD.on ? "tap to call it out" : "<kbd>"+padGlyph("C")+"</kbd> call it out")+"</span>";
 }
 /* ---------- the ground ----------
    Floors, walls and their shadows are painted on one canvas that sits under the tiles. A wall is a raised block: a lit
@@ -2499,10 +2499,10 @@ function openSettings(){
   p.querySelectorAll(".tog[data-speed]").forEach(b=>{ b.onclick=()=>{ META.speed = +b.dataset.speed; saveMeta(); sfx("click"); openSettings(); }; });
   p.querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openSettings(); }; });
   $("set-close").onclick=()=>{ sfx("click"); closeModal(); };
-  if(inRun) $("set-quit").onclick=()=>{
-    const b = $("set-quit");
-    if(b.dataset.sure){ G.killedBy = "giving up"; G.diedToBoss = false; endRun(false); }
-    else { b.dataset.sure = 1; b.textContent = "really abandon? click again"; }
+  if(inRun) $("set-quit").onclick=()=>{ sfx("click");
+    confirmBox({ title:"ABANDON THIS RUN?", yes:"abandon the run",
+      body:"<b>"+esc(G.name)+"</b>, day "+G.day+", "+G.relics.length+" relic"+(G.relics.length===1?"":"s")+". The run ends here and counts as cancelled"+(G.daily && !G.practice ? ", and <b>today's daily attempt is used</b>" : "")+". This can't be undone." },
+      ()=>{ G.killedBy = "giving up"; G.diedToBoss = false; endRun(false); }, openSettings);
   };
 }
 function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
@@ -2602,6 +2602,15 @@ function applyBackground(){
 }
 
 /* ---------- modal helpers ---------- */
+/* One way of asking "are you sure", used wherever something can't be taken back: what will happen, a plain way out, and
+   the action itself named on the button. `back` puts whatever was on screen before back again. */
+function confirmBox(o, onYes, back){
+  openModal("<h2>"+o.title+"</h2><div class='note confirm-body'>"+o.body+"</div>"
+    + "<div class='row'><button class='btn small' id='cf-no'>"+(o.no || "← never mind")+"</button><button class='btn "+(o.safe ? "" : "danger")+"' id='cf-yes'>"+o.yes+"</button></div>");
+  $("cf-no").onclick = ()=>{ sfx("click"); back ? back() : closeModal(); };
+  $("cf-yes").onclick = ()=>{ sfx("click"); onYes(); };
+  navSet($("cf-no")); // the safe answer is the one already under your thumb
+}
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
   // a narrow screen has no side column to read from while you choose, so the dialog carries your numbers with it
@@ -3774,6 +3783,10 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
 let kingClock = 0;
 async function loadKing(){
   const el = $("king-box"); if(!el || !online()) return;
+  if(!el.innerHTML.trim()){ // first load: hold the space with the panel's outline, so the menu below doesn't jump when it arrives
+    el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card skel-wrap' aria-busy='true'><i class='bpfp big skel'></i><div class='skel-lines'><b class='skel'></b><span class='skel'></span><span class='skel short'></span></div><div class='king-clock'><span class='skel'></span><b class='skel'></b></div></div>";
+    el.classList.remove("hidden");
+  }
   const r = await api("/api/king?player="+playerId());
   if(!r){ el.classList.add("hidden"); return; }
   const k = r.king;
@@ -3893,7 +3906,9 @@ async function renderRn(msg){
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
         + (rnOn.ur ? "<button class='btn sso-btn' id='ur-in'>"+URBIT_MARK+"Urbit ID</button>" : "")+"</div>"
       + "<span class='dim'>"+(msg || "sign in for a verified name on the leaderboard, unlocks"+(META.drip>0 ? " (you have "+META.drip+" DRIP waiting)" : "")+", and your progress on any device")+"</span>";
-  if(u) $("rn-out").onclick = ()=>{ sfx("click"); delete META.rn; saveMeta(); renderRn(); };
+  if(u) $("rn-out").onclick = ()=>{ sfx("click");
+    confirmBox({ title:"SIGN OUT?", yes:"sign out", body:"Your progress stays on your account. Until you sign back in, your unlocks are switched off and scores post without your verified name." },
+      ()=>{ delete META.rn; saveMeta(); closeModal(); renderRn(); renderTitle(); }); };
   if($("rn-in")) $("rn-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/login?return="+back); };
   if($("ur-in")) $("ur-in").onclick = ()=>{ sfx("click"); location.assign(apiBase()+"/api/auth/urbit/login?return="+back); };
 }
@@ -4059,7 +4074,9 @@ async function openBoard(tab, back, seed, page){
   };
   const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
   const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
-  if(!turning){ openModal(shell("<div class='note'>loading…</div>")); wire(); }
+  if(!turning){ // the shape of what is on its way, instead of the word "loading"
+    openModal(shell(tab==="hall" ? "<div class='hall skel-wrap' aria-busy='true'>"+"<div class='hcard skel'><i></i><u></u><b></b><em></em></div>".repeat(8)+"</div>"
+      : "<div class='lineup skel-wrap' style='--n:10' aria-busy='true'>"+"<i class='bpfp big skel'></i>".repeat(10)+"</div><div class='board skel-wrap'>"+"<div class='brow skel'><i></i><i class='sq'></i><b></b><span></span><em></em></div>".repeat(7)+"</div>")); wire(); }
   if(tab==="hall"){ // every daily map's champion, as a wall of faces
     const h = await api("/api/hall");
     if($("modal").classList.contains("hidden") || !$("board-close")) return;
@@ -4185,6 +4202,7 @@ function renderPicks(){ // the character screen is only about the character: tri
 /* character > load in > tribe > heat > start. The run is built once to put the map on screen, then rebuilt with each
    choice; nothing is logged, saved or counted until the last one is made. */
 let setupStep = null; // the picker that must be answered before the run begins
+let startOver = false; // set for the one call that follows "start over" being confirmed
 function beginSetup(){
   const code = PICK.daily||PICK.seed ? "" : Math.random().toString(36).slice(2,8).padEnd(6,"0");
   const build = ()=>{ newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed, code }); };
@@ -4352,6 +4370,11 @@ function openUnlocks(from){ // from: the DRIP shown a moment ago, so a purchase 
   $("modal-panel").querySelectorAll(".tog[data-frame]").forEach(b=>{ b.onclick=()=>{ setFrame(+b.dataset.frame); sfx("click"); openUnlocks(); }; });
   $("modal-panel").querySelectorAll("[data-u]").forEach(b=>{ b.onclick=()=>{
     const u = UNLOCKS[+b.dataset.u]; if(!rnUser() || META.drip<u.cost || META.unlocks[u.id]) return;
+    if(u.cost>=5000 && b.dataset.ok!=="1"){ // a big purchase is asked about once: DRIP doesn't come back
+      return confirmBox({ title:"BUY "+u.name.toUpperCase()+"?", yes:"spend "+u.cost.toLocaleString("en-US")+" DRIP", safe:true,
+        body:u.desc+"<br>It costs <b>"+u.cost.toLocaleString("en-US")+" DRIP</b> of your "+META.drip.toLocaleString("en-US")+". Purchases can't be refunded." },
+        ()=>{ openUnlocks(); const again = $("modal-panel").querySelector("[data-u='"+b.dataset.u+"']"); again.dataset.ok = "1"; again.click(); }, ()=>openUnlocks());
+    }
     META.drip -= u.cost; META.unlocks[u.id] = 1; if(/^frame/.test(u.id)) delete META.frame; // a new frame goes straight on
     saveMeta(); syncProfile(true); sfx("fanfare"); openUnlocks(META.drip+u.cost);
   };});
@@ -4544,6 +4567,45 @@ function navMove(dx, dy){ // step to the nearest choice in that direction
   }
   if(best){ navSet(best, true); sfx("step"); }
 }
+/* A gamepad works wherever the keyboard does: it is turned into the same keys. D-pad or left stick moves and steers
+   menus, A picks, B backs out, X opens your build (or changes fight speed in a fight), Y calls out the next boss,
+   START opens settings. The on-screen hints switch to the pad's buttons while one is in use. */
+const PAD = { on:false, held:{}, keys:{12:"ArrowUp",13:"ArrowDown",14:"ArrowLeft",15:"ArrowRight",0:"Enter",1:"Escape",2:"b",3:"c",9:"Start"}, raf:0 };
+const padGlyph = k => PAD.on ? ({C:"Y", B:"X"}[k] || k) : k;
+function padFire(key){
+  if(!PAD.on){ PAD.on = true; document.body.classList.add("pad"); padHints(); }
+  const modal = !$("modal").classList.contains("hidden"), on = id => $(id).classList.contains("active");
+  if(key==="Start") key = "Escape";
+  else if(key==="Escape" && !modal && on("screen-map")) return;             // B backs out of things; on the bare map there is nothing to back out of
+  else if(key==="Escape" && on("screen-avatar") && !modal){ $("btn-ava-back").click(); return; }
+  if(key==="b" && on("screen-combat")){ $("btn-speed").click(); return; }  // X in a fight: speed
+  onKey({ key, target:document.body, ctrlKey:false, metaKey:false, altKey:false, preventDefault(){} });
+}
+function padHints(){
+  const h = document.querySelector("#screen-map .hint"); if(!h) return;
+  if(!h.dataset.keys) h.dataset.keys = h.textContent;
+  h.textContent = PAD.on ? "d-pad or stick moves you and steers every menu · Ⓐ pick · Ⓑ back · Ⓧ your build · Ⓨ call out the next boss · START settings" : h.dataset.keys;
+  if(G && !G.over && $("screen-map").classList.contains("active")) renderHUD();
+}
+function padPoll(){
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(g=>g && g.connected);
+  if(!gp){ PAD.raf = 0; return; }
+  PAD.raf = requestAnimationFrame(padPoll);
+  if(document.hidden) return;
+  const now = performance.now(), want = {};
+  gp.buttons.forEach((b,i)=>{ if(b.pressed && PAD.keys[i]) want[PAD.keys[i]] = 1; });
+  const [x=0, y=0] = gp.axes;
+  if(Math.abs(x)>0.6 || Math.abs(y)>0.6) want[Math.abs(x)>Math.abs(y) ? (x>0 ? "ArrowRight" : "ArrowLeft") : (y>0 ? "ArrowDown" : "ArrowUp")] = 1;
+  for(const k in want){
+    const h = PAD.held[k];
+    if(!h){ PAD.held[k] = {t:now, n:0}; padFire(k); }
+    else if(k.startsWith("Arrow") && now-h.t > (h.n ? 120 : 320)){ h.t = now; h.n++; padFire(k); } // a held direction repeats, like a key
+  }
+  for(const k in PAD.held) if(!want[k]) delete PAD.held[k];
+}
+window.addEventListener("gamepadconnected", ()=>{ if(!PAD.raf) PAD.raf = requestAnimationFrame(padPoll); });
+window.addEventListener("gamepaddisconnected", ()=>{ PAD.held = {}; });
+document.addEventListener("mousemove", ()=>{ if(PAD.on){ PAD.on = false; document.body.classList.remove("pad"); padHints(); } }, {passive:true}); // back to mouse and keys
 function onKey(ev){
   if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
   document.body.classList.add("kb");
@@ -4632,6 +4694,12 @@ async function init(){
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
     if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
+    const saved = loadRun();
+    if(saved && !startOver){ // a run is waiting to be continued: starting another throws it away
+      return confirmBox({ title:"START A NEW RUN?", yes:"start over",
+        body:"You have a run in progress: <b>"+esc(saved.name)+"</b>, day "+saved.day+". Starting a new one throws it away for good"+(saved.daily && !saved.practice ? ", and it was <b>today's daily attempt</b>" : "")+"." },
+        ()=>{ closeModal(); startOver = true; $("btn-start").onclick(); startOver = false; });
+    }
     const label = $("btn-start").textContent;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
     try{ await ready; }
