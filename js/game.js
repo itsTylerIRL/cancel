@@ -583,7 +583,7 @@ function newRun(ava, opt){
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (pk("slot1")?1:0) - (heat>=5?1:0),
+    maxSlots: 4 + (pk("slot1")?1:0) + (pk("slot2")?1:0) - (heat>=5?1:0),
     day: 1, phase: "day", movesLeft: DAY_MOVES,
     px: SX, py: SY,
     map: [], fog: [],
@@ -598,12 +598,15 @@ function newRun(ava, opt){
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
   G.keys = pk("key1") ? 1 : 0;
-  G.perks = { hp:pk("hp1") ? 10 : 0, reroll:pk("reroll1"), shop:pk("shop1"), frame:perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
+  G.perks = { hp:pk("hp2") ? 20 : pk("hp1") ? 10 : 0, reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
+    vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
+    frame:perk("frame3") ? 3 : perk("frame2") ? 2 : perk("frame1") ? 1 : 0 }; // fixed for the run
   G.flags = {}; G.curses = {}; G.altars = {};
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
   if(pk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
+  if(pk("care1")){ const c = rollRelics(1, 0)[0]; if(c){ addRelic(c.id); discover(c.id); G.care = c.id; } } // Care Package
   oddsCache = {}; adaptCache = {}; shownCult = G.cult; shownStats = null;
   recalcStats();
   G.stats.hp = G.stats.maxhp;
@@ -1721,7 +1724,7 @@ function startNight(){
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
   const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
-  for(const k of spots.slice(0, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
+  for(const k of spots.slice(0, Math.max(1, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0) - ((G.perks||{}).night||0)))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
 function clearTile(){ // what was here leaves a mark on the ground
@@ -1739,7 +1742,7 @@ function enterTile(t){
     return;
   }
   switch(t){
-    case T.CHEST: clearTile(); openDraft("You crack open a chest.", districtAt(G.px,G.py)===0 ? ()=>rollRelics(4) : null); break;
+    case T.CHEST: { clearTile(); const n = (districtAt(G.px,G.py)===0 ? 4 : 3) + ((G.perks||{}).chest||0); openDraft("You crack open a chest.", n>3 ? ()=>rollRelics(n) : null); break; }
     case T.GRAVE:
       clearTile();
       if(rnd()<0.55) openDraft("You scavenge the grave of a past milady.");
@@ -1760,8 +1763,9 @@ function enterTile(t){
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
       if(!G.keys){ mlog("🔐 A vault door. It wants a <b>key</b>, and you don't have one. 📌 Pinned.", "bad"); setPin(G.px, G.py, true); break; }
-      G.keys--; clearTile(); G.cult += 100; G.flags.vault = true; achieve("vault"); sfx("fanfare"); burst("🔐💎✨");
-      mlog("🔐 The key turns. <b>+100 $CULT</b>, and something better than usual.", "gold");
+      { const pay = (G.perks||{}).vault || 100;
+        G.keys--; clearTile(); G.cult += pay; G.flags.vault = true; achieve("vault"); sfx("fanfare"); burst("🔐💎✨");
+        mlog("🔐 The key turns. <b>+"+pay+" $CULT</b>, and something better than usual.", "gold"); }
       openDraft("The vault opens.", richRoll);
       break;
     case T.SHOP: openShop(); break;
@@ -1927,7 +1931,10 @@ function confirmSwap(r, j, onDone, onBack){
 /* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of draft again).
    A reroll costs $CULT and the price doubles every time you use one in a run. */
 const REROLL_BASE = 30;
-const rerollCost = () => REROLL_BASE * ((G.perks||{}).reroll ? 0.5 : 1) * Math.pow(2, G.rerolls||0);
+const rerollCost = () => { // Inside Man: the first one of a run is on the house, and the price starts climbing after it
+  const p = G.perks||{}, n = G.rerolls||0;
+  return p.freeRoll && !n ? 0 : REROLL_BASE * (p.reroll ? 0.5 : 1) * Math.pow(2, p.freeRoll ? n-1 : n);
+};
 function openDraft(flavor, pool, luck, gen){
   if(typeof pool==="function"){ gen = pool; pool = gen(); }
   const n = pool && pool.length || 3;
@@ -1977,7 +1984,7 @@ function openShop(note){
   const key = G.px+","+G.py;
   const shop = G.shops[key] || (G.shops[key] = { stock: rollRelics(3, 0.5).map(r=>({id:r.id, base:RARITY[r.rar].price})) });
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
-  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shop ? 0.9 : 1) * infl;
+  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
@@ -4093,6 +4100,7 @@ function beginSetup(){
     show("screen-map");
     $("map-log").innerHTML="";
     mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");
+    if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
     mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");

@@ -1434,3 +1434,10 @@ body.calm #timeline .day .callkey{animation:none;}
 /* achievements, in groups */
 .ach-bar{margin:6px 0 4px;} .ach-cat{display:flex;justify-content:space-between;align-items:baseline;margin:14px 2px 6px;border-bottom:1px solid var(--line);padding-bottom:3px;}
 .ach-cat u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.18em;font-size:11px;color:var(--neon);} .ach-cat em{font-style:normal;font-size:11px;color:var(--dim);}
+
+/* the third frame: a moving rainbow */
+body[data-frame="3"] #you-tok img,body[data-frame="3"] #map.night ~ #you-tok img{box-shadow:0 0 0 2px #fff,0 0 0 4px #ff79c6,0 0 0 6px #8be9fd,0 0 0 7px rgba(0,0,0,.7),0 0 26px rgba(255,255,255,.8);animation:holo 3s linear infinite;}
+body[data-frame="3"] #hud-avatar{border-color:#fff;box-shadow:0 0 0 2px #ff79c6,0 0 0 4px #8be9fd,0 0 22px rgba(255,255,255,.6);animation:holo 3s linear infinite;}
+@keyframes holo{to{filter:hue-rotate(360deg);}}
+body.calm[data-frame="3"] #you-tok img,body.calm[data-frame="3"] #hud-avatar{animation:none;}
+@media (min-width:600px){ .draft-cards.four:has(.card:nth-child(5)){grid-template-columns:repeat(5,1fr);} #modal-panel:has(.draft-cards.four .card:nth-child(5)){max-width:760px;} }
