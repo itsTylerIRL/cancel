@@ -4087,6 +4087,7 @@ function renderInstall(){
 /* A tribe is a class now, so it is shown like one: its own colour, its icon and its name, wherever a player's card appears. */
 const TRIBE_COLOR = { hypebeast:"#ffd75e", gyaru:"#a6ff5e", lolita:"#ff9ecb", harajuku:"#8be9fd", prep:"#b7a57a", schizoposter:"#b9a4ff", collector:"#ffb86c" };
 const tribeBadge = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<span class='tribe-badge' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.rule+" "+t.sig+" "+t.cost)+"'><i>"+t.icon+"</i>"+t.name+"</span>" : ""; };
+const tribeIco = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<i class='tico' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.name.toLowerCase())+"'>"+t.icon+"</i>" : ""; };
 const agoText = at => { const m = Math.max(0, Math.round((Date.now()-at)/60000)); return m<1 ? "just now" : m<60 ? m+"m ago" : m<1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
 let myRank = null; // where you stand on the all-time board, once the service has said
 async function loadRank(){
@@ -4099,7 +4100,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
   if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
-  el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card"+(r && r.win ? " won" : "")+"'>"
+  const wl = { w:META.wins||0, l:Math.max(0, (META.runs||0)-(META.wins||0)) };
+  el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
     + (r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
     + "<div><b>"+esc(u ? u.name : (r ? r.name : META.name || "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
       + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
@@ -4107,7 +4109,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
            + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
-    + (r ? "<div class='king-relics'><u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>" : "")
+    + "<div class='king-relics you-mid'><span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b></span>"
+      + (r ? "<u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0]))) : "")+"</div>"
     + "<div class='king-clock you-nums'><u>all-time</u><b class='rank'>"+(rk ? (rk.rank ? "#"+rk.rank : "—") : "…")+"</b><span>"+(rk ? (rk.rank ? "of "+rk.total+" · best "+rk.score : "not on the board yet") : "&nbsp;")+"</span>"
       + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>"+(u ? "to spend on unlocks" : "waiting for you")+"</span></div></div>"
     + (!u && rnOn && (rnOn.rn || rnOn.ur) ? "<div class='card-pitch'><div><b>this card only exists in this browser.</b><span>sign in and it follows you: "
@@ -4115,6 +4118,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
         + (META.pid ? ", and the runs you've already posted move to your account" : "")+".</span></div>"
         + "<div class='pitch-btns'>"+(rnOn.rn ? "<button class='btn small' id='pitch-rn'>Remilia SSO</button>" : "")+(rnOn.ur ? "<button class='btn small' id='pitch-ur'>Urbit ID</button>" : "")+"</div></div>" : "");
   el.classList.remove("hidden");
+  $("you-card").onclick = e=>{ if(e.target.closest("a")) return; sfx("click"); openBoard("me"); }; // the card is the way in to your page
+  $("you-card").onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); $("you-card").click(); } };
   if($("pitch-rn")) $("pitch-rn").onclick = ()=>$("rn-in") && $("rn-in").click();
   if($("pitch-ur")) $("pitch-ur").onclick = ()=>$("ur-in") && $("ur-in").click();
   if(r && r.look) drawLook(el.querySelector("canvas"), r.look, r.relics).catch(()=>{});
@@ -4489,9 +4494,9 @@ async function openBoard(tab, back, seed, page){
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
       : "<div class='hall'>"+items.map((e,i)=> e.king
-          ? "<div class='hcard king' title='held the hill when the week ended'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>week of "+esc(mon(e.week))+"</u>"+who(e)+"<em>👑 king of the hill</em><span>"
+          ? "<div class='hcard king' title='held the hill when the week ended'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>week of "+esc(mon(e.week))+"</u>"+who(e)+"<em>👑 king of the hill</em><span>"
             + (e.defences ? e.defences+" defence"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
-          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas><u>"+esc(e.date)+"</u>"+who(e)+"<em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>"+esc(e.date)+"</u>"+who(e)+"<em>"+e.score+(e.win?" 👑":"")+"</em><span>"
             + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
         + "<div class='note'>the best run on each day's map"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){

@@ -1716,3 +1716,12 @@ body[data-phase="night"] .brand b{color:#b9c1ff;}
 
 #relic-box.tightest #relic-bar{flex-direction:row;flex-wrap:wrap;gap:5px;} #relic-box.tightest .relic{width:auto;padding:0;border:0;background:none;} #relic-box.tightest .relic .rtxt{display:none;}
 #relic-box.tightest .relic .relic-ico{width:36px;height:36px;} #relic-box.tightest .relic .copies{display:none;}
+
+/* your card: record above what you carried, and the whole card opens your page */
+.king-card.you-card{cursor:pointer;transition:border-color .15s,box-shadow .15s;} .king-card.you-card:hover,.king-card.you-card:focus-visible{border-color:var(--neon);box-shadow:0 0 22px rgba(139,233,253,.2);outline:none;}
+.king-card .wl{display:flex;align-items:baseline;gap:5px;justify-content:flex-end;font-size:13px;margin-bottom:5px;} .king-card .wl b{font-size:13px;color:#e9f6fa;} .king-card .wl b.good{color:var(--acid);} .king-card .wl b.bad{color:#ff8b8b;} .king-card .wl i{font-style:normal;color:var(--dim);}
+@media (max-width:600px){ .king-box .king-card .king-relics.you-mid{display:flex;flex-basis:100%;max-width:none;align-items:center;order:3;} .king-card .you-mid u,.king-card .you-mid .duel-relics{display:none;} .king-card .wl{justify-content:center;margin:2px 0 0;} }
+/* hall of fame: each champion's tribe, on the corner of the portrait */
+.hface{position:relative;display:inline-block;line-height:0;margin-bottom:4px;} .hcard .hface .bpfp{margin-bottom:0;}
+.tico{position:absolute;right:-6px;bottom:-5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:13px;line-height:1;
+  background:#05090b;border:1.5px solid var(--tc);box-shadow:0 0 8px color-mix(in srgb,var(--tc) 55%,transparent);}
