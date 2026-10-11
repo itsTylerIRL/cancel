@@ -1631,3 +1631,10 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .install-box b{font-size:var(--fs-body);color:#e9f6fa;} .install-box span{font-size:var(--fs-label);color:var(--dim);line-height:1.4;} .install-box u{text-decoration:none;color:var(--neon);} .install-box .ios-share{font-style:normal;display:none;}
 /* opened from the home screen: keep clear of the notch and the home bar */
 @media (display-mode: standalone){ #app{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);} }
+
+/* leaderboard rows: name, then tribe, then how it ended */
+.bname{display:flex;flex-direction:column;gap:2px;} .bname .btribe{overflow:visible;line-height:1.5;} .bname .btribe small{color:var(--dim);font-size:10px;margin-left:4px;}
+.bname .bend{font-size:11px;} .bname .bend.good{color:var(--acid);} .bname .bend.bad{color:#ff8b8b;}
+.brow .tribe-badge{font-size:9px;padding:0 6px 0 4px;} .brow .tribe-badge i{font-size:11px;}
+.bname .tribe-badge{display:inline-flex;color:var(--tc);font-size:9px;overflow:visible;} .bname .tribe-badge i{color:inherit;}
+.bname .bend .early{display:inline;overflow:visible;} .bname .btribe,.bname .bend{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

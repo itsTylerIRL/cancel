@@ -4360,8 +4360,10 @@ async function openBoard(tab, back, seed, page){
   else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b><span>"+(tr?tr.icon+" ":"")
-        + (e.token!=null ? esc(e.collection)+" #"+e.token+" · " : "")+(e.win ? "saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "") : "day "+e.day+(e.killedBy ? " · "+esc(e.killedBy) : ""))+"</span></div>"
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+        + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.token!=null ? " <small>"+esc(e.collection)+" #"+e.token+"</small>" : "")+"</span>"
+        + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
+            : "cancelled"+(e.killedBy ? " by "+esc(e.killedBy) : "")+" on day "+e.day)+"</span></div>"
         + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
         + (e.cult!=null ? "<span title='$CULT banked'>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span title='enemies beaten'>"+e.kills+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>";
     }).join("")+"</div>"
