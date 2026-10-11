@@ -3801,6 +3801,29 @@ const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss
   bonkler911:  { cls:"bonk",   ms:2400, warn:"🔨 NEVER FORGET", rain:["🔨","💥","🧱"], line:"the reserve cannot save you" },
   cancel:      { cls:"cancel", ms:3400, warn:"📵 YOU ARE ABOUT TO BE", title:"CANCELLED", line:"everyone you know has seen the post" },
 };
+/* Each boss fights in its own weather: a tint over the stage and something drifting through it, in place of the night
+   shade an ordinary fight after dark gets. [what drifts, how it moves, how many] */
+const BOSS_AMBIENT = {
+  lawsuit:     { bits:["📄","📃","📑","⚖️"], move:"fall",   n:16 },
+  allegations: { bits:["💬","🧵","❗","💬","👁️"], move:"rise", n:18 },
+  drain:       { bits:["🪙","💸","🪙","🪙"], move:"siphon", n:20 },
+  shift:       { bits:["🌀","✦","🌀","✧"],  move:"swirl",  n:14 },
+  bonkler911:  { bits:["🧱","💥","▪","▪","🔥"], move:"fall", n:20 },
+  cancel:      { bits:["📵","✕","🚫","✕","📉"], move:"fall", n:22 },
+  king:        { bits:["👑","✦","✧","✦"],   move:"rise",   n:14 },
+};
+function bossAmbient(id){
+  const sc = $("screen-combat"), old = $("boss-amb"); if(old) old.remove();
+  const a = id && BOSS_AMBIENT[id]; if(!a) return;
+  const el = document.createElement("div"); el.id = "boss-amb"; el.className = "amb-"+id+" mv-"+a.move; el.setAttribute("aria-hidden", "true");
+  if(!META.calm) for(let i=0;i<a.n;i++){ // calm mode keeps the tint and drops the motion
+    const b = document.createElement("i"), r = Math.random;
+    b.textContent = a.bits[i%a.bits.length];
+    b.style.cssText = "left:"+(r()*100).toFixed(1)+"%;top:"+(r()*100).toFixed(1)+"%;font-size:"+(14+r()*26).toFixed(0)+"px;animation-duration:"+(7+r()*9).toFixed(1)+"s;animation-delay:-"+(r()*14).toFixed(1)+"s;--sway:"+((r()*2-1)*60).toFixed(0)+"px;--o:"+(0.16+r()*0.26).toFixed(2)+";"+(r()<0.35 ? "filter:blur(1.5px);" : "");
+    el.appendChild(b);
+  }
+  sc.appendChild(el);
+}
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
   if(opts.boss) tenxRug();
@@ -3812,7 +3835,8 @@ function startCombat(foeDef, opts={}){
   navSet($("btn-skip"));
   $("combat-log").innerHTML="";
   $("combat-title").textContent = opts.label || (boss ? boss.name : (opts.elite ? "ELITE " : "WILD ")+foeDef.name.toUpperCase());
-  $("screen-combat").classList.toggle("night", G.phase==="night");
+  $("screen-combat").classList.toggle("night", G.phase==="night" && !boss); // a boss brings its own weather
+  bossAmbient(boss ? boss.id : null);
   if(foeDef.adapt) tip("adapt");
   $("foe-name").textContent = foeDef.name.toUpperCase()+(foeDef.adapt ? "  📈+"+Math.round(foeDef.adapt*100)+"%" : "");
   $("you-name").textContent = G.name.toUpperCase(); $("foe-relics").innerHTML = "";
@@ -4520,7 +4544,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   navSet($("btn-skip"));
   $("combat-log").innerHTML = ""; $("combat-title").textContent = "KING OF THE HILL";
   $("you-name").textContent = run.name.toUpperCase(); $("foe-name").textContent = "👑 "+k.name.toUpperCase();
-  $("port-foe").classList.add("boss"); $("port-foe").classList.remove("elite"); $("screen-combat").classList.remove("night"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
+  $("port-foe").classList.add("boss"); $("port-foe").classList.remove("elite"); $("screen-combat").classList.remove("night"); bossAmbient("king"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), run.avatar); delete $("chp-you").parentElement.dataset.hp;
   const fc = $("combat-foe"); fc.width = 4; fc.height = 5;
   lookCanvas(k.look, k.relics).then(cv=>{ // the defender is drawn mirrored, so the two of them face each other

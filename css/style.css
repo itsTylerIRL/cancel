@@ -1941,3 +1941,31 @@ body.calm .pbar s{transition:none;}
 /* the fight log: heals and small recurring effects in their own, quieter voice, and what changed a blow noted after it */
 #combat-log .heal{color:#7ee2a0;} #combat-log .sub{color:#9fb3ba;font-size:.92em;padding-left:1.1em;} #combat-log .sub.bad{color:#e08a8a;}
 #combat-log .nt{font-style:normal;color:#8fa3aa;font-weight:400;font-size:.9em;margin-left:.3em;} #combat-log .nt::before{content:"(";} #combat-log .nt::after{content:")";}
+
+/* ---------- each boss fights in its own weather ---------- */
+#boss-amb{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden;}
+#boss-amb::before,#boss-amb::after{content:"";position:absolute;inset:0;}
+#boss-amb i{position:absolute;font-style:normal;line-height:1;opacity:0;will-change:transform,opacity;animation:ambfall 10s linear infinite;}
+.mv-fall i{top:-8% !important;animation-name:ambfall;} .mv-rise i{top:auto !important;bottom:-8%;animation-name:ambrise;} .mv-siphon i{animation-name:ambsiphon;} .mv-swirl i{animation-name:ambswirl;animation-timing-function:ease-in-out;}
+@keyframes ambfall{0%{transform:translate(0,0) rotate(0);opacity:0;}8%{opacity:var(--o);}90%{opacity:var(--o);}100%{transform:translate(var(--sway),116vh) rotate(300deg);opacity:0;}}
+@keyframes ambrise{0%{transform:translate(0,0) scale(.8);opacity:0;}10%{opacity:var(--o);}85%{opacity:var(--o);}100%{transform:translate(var(--sway),-116vh) scale(1.15);opacity:0;}}
+@keyframes ambsiphon{0%{transform:translate(-30vw,20vh) scale(1);opacity:0;}12%{opacity:var(--o);}80%{opacity:var(--o);}100%{transform:translate(70vw,-30vh) scale(.4) rotate(540deg);opacity:0;}}
+@keyframes ambswirl{0%{transform:translate(0,0) rotate(0) scale(.7);opacity:0;}20%{opacity:var(--o);}50%{transform:translate(var(--sway),-12vh) rotate(360deg) scale(1.3);}80%{opacity:var(--o);}100%{transform:translate(calc(var(--sway) * -1),8vh) rotate(720deg) scale(.7);opacity:0;}}
+/* THE LAWSUIT: cold fluorescent light, paper coming down */
+.amb-lawsuit::before{background:linear-gradient(180deg,rgba(150,180,220,.16),rgba(20,30,60,.30));} .amb-lawsuit::after{background:repeating-linear-gradient(90deg,transparent 0 118px,rgba(180,200,240,.05) 118px 120px);}
+/* THE ALLEGATIONS: a thread going round, purple and watching */
+.amb-allegations::before{background:radial-gradient(ellipse at 50% 100%,rgba(185,100,255,.26),rgba(40,0,70,.30) 70%);animation:ambpulse 3.2s ease-in-out infinite;} .amb-allegations::after{background:repeating-linear-gradient(0deg,transparent 0 5px,rgba(200,150,255,.045) 5px 6px);}
+/* THE TREASURY DRAIN: gold being pulled across and out */
+.amb-drain::before{background:linear-gradient(100deg,rgba(255,200,60,.05),rgba(255,190,50,.24) 80%,rgba(120,70,0,.34));} .amb-drain::after{background:linear-gradient(100deg,transparent 40%,rgba(255,220,120,.10) 50%,transparent 60%);background-size:260% 100%;animation:ambsweep 3.6s linear infinite;}
+/* THE VIBE SHIFT: the colours won't hold still */
+#boss-amb.amb-shift::before{inset:-75%;background:conic-gradient(from 0deg at 50% 45%,rgba(255,121,198,.20),rgba(139,233,253,.20),rgba(241,250,140,.20),rgba(189,147,249,.20),rgba(255,121,198,.20));animation:ambhue 9s linear infinite;mix-blend-mode:screen;}
+/* BONKLER 9/11: smoke, embers and dust */
+.amb-bonkler911::before{background:linear-gradient(0deg,rgba(255,110,20,.30),rgba(60,25,10,.16) 45%,rgba(30,30,34,.36));animation:ambpulse 2.4s ease-in-out infinite;} .amb-bonkler911::after{background:radial-gradient(ellipse at 50% 110%,rgba(255,150,40,.24),transparent 60%);}
+/* THE CANCEL: red, static, and the feed turning on you */
+.amb-cancel::before{background:radial-gradient(ellipse at 50% 40%,rgba(255,0,30,.08),rgba(120,0,10,.38) 80%);animation:ambpulse 1.8s ease-in-out infinite;}
+.amb-cancel::after{background:repeating-linear-gradient(0deg,rgba(255,40,60,.09) 0 2px,transparent 2px 7px);animation:ambstatic .35s steps(3) infinite;mix-blend-mode:screen;}
+/* the hill: gold light from above */
+.amb-king::before{background:radial-gradient(ellipse at 50% -10%,rgba(255,215,110,.30),rgba(120,80,0,.10) 55%,transparent 80%);} .amb-king::after{background:linear-gradient(180deg,rgba(255,220,130,.08),transparent 40%);}
+@keyframes ambpulse{0%,100%{opacity:.75;}50%{opacity:1;}} @keyframes ambsweep{0%{background-position:130% 0;}100%{background-position:-130% 0;}} @keyframes ambhue{0%{filter:hue-rotate(0);transform:rotate(0);}100%{filter:hue-rotate(360deg);transform:rotate(360deg);}} @keyframes ambstatic{0%{transform:translateY(0);}100%{transform:translateY(7px);}}
+body.calm #boss-amb::before,body.calm #boss-amb::after{animation:none;}
+@media (max-width:700px){ #boss-amb i:nth-child(2n){display:none;} }
