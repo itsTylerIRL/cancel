@@ -2766,7 +2766,7 @@ function tenxLeft(){ // how many Schizoposters can still be met before the next 
   return n;
 }
 const TENX_LINES = [
-  "\"ser. ser. i'm running a liquidity experiment. it's not a ponzi, it's a flywheel. the posters are the flywheel.\"",
+  "\"bro. bro. i'm running a liquidity experiment. it's not a ponzi, it's a flywheel. the posters are the flywheel.\"",
   "\"i shipped the radbros. i shipped the schizoposters. i have never once shipped a roadmap. deposit below.\"",
   "\"funds are safu. funds are, at this moment, safu. that's all anyone can say about funds.\"",
   "\"it's a simple arb. you remove posters from circulation, floor goes up, i pay you out of the floor. 10x. minimum.\"",
@@ -2775,7 +2775,7 @@ const TENX_LINES = [
 function tenxKill(log){ // a Schizoposter died with a position open
   const c = G.tenx; if(!c) return;
   c.got++;
-  if(c.got < c.goal){ log("🧪 10x: <b>"+c.got+" / "+c.goal+"</b> Schizoposters. \"keep thinning the supply, ser.\"", "gold"); return; }
+  if(c.got < c.goal){ log("🧪 10x: <b>"+c.got+" / "+c.goal+"</b> Schizoposters. \"keep thinning the supply, bro.\"", "gold"); return; }
   const pay = tenxPay(c); G.cult += pay; G.tenx = null; G.tenxWon = (G.tenxWon||0)+1;
   log("🧪 <b>The liquidity experiment worked.</b> 10x pays out <b>"+pay+" $CULT</b> on your "+c.dep+" (+"+(pay-c.dep)+"). \"told you. flywheel.\"", "crit");
   if(log!==mlog) mlog("🧪 10x paid out <b>"+pay+" $CULT</b> on a "+c.dep+" deposit: "+c.goal+" Schizoposters, done before the boss.", "gold");
@@ -2793,13 +2793,13 @@ function openTenx(){
   let html = "<h2>10X</h2><img class='npc-face tenx' src='"+localFile(NPC_ART[T.TENX])+"' alt=''>"
     + "<div class='note tenx-say'><i>"+spotLine(TENX_LINES, "tenx")+"</i></div>";
   if(c){ // one position at a time: every 10x knows about the one you have open
-    html += "<div class='note'>\"you're already in, ser. <b>"+c.got+" / "+c.goal+"</b> Schizoposters. "+c.dep+" $CULT locked, <b class='good'>"+tenxPay(c)+"</b> if you hit the number before "+esc(bn)+". i'm not taking a second deposit while the first one is live.\"</div>"
+    html += "<div class='note'>\"you're already in, bro. <b>"+c.got+" / "+c.goal+"</b> Schizoposters. "+c.dep+" $CULT locked, <b class='good'>"+tenxPay(c)+"</b> if you hit the number before "+esc(bn)+". i'm not taking a second deposit while the first one is live.\"</div>"
       + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
     openModal(html); $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); }; return;
   }
   const left = tenxLeft();
   if(left<3){ // he never asks for more than can be found, and there aren't three left to find
-    html += "<div class='note'>\"window's closed, ser. "+esc(bn)+" is almost here and there aren't enough posters left out there to run the experiment."+(G.bossesBeaten<2 ? " find me after." : " it was a good run, ser.")+"\"</div>"
+    html += "<div class='note'>\"window's closed, bro. "+esc(bn)+" is almost here and there aren't enough posters left out there to run the experiment."+(G.bossesBeaten<2 ? " find me after." : " it was a good run, bro.")+"\"</div>"
       + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
     openModal(html); $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); }; return;
   }
@@ -2809,7 +2809,7 @@ function openTenx(){
     + "<div class='tenx-rates'>"+Object.keys(TENX_RATE).filter(g=>+g<=top).map(g=>"<span><u>kill "+g+"</u><b>+"+Math.round((TENX_RATE[g]-1)*100)+"%</b></span>").join("")+"</div>"
     + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div><div class='tenx-deps'>";
   for(const d of TENX_DEPOSITS) html += "<button class='choice tenx-dep' data-dep='"+d+"'"+(G.cult<d?" disabled":"")+"><b>deposit "+d+"</b><span>back as "+Math.round(d*TENX_RATE[3])+(top>3 ? " to "+Math.round(d*TENX_RATE[top]) : "")+"</span></button>";
-  html += "</div>"+(G.cult<TENX_DEPOSITS[0] ? "<div class='note bad'>\"minimum buy-in is "+TENX_DEPOSITS[0]+", ser. this is a serious experiment.\"</div>" : "")
+  html += "</div>"+(G.cult<TENX_DEPOSITS[0] ? "<div class='note bad'>\"minimum buy-in is "+TENX_DEPOSITS[0]+", bro. this is a serious experiment.\"</div>" : "")
     + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
   openModal(html);
   $("modal-panel").querySelectorAll("[data-dep]").forEach(b=>{ b.onclick=()=>{
