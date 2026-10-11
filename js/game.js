@@ -837,7 +837,10 @@ function setCounts(relics){
   for(const id of new Set(relics)) for(const k of relicById(id).set) n[k] = (n[k]||0)+1; // a duplicate doesn't count twice
   if(relics.includes("webring")) for(const k in n) n[k]++; // the webring links in to every set you already hold
   if(G && G.setBoost) for(const k in G.setBoost) n[k] = (n[k]||0)+G.setBoost[k]; // ETH Chan's blessing: that synergy counts one more, for the rest of the run
-  if(tribeIs("collector")) for(const k in n) if(n[k]>=2) n[k]++; // COLLECTOR: a synergy you have started counts one more, so its higher tiers come early
+  if(tribeIs("collector")){ // COLLECTOR: the two largest synergies you have started each count one more, so their higher tiers come early
+    const top = SETS.map(t=>t.id).filter(k=>n[k]>=2).sort((x,y)=>n[y]-n[x]).slice(0, 2); // ties go to the order the synergies are listed in
+    for(const k of top) n[k]++;
+  }
   return n;
 }
 function computeStats(relics){
@@ -880,7 +883,6 @@ function rawStats(relics, setsAs){
   if(R("hk416")){ s.atk+=7; s.arm+=2; }
   if(G && G.phase==="night"){ if(R("crescent")) s.atk+=4; if(S("night",2)) s.atk+=3; }
   if(tribeIs("schizoposter") && G.phase) s.atk += G.phase==="night" ? 4 : -1;
-  if(tribeIs("collector")) s.atk += Math.floor(SETS.filter(t=>(sets[t.id]||0) >= t.tiers[0][0]).length/2);
   if(S("armed",2)) s.atk+=4;
   if(R("ss_drip")) s.atk *= 1.5;
   if(R("diamond_stud")) s.maxhp+=30;
