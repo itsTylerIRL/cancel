@@ -1696,7 +1696,7 @@ function renderMinimap(){
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic mint, or some $CULT.",
-  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and mint a relic.",
+  [T.SHOP]:"<b>Remilio Mart</b> — buy relics, or a patch-up: 25 HP early, 50 from day 5, one per shop. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and mint a relic.",
   [T.FIRE]:"<b>Campfire</b> — at night only: sleep to heal to full and skip to dawn. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a mint of better relics.",
@@ -2241,6 +2241,7 @@ function relicRow(r, extra, tail, tier, copy){
     + (r.rar!=="common" ? " <small class='rar-tag'>"+r.rar+"</small>" : "")+"</b><span>"+relicText(r, TIERS[tier||1].mult, false, copy)+"</span>"+(extra||"")+"</div>"+(tail||"")+"</div>";
 }
 const SHOP_INFLATION = 0.25; // per boss beaten
+const SHOP_HEAL = { hp:25, price:40, late:5 }; // what a shop's patch-up heals and costs; both double from day `late`
 function openShop(note){
   if(G.curses && G.curses.shunned){ mlog("🚫 The shutters come down as you walk up. <b>The shops won't serve you.</b>", "bad"); mapFloat("🚫 shunned", "loot"); sfx("bad"); return; }
   const key = G.px+","+G.py;
@@ -2251,7 +2252,8 @@ function openShop(note){
   }
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
-  const healCost = Math.round(60*disc), hurt = G.stats.hp < G.stats.maxhp, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
+  // a shop patches you up, it doesn't make you whole: one dose each, small early and twice the size (and the price) from SHOP_HEAL.late on
+  const dose = SHOP_HEAL.hp * (G.day>=SHOP_HEAL.late ? 2 : 1), healCost = Math.round(SHOP_HEAL.price * (G.day>=SHOP_HEAL.late ? 2 : 1) * disc), hurt = G.stats.hp < G.stats.maxhp && !shop.healed, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='shop-sign'>"+spotLine(SHOP_LINES, "shop")+"</div><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
     + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")
@@ -2262,7 +2264,7 @@ function openShop(note){
       "<button class='btn small price' data-i='"+i+"'"+(G.cult<p?" disabled":"")+">"+coin+p+"</button>");
   });
   if(!shop.stock.length) html += "<div class='note'>sold out. thank u for shopping.</div>";
-  html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Full heal</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP</span>"
+  html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Patch up: +"+dose+" HP</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP"+(shop.healed ? " · this shop has patched you up already" : " · one per shop")+"</span>"
     + "<div class='bar hp'><div style='width:"+clamp(100*G.stats.hp/G.stats.maxhp,0,100)+"%'></div></div></div>"
     + "<button class='btn small price' id='shop-heal'"+(G.cult<healCost||!hurt?" disabled":"")+">"+coin+healCost+"</button></div>";
   html += "<div class='shop-row'><div class='heal-ico'>🚫</div><div class='sinfo'><b>Banish charge</b><span>you have "+(G.banishes||0)+". use one on any mint to throw a relic out of the run for good</span></div>"
@@ -2281,8 +2283,9 @@ function openShop(note){
   };});
   $("shop-heal").onclick=()=>{
     if(G.cult<healCost || !hurt) return;
-    G.cult-=healCost; G.stats.hp=G.stats.maxhp; sfx("heal"); shop.used = true;
-    mlog("Healed to full.", "good"); renderMap(); openShop("Healed to full.");
+    const got = Math.min(dose, G.stats.maxhp-G.stats.hp);
+    G.cult-=healCost; G.stats.hp += got; sfx("heal"); shop.used = true; shop.healed = true;
+    mlog("💖 Patched up at the shop: +"+got+" HP for "+healCost+" $CULT.", "good"); renderMap(); openShop("Patched up: +"+got+" HP.");
   };
   $("shop-banish").onclick=()=>{
     if(G.cult<BANISH_PRICE) return;
