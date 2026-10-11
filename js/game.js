@@ -3364,7 +3364,7 @@ function fightEngine(foeDef, opts, io){
   if(set("night",2) && G && G.phase==="night") syn("night");
   if(hunter && act("airtag")){ foe.stun = 1; io.log("📍 Airtag: you knew it was coming. "+foe.name+" is caught flat.", "good"); }
   if(hunter && act("spider_tattoo")){ foe.bleed = 3; io.log("🕷️ "+foe.name+" walked through the web. It is already bleeding.", "good"); }
-  if(boss && act("modelo")){ { const pc = Math.round(60*tm("modelo")); you.atk = Math.round(you.atk*(1+pc/100)); io.log("🍺 <b>Modelo.</b> Down in one. +"+pc+"% ATK for this fight.", "good"); } eat("modelo"); }
+  if(boss && act("modelo")){ { const pc = Math.round(60*tm("modelo")); you.brew = 1+pc/100; you.atk = Math.round(you.atk*you.brew); io.log("🍺 <b>Modelo.</b> Down in one. +"+pc+"% ATK for this fight.", "good"); } eat("modelo"); }
   // burn: damage every tick. bleed: hurts the enemy each time it attacks. chill: saps its ATK, and can freeze it
   const bleedMax = () => set("blood",2) ? 6 : 4, chillMax = () => set("ice",2) ? 5 : 3;
   if(foe.trait==="hard") io.log("🧀 "+foe.name+" goes harder the longer this lasts.", "bad");
@@ -3375,7 +3375,7 @@ function fightEngine(foeDef, opts, io){
   if(boss && boss.id==="lawsuit" && st.relics.length){ // injunction: the first relic is frozen all fight
     for(const id of st.relics.slice(0,1)) you.suppressed.add(id);
     const s2 = computeStats(st.relics.filter(r=>!you.suppressed.has(r)));
-    you.atk=s2.atk; you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets;
+    you.atk=Math.round(s2.atk*(you.brew||1)); you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets; // a Modelo already drunk still counts
     io.log("⚖️ INJUNCTION: "+relicById(st.relics[0]).name+" frozen.", "bad");
     io.strip(F);
   }
@@ -3534,7 +3534,7 @@ function fightEngine(foeDef, opts, io){
         io.log("📢 FUD suppresses your "+relicById(s).name+"!", "bad");
       }
       const s2 = computeStats(st.relics.filter(r=>!you.suppressed.has(r)));
-      you.atk=s2.atk; you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets;
+      you.atk=Math.round(s2.atk*(you.brew||1)); you.arm=s2.arm; you.spd=s2.spd; you.dodge=s2.dodge; you.crit=s2.crit; you.sets=s2.sets; // a Modelo already drunk still counts
       io.strip(F);
     }
     if(boss && boss.id==="drain" && st.cult>0){
@@ -3743,7 +3743,9 @@ function settleWin(F, opts, log){
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
   for(const [id,n,label] of [["birthday_hat",18,"🎂 Birthday Hat"],["maid",10,"🧹 Maid Outfit"],["strawberry",6,"🍓 Strawberry Earring"],["flower_clip",5,"🌸 Flower Clip"]]
       .concat(hasRelic("mcdonalds") && rnd()<0.3 ? [["mcdonalds",12,"🍟 McDonalds"]] : []))
-    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id)*(tribeIs("lolita") ? 1.5 : 1))); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); pulseRelic(id); }
+    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id)*(tribeIs("lolita") ? 1.5 : 1))), was = you.hp; you.hp=Math.min(you.maxhp,you.hp+h);
+      const got = Math.round(you.hp-was); // what it actually gave: nothing, at full health
+      if(got>0){ log(label+": +"+got+" HP.", "good"); (F.after = F.after||[]).push({ id, name:relicById(id).name, got }); pulseRelic(id); } }
   const hp = clamp(Math.round(you.hp),1,you.maxhp);
   recalcStats(); // kills and burned relics change the build
   G.stats.hp = Math.min(hp, G.stats.maxhp);
@@ -3853,6 +3855,7 @@ function startCombat(foeDef, opts={}){
       const sum = fightSummary(F);
       if(sum){ clog("📊 "+sum, "sum"); mlog("📊 <i>vs "+foe.name+":</i> "+sum, "sum"); }
       floatText("foe", "+"+c+" $CULT", "loot");
+      (F.after||[]).forEach((h, i)=>setTimeout(()=>{ if(tok!==combatTok) return; if(i===0) combatBars(you, foe); floatText("you", "+"+h.got, "heal"); ptag("you", h.name, "good", 1400); STAGE.healed(); sfx("heal"); }, 420+i*380)); // what you heal for winning is seen here, not only back on the map
       if(foe.stolen>0){ setTimeout(()=>{ if(tok!==combatTok) return; floatText("you", "+"+foe.stolen+" $CULT back", "loot"); hitFx("you", "drain"); ptag("you", "got it back", "good", 1500); sfx("coin"); }, 350); } // what it took comes home
       sfx("win"); if(boss) burst("👑✨🌸💖");
       btn.textContent="CONTINUE →";
