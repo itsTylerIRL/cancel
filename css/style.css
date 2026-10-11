@@ -1976,19 +1976,6 @@ body.calm #boss-amb::before,body.calm #boss-amb::after{animation:none;}
    ===================================================================================================================== */
 @media (orientation:landscape) and (max-height:520px){
   html body .screen{padding:6px 8px;min-height:100dvh;}
-  /* --- title: the name on the left, what you can do on the right --- */
-  html body #screen-title.active{display:block;}
-  html body .title-wrap{max-width:none;padding-top:0;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);column-gap:18px;align-items:start;text-align:center;}
-  html body .title-wrap>*{grid-column:2;margin-left:auto;margin-right:auto;}
-  html body .title-wrap>.title-coin{grid-column:1;grid-row:1;width:64px;height:64px;margin:8px auto 0;}
-  html body .title-wrap>.kicker{grid-column:1;grid-row:2;font-size:8px;margin:4px 0 0;}
-  html body .title-wrap>h1.game-title{grid-column:1;grid-row:3;font-size:clamp(26px,5.4vw,40px);margin:4px 0;}
-  html body .title-wrap>.title-sub{grid-column:1;grid-row:4;margin:2px 0 0;font-size:11px;}
-  html body .title-wrap>.foot{grid-column:1 / -1;}
-  html body .title-wrap>#btn-continue,html body .title-wrap>#btn-link{grid-row:auto;}
-  html body .title-actions{grid-row:1 / span 4;align-self:center;width:100%;max-width:420px;}
-  html body .title-actions .btn.big{min-height:0;padding-top:9px;padding-bottom:9px;margin-top:6px;margin-bottom:0;}
-  html body .title-wrap .king-box,html body .title-wrap .pulse,html body .title-wrap .install-box{max-width:none;width:100%;}
   /* --- character screen: her on the left, the choices on the right --- */
   html body #screen-avatar.active{display:block;min-height:100dvh;}
   html body #screen-avatar .panel{max-width:none;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-items:center;padding:8px 12px;}
