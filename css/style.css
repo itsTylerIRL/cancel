@@ -1969,3 +1969,84 @@ body.calm .pbar s{transition:none;}
 @keyframes ambpulse{0%,100%{opacity:.75;}50%{opacity:1;}} @keyframes ambsweep{0%{background-position:130% 0;}100%{background-position:-130% 0;}} @keyframes ambhue{0%{filter:hue-rotate(0);transform:rotate(0);}100%{filter:hue-rotate(360deg);transform:rotate(360deg);}} @keyframes ambstatic{0%{transform:translateY(0);}100%{transform:translateY(7px);}}
 body.calm #boss-amb::before,body.calm #boss-amb::after{animation:none;}
 @media (max-width:700px){ #boss-amb i:nth-child(2n){display:none;} }
+
+/* =====================================================================================================================
+   A phone turned sideways: a wide, very short window. The upright layout stacked everything and put the map and the
+   fighters off the bottom; here the map (or the two fighters) gets the full height and the rest sits beside it.
+   ===================================================================================================================== */
+@media (orientation:landscape) and (max-height:520px){
+  html body .screen{padding:6px 8px;min-height:100dvh;}
+  /* --- title: the name on the left, what you can do on the right --- */
+  html body #screen-title.active{display:block;}
+  html body .title-wrap{max-width:none;padding-top:0;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);column-gap:18px;align-items:start;text-align:center;}
+  html body .title-wrap>*{grid-column:2;margin-left:auto;margin-right:auto;}
+  html body .title-wrap>.title-coin{grid-column:1;grid-row:1;width:64px;height:64px;margin:8px auto 0;}
+  html body .title-wrap>.kicker{grid-column:1;grid-row:2;font-size:8px;margin:4px 0 0;}
+  html body .title-wrap>h1.game-title{grid-column:1;grid-row:3;font-size:clamp(26px,5.4vw,40px);margin:4px 0;}
+  html body .title-wrap>.title-sub{grid-column:1;grid-row:4;margin:2px 0 0;font-size:11px;}
+  html body .title-wrap>.foot{grid-column:1 / -1;}
+  html body .title-wrap>#btn-continue,html body .title-wrap>#btn-link{grid-row:auto;}
+  html body .title-actions{grid-row:1 / span 4;align-self:center;width:100%;max-width:420px;}
+  html body .title-actions .btn.big{min-height:0;padding-top:9px;padding-bottom:9px;margin-top:6px;margin-bottom:0;}
+  html body .title-wrap .king-box,html body .title-wrap .pulse,html body .title-wrap .install-box{max-width:none;width:100%;}
+  /* --- character screen: her on the left, the choices on the right --- */
+  html body #screen-avatar.active{display:block;min-height:100dvh;}
+  html body #screen-avatar .panel{max-width:none;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-items:center;padding:8px 12px;}
+  html body #screen-avatar .panel>*{grid-column:2;}
+  html body #screen-avatar .panel>#avatar-canvas{grid-column:1;grid-row:1 / span 12;height:calc(100dvh - 44px);width:auto;max-width:42vw;aspect-ratio:4/5;margin:0;}
+  html body #screen-avatar .panel>h2{margin:0 0 4px;font-size:16px;}
+  html body #screen-avatar .panel .row{margin-top:6px;} html body #screen-avatar .panel .note{margin:2px 0;}
+  /* --- any dialog: as tall as the window, and it scrolls inside itself --- */
+  html body #modal{padding:6px;align-items:center;}
+  html body #modal-panel{max-height:calc(100dvh - 12px);max-width:min(760px,96vw);margin:0;border-radius:10px;padding:10px 12px;}
+  html body #modal-panel h2{margin:0 0 6px;font-size:16px;}
+  html body #modal-panel:has(.pick.tribe){max-width:96vw;} html body #modal-panel .pick.tribe{padding-top:6px;padding-bottom:6px;}
+  html body .draft-cards{gap:6px;} html body .draft-cards .card{padding:6px;min-height:0;}
+  /* --- the run: the map at full height on the left, and it stays put while the rest scrolls beside it --- */
+  html body #screen-map.active{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:5px;align-content:start;padding:6px;}
+  html body #screen-map .play{display:contents;}
+  html body #screen-map>*,html body #screen-map .play>*{grid-area:auto;grid-column:2;min-width:0;}
+  html body #screen-map .board{grid-column:1;grid-row:1 / span 12;position:sticky;top:6px;align-self:start;--board:min(calc(100dvh - 12px), calc(100vw - 300px));width:var(--board);margin:0;}
+  html body #screen-map .board .dlabels,html body #screen-map .legend,html body #screen-map .hint,html body #topbar .brand{display:none;}
+  html body #screen-map .map-frame{width:var(--board);}
+  html body #tile-info{position:absolute;left:8px;right:8px;bottom:8px;width:auto;margin:0;min-height:0;padding:4px 8px;font-size:10.5px;background:rgba(2,6,8,.88);pointer-events:none;z-index:6;} html body #tile-info:empty{display:none;}
+  html body #screen-map .board{position:sticky;}
+  html body #topbar{margin:0;flex-wrap:nowrap;align-items:center;gap:6px;} html body #topbar .top-right{width:100%;justify-content:flex-end;gap:5px;flex-wrap:nowrap;} html body #doom{font-size:9.5px;flex:1;min-width:0;text-align:left;line-height:1.25;}
+  html body #topbar .icon-btn,html body #topbar .mute,html body #topbar .gear,html body #topbar .fs{width:30px;height:30px;min-height:0;flex:none;}
+  html body #timeline{margin:0;gap:3px;} html body #timeline .day{height:18px;font-size:9px;} html body #timeline .day.boss{height:24px;font-size:12px;} html body #timeline .day.boss em{display:none;}
+  html body #boss-banner{margin:0;padding:5px 8px;font-size:11px;}
+  html body #hud{padding:6px;gap:8px;} html body #hud-avatar{width:50px;}
+  html body #screen-map .box{padding:7px 8px;} html body #map-log{height:120px;}
+  html body #relic-box{max-height:none;overflow:visible;}
+  /* --- a fight: the two of them either side, the log between --- */
+  html body #screen-combat.active{display:block;padding:4px 6px;height:100dvh;overflow:hidden;}
+  html body #screen-combat .panel.combat-panel{max-width:none;width:100%;height:calc(100dvh - 8px);min-height:0;margin:0;padding:5px 8px;box-sizing:border-box;display:grid;
+    grid-template-columns:var(--pw) minmax(0,1fr) var(--pw);grid-template-rows:auto auto auto minmax(0,1fr) auto;column-gap:10px;row-gap:3px;
+    grid-template-areas:"you title foe" "you tug foe" "you choice foe" "you log foe" "you ctl foe";--pw:calc((100dvh - 178px) * .8);}
+  html body #screen-combat .combat-panel .fighters{display:contents;} html body #screen-combat .combat-panel .vs{display:none;}
+  html body #screen-combat .combat-panel .fighter{max-width:none;width:var(--pw);align-self:start;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:0;}
+  html body #screen-combat .combat-panel .fighter:first-child{grid-area:you;} html body #screen-combat .combat-panel .fighter:last-child{grid-area:foe;}
+  html body #screen-combat .combat-panel .portrait{width:var(--pw);} html body #screen-combat .combat-panel .portrait canvas{border-radius:10px;}
+  html body #screen-combat .combat-panel .fighter .cname{font-size:10px;letter-spacing:.12em;margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  html body #screen-combat .combat-panel .you-tribe{display:none;}
+  html body #screen-combat .combat-panel .fighter .hpbar{width:100%;height:16px;} html body #screen-combat .combat-panel .fighter .hpbar span{font-size:10px;line-height:14px;}
+  html body #screen-combat .combat-panel .cstats{font-size:9px;gap:2px;margin:1px 0;} html body #screen-combat .combat-panel .cstats span{padding:0 3px;}
+  html body #screen-combat .combat-panel .statuses{font-size:9.5px;gap:3px;min-height:0;margin-top:0;row-gap:2px;} html body #screen-combat .combat-panel .statuses span{padding:0 4px;}
+  html body #screen-combat .combat-panel #combat-relics,html body #screen-combat .combat-panel #foe-relics .duel-relics{gap:2px;min-height:0;justify-content:center;flex-wrap:wrap;margin:0;}
+  html body #screen-combat .combat-panel #combat-relics .relic-ico,html body #screen-combat .combat-panel #foe-relics .relic-ico{width:19px;height:19px;border-radius:4px;border-width:1px;}
+  html body #screen-combat .combat-panel .csets{gap:3px;margin-top:1px;} html body #screen-combat .combat-panel .csets .syn{font-size:9px;padding:0 5px;} html body #screen-combat .combat-panel .csets .syn .si{width:10px;height:10px;}
+  html body #screen-combat .combat-panel #combat-title{grid-area:title;margin:0;font-size:13px;line-height:1.2;}
+  html body #tug{grid-area:tug;display:block;position:relative;height:8px;margin:0 0 12px;border-radius:999px;border:1px solid rgba(139,233,253,.3);overflow:visible;
+    background:linear-gradient(90deg,rgba(80,250,123,.85) 0 var(--tug,50%),rgba(255,85,85,.85) var(--tug,50%) 100%);}
+  html body #tug b{position:absolute;left:var(--tug,50%);top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 8px #fff;border-radius:2px;}
+  html body #tug u{position:absolute;top:9px;text-decoration:none;font-size:8.5px;font-family:var(--label);letter-spacing:.1em;color:var(--acid);left:0;} html body #tug #tug-foe{left:auto;right:0;color:var(--red);}
+  html body #screen-combat .combat-panel #combat-choice{grid-area:choice;margin:0;} html body #screen-combat .combat-panel #combat-choice.hidden{display:none;}
+  html body #screen-combat .combat-panel #combat-log{grid-area:log;height:auto;min-height:0;max-height:none;font-size:10.5px;line-height:1.4;text-align:left;padding:5px 7px;}
+  html body #screen-combat .combat-panel #combat-ctl{grid-area:ctl;margin:0;} html body #screen-combat .combat-panel #btn-combat-done{grid-area:ctl;justify-self:center;margin:0;}
+  html body #screen-combat .combat-panel #combat-ctl .btn,html body #screen-combat .combat-panel #btn-combat-done{min-height:0;padding:5px 14px;font-size:12px;}
+  html body #screen-combat .combat-panel .ptag{font-size:8.5px;padding:.35em .6em;} html body #screen-combat .combat-panel .float{font-size:18px;} html body #screen-combat .combat-panel .float.crit{font-size:26px;}
+  html body #screen-combat .combat-panel .eframe b{font-size:8px;top:-8px;padding:1px 7px;} html body #screen-combat .combat-panel .eframe{inset:-4px;}
+  html body #boss-intro{font-size:.7em;}
+  /* --- the summary --- */
+  html body .end-cols{gap:10px;}
+}
