@@ -1136,7 +1136,7 @@ function tileAt(x,y){ return (x<0||y<0||x>=W||y>=H) ? -1 : G.map[y][x]; }
 /* ---------- logging / HUD ---------- */
 function mlog(msg, cls){
   const el = $("map-log");
-  const d=document.createElement("div"); if(cls)d.className=cls; d.innerHTML=msg; el.appendChild(d);
+  const d=document.createElement("div"); if(cls)d.className=cls; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG); el.appendChild(d);
   while(el.childElementCount > 80) el.firstElementChild.remove();
   el.scrollTop=el.scrollHeight;
 }
@@ -1173,6 +1173,16 @@ function drawCandles(cx, x, y, w, h, cs, k){ // k: text scale. Nine slots across
   cx.setLineDash([3*k, 3*k]); cx.strokeStyle = up ? "rgba(80,250,123,.5)" : "rgba(255,85,85,.5)"; cx.beginPath(); cx.moveTo(x+pad, Y(last)); cx.lineTo(x+w-pad, Y(last)); cx.stroke(); // where it closed
   cx.restore();
 }
+/* The relics-and-synergies box is as tall as the space it has. When a build outgrows it, it tightens in two steps
+   before it ever scrolls: relic descriptions fold away first (hover still shows them), then synergies become chips,
+   then the relics themselves become a grid of icons. */
+function fitBuildBox(){
+  const box = $("relic-box"); if(!box) return;
+  box.classList.remove("tight","tighter","tightest");
+  if(getComputedStyle(box).overflowY!=="auto") return; // only where the box has a fixed height to fit
+  for(const step of ["tight","tighter","tightest"]) if(box.scrollHeight > box.clientHeight+2) box.classList.add(step); // descriptions fold, then synergies become chips, then relics become a grid of icons
+}
+window.addEventListener("resize", ()=>{ if(G && !G.over && $("screen-map").classList.contains("active")) fitBuildBox(); });
 function renderHUD(){
   trackCult();
   const s = G.stats;
@@ -1216,7 +1226,7 @@ function renderHUD(){
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
-      + "<span class='chip res' title='keys: each one opens a vault'>🗝️ "+(G.keys||0)+"</span>"
+      + "<span class='chip res' title='keys: each one opens a vault'>"+KEY_ICO+" "+(G.keys||0)+"</span>"
       + "<span class='chip res' title='banishes: use one on a draft to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
       + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a draft will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
     + (G.curses ? (G.curses.dawn?"<span class='chip curse' title='cursed: you lose this much HP every dawn'>🩸 −"+G.curses.dawn+"/dawn</span>":"")
@@ -1244,6 +1254,7 @@ function renderHUD(){
   }
   $("relic-bar").innerHTML = rb;
   $("syn-bar").innerHTML = setsHTML(G.relics, false);
+  fitBuildBox();
   for(const k of Object.keys(G.pins||{})){ const [x,y] = k.split(",").map(Number); if(G.map[y][x]===T.EMPTY) delete G.pins[k]; } // what was there is gone
   $("obj-bar").innerHTML = objectivesHTML()+pinsHTML()+placesHTML();
   $("obj-bar").querySelectorAll("[data-pin]").forEach(el=>{ el.onclick=()=>{ const [x,y] = el.dataset.pin.split(",").map(Number); stopTravel(); travelTo(x,y); }; });
@@ -1300,6 +1311,8 @@ const SET_SVG = {
   food:"<path d='M2.4 7 A5.6 4.6 0 0 1 13.6 7 Z' fill='currentColor'/><rect x='2.4' y='8.2' width='11.2' height='2' rx='.6' fill='currentColor'/><path d='M2.4 11.4 H13.6 A2.2 2.4 0 0 1 11.4 13.8 H4.6 A2.2 2.4 0 0 1 2.4 11.4 Z' fill='currentColor'/>",
   war:"<path d='M2.6 10.4 A5.4 6.4 0 0 1 13.4 10.4 V11.4 H2.6 Z' fill='currentColor'/><rect x='1.4' y='11.6' width='13.2' height='1.8' rx='.6' fill='currentColor'/>",
 };
+const PIN_SVG = "<svg class='si pin' viewBox='0 0 16 16' aria-hidden='true'><path d='M8 14.6 C8 14.6 3.4 9.6 3.4 6.2 A4.6 4.6 0 0 1 12.6 6.2 C12.6 9.6 8 14.6 8 14.6 Z' fill='#ff5d73' stroke='#3a0710' stroke-width='1'/><circle cx='8' cy='6.2' r='1.7' fill='#fff'/></svg>";
+const KEY_ICO = "<svg class='si' viewBox='0 0 16 16' aria-hidden='true'><g fill='none' stroke='#f1fa8c' stroke-width='1.8' stroke-linecap='round'><circle cx='5.2' cy='5.6' r='2.8'/><path d='M7.2 7.6 L13.4 13.8 M10.4 10.8 l1.6 -1.6 M12.2 12.6 l1.4 -1.4'/></g></svg>";
 const setIco = t => SET_SVG[t.id] ? "<svg class='si set' viewBox='0 0 16 16' aria-hidden='true' style='color:"+t.color+"'>"+SET_SVG[t.id]+"</svg>" : t.icon;
 /* ---------- the ground ----------
    Floors, walls and their shadows are painted on one canvas that sits under the tiles. A wall is a raised block: a lit
@@ -1696,7 +1709,7 @@ function togglePin(x,y){
   if(!canPin(x,y)){ $("tile-info").innerHTML = "Nothing here to pin."; return; }
   const on = !(G.pins||{})[pinKey(x,y)];
   setPin(x,y,on); sfx("click"); renderMap();
-  $("tile-info").innerHTML = (on ? "📌 Pinned: " : "Unpinned: ")+pinName(x,y);
+  $("tile-info").innerHTML = (on ? PIN_SVG+" Pinned: " : "Unpinned: ")+pinName(x,y);
 }
 function pinName(x,y){
   const t = G.map[y][x], foe = G.foes[x+","+y];
@@ -1725,7 +1738,7 @@ function pinsHTML(){
   const pins = Object.keys(G.pins||{}); if(!pins.length) return "";
   const dist = walkDist(G.px, G.py);
   return "<div class='box-h' style='margin-top:10px'>PINS</div>"+pins.map(k=>{ const [x,y] = k.split(",").map(Number), d = dist[k];
-    return "<div class='obj pin' data-pin='"+k+"' title='walk there'><i>📌</i><span>"+pinName(x,y)+"</span><em>"+(d==null ? "?" : d+" steps")+"</em></div>"; }).join("");
+    return "<div class='obj pin' data-pin='"+k+"' title='walk there'><i>"+PIN_SVG+"</i><span>"+pinName(x,y)+"</span><em>"+(d==null ? "?" : d+" steps")+"</em></div>"; }).join("");
 }
 function tileInfo(x,y){
   if(G.fog[y][x]) return "Unexplored.";
@@ -2865,7 +2878,7 @@ function closeModal(){ $("modal").classList.add("hidden");
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */
 function clog(msg, cls){
   const el=$("combat-log"); const d=document.createElement("div");
-  if(cls)d.className=cls; d.innerHTML=msg; el.appendChild(d); el.scrollTop=el.scrollHeight;
+  if(cls)d.className=cls; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG); el.appendChild(d); el.scrollTop=el.scrollHeight;
 }
 function combatBars(you, foe){
   for(const [id, c] of [["you",you],["foe",foe]]){
@@ -3434,7 +3447,7 @@ function startCombat(foeDef, opts={}){
     log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); },
     hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); if(crit) stall += 110; clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
-    float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
+    float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
     strip: f=>{
       // relics can vanish mid-fight (cancelled, burned): keep the build and the portrait in step
       if(G.relics.join()!==f.st.relics.join()){ G.relics=[...f.st.relics]; G.tiers=[...f.st.tiers]; G.worn=G.relics.join(); refreshAvatar(); }
@@ -3941,6 +3954,7 @@ const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[
    - a relic's icon lights up when it does its thing
    - hits landed in a row without being hit back are counted
    - when either side is nearly gone the stage tightens and slows down */
+const HEALERS = ["cult_robe","lollipop","cookie","strawberry","maid","birthday_hat","cat_ears","trucker","vampire","gnome","juicebox","plaster","flower_clip","burger_earring","mcdonalds","heart_tattoo"];
 const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/Love bomb/i, harajuku:/first hit lands twice/i, prep:/Dug in|armour bites back/i, schizoposter:/You dodge|slip it and counter/i, collector:null };
 const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
   [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armour bites back/i, ["cactus_shirt"]],
@@ -3953,6 +3967,12 @@ const STAGE = { combo:0, best:0,
     if(this.combo>=2 && !META.calm){ c.textContent = "×"+this.combo; c.className = "on c"+Math.min(6, this.combo); void c.offsetWidth; c.classList.add("pop"); if(this.combo===5 || this.combo===8) sfx("crit"); }
     else if(c.className){ c.className = this.combo ? "" : "broke"; if(!this.combo) setTimeout(()=>{ if(c.className==="broke"){ c.className = ""; c.textContent = ""; } }, 420); }
     if(crit && !META.calm){ const sc = $("screen-combat"); sc.classList.remove("hitstop"); void sc.offsetWidth; sc.classList.add("hitstop"); setTimeout(()=>sc.classList.remove("hitstop"), 150); }
+  },
+  healed(relics, tribe){ // health came back: whatever you hold that heals lights up (most of it has no line in the log)
+    if(META.calm) return;
+    const now = performance.now(); if(now-(this.healAt||0) < 350) return; this.healAt = now;
+    for(const el of $("combat-relics").querySelectorAll("[data-rid]")) if(HEALERS.includes(el.dataset.rid)){ el.classList.remove("proc","heal"); void el.offsetWidth; el.classList.add("proc","heal"); }
+    const b = $("you-tribe").firstElementChild; if(b && this.tribe==="lolita"){ b.classList.remove("sig"); void b.offsetWidth; b.classList.add("sig"); }
   },
   proc(msg, relics){ // light the icon of whatever just did something: by its name in the line, or by what the line describes
     if(META.calm) return;
@@ -4003,7 +4023,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   const V = {
     hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
-    float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
+    float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
   };
   STAGE.reset(run.tribe);
   const D = makeDuel(run, k, (m,c)=>{ clog(m,c); if(!quiet) STAGE.proc(m, run.relics); }, V), you = D.you, king = D.king;

@@ -840,7 +840,7 @@ img.heal-ico.poster{object-fit:cover;object-position:50% 32%;}
 .portrait.shielded canvas{outline:2px solid rgba(241,250,140,.55);outline-offset:2px;}
 body.calm .portrait canvas,body.calm #hud-avatar,body.calm .pfx,body.calm .pfx i{animation:none;}
 /* pins, boss odds on drafts, fight summary */
-.tile.pinned::after{content:"📌";position:absolute;right:-3px;top:-6px;font-size:clamp(11px,calc(var(--board)/36),16px);z-index:4;filter:drop-shadow(0 1px 2px #000);pointer-events:none;}
+.tile.pinned::after{content:"";width:clamp(12px,calc(var(--board)/34),18px);height:clamp(12px,calc(var(--board)/34),18px);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 14.6 C8 14.6 3.4 9.6 3.4 6.2 A4.6 4.6 0 0 1 12.6 6.2 C12.6 9.6 8 14.6 8 14.6 Z' fill='%23ff5d73' stroke='%233a0710'/%3E%3Ccircle cx='8' cy='6.2' r='1.7' fill='%23fff'/%3E%3C/svg%3E") center/contain no-repeat;position:absolute;right:-3px;top:-6px;font-size:clamp(11px,calc(var(--board)/36),16px);z-index:4;filter:drop-shadow(0 1px 2px #000);pointer-events:none;}
 .tile.pinned{outline:1px dashed rgba(255,255,255,.55);outline-offset:-2px;}
 .obj.pin{cursor:pointer;} .obj.pin:hover{border-color:var(--neon);} .obj.pin i{font-style:normal;}
 #combat-log .sum,#map-log .sum{color:#bdbdbd;font-size:11px;} #combat-log .sum b,#map-log .sum b{color:var(--gold);} .sum small{color:var(--dim);font-size:9px;}
@@ -1501,7 +1501,7 @@ body[data-phase="night"] .box-h{color:#8f96d8;}
 /* it knows your name */
 .bi-to{font-family:var(--mono);font-size:clamp(13px,2vw,20px);letter-spacing:.12em;color:#fff;opacity:.85;}
 /* left alone */
-#you-img.idle-look{animation:idlelook 2.6s ease-in-out;} #you-img.idle-yawn{animation:idleyawn 2.6s ease-in-out;} #you-img.idle-sway{animation:idlesway 2.6s ease-in-out;}
+#you-tok #you-img.idle-look{animation:idlelook 2.6s ease-in-out;} #you-tok #you-img.idle-yawn{animation:idleyawn 2.6s ease-in-out;} #you-tok #you-img.idle-sway{animation:idlesway 2.6s ease-in-out;}
 @keyframes idlelook{20%{transform:translateX(-7%) rotate(-5deg);}35%{transform:translateX(-7%) rotate(-5deg);}60%{transform:translateX(7%) rotate(5deg);}78%{transform:translateX(7%) rotate(5deg);}}
 @keyframes idleyawn{25%{transform:scale(1.06,.92);}55%{transform:scale(.95,1.1) translateY(-4%);}80%{transform:scale(1.02,.97);}}
 @keyframes idlesway{25%{transform:rotate(-6deg);}50%{transform:rotate(5deg);}75%{transform:rotate(-3deg);}}
@@ -1683,3 +1683,36 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .splash.district small{font-size:.34em;letter-spacing:.16em;color:#dfeef2;}
 
 .end-chart{display:block;width:100%;max-width:520px;height:auto;aspect-ratio:1040/300;margin:2px 0 10px;}
+
+/* ---------- polish pass: day and night you can tell apart, a build box that fits, a livelier idle, clearer combat ---------- */
+/* day is warm, night is cold, and the frame of the map says which */
+body[data-phase="day"] #grade{background:linear-gradient(180deg,rgba(255,190,110,.10),rgba(255,130,50,.045) 60%,rgba(255,170,90,.07));}
+body[data-phase="night"] #grade{background:linear-gradient(180deg,rgba(40,50,190,.20),rgba(22,10,90,.26));}
+body[data-phase="day"] #map-wrap{border-color:rgba(255,200,130,.38);box-shadow:0 0 34px rgba(255,170,80,.10);transition:border-color 1.6s,box-shadow 1.6s;}
+body[data-phase="night"] #map-wrap{border-color:rgba(140,140,255,.5);box-shadow:0 0 40px rgba(90,90,255,.18);transition:border-color 1.6s,box-shadow 1.6s;}
+body[data-phase="night"] .box,body[data-phase="night"] #hud,body[data-phase="night"] #tile-info{border-color:rgba(150,150,255,.42);}
+body[data-phase="day"] .box,body[data-phase="day"] #hud,body[data-phase="day"] #tile-info{border-color:rgba(255,205,150,.26);}
+body[data-phase="day"] .box-h{color:#a89a82;} body[data-phase="night"] .box-h{color:#9aa0ea;}
+body[data-phase="night"] #hud-day{color:#b9c1ff;text-shadow:0 0 10px rgba(130,140,255,.7);} body[data-phase="day"] #hud-day{color:#ffd9a0;}
+body[data-phase="night"] .brand b{color:#b9c1ff;}
+/* the build box tightens before it scrolls */
+#relic-box.tight .relic .rtxt span{display:none;} #relic-box.tight #relic-bar{gap:3px;} #relic-box.tight .relic .relic-ico{width:28px;height:28px;}
+#relic-box.tighter #syn-bar{display:flex;flex-wrap:wrap;gap:4px;} #relic-box.tighter .syn{flex:0 1 auto;padding:3px 7px;margin:0;} #relic-box.tighter .syn span{display:none;}
+#relic-box.tighter .syn b{font-size:10.5px;} #relic-box.tighter .syn em{margin-left:6px;}
+/* the idle character moves enough to notice */
+#you-tok #you-img.idle-look{animation:idlelook 2.6s ease-in-out;} #you-tok #you-img.idle-yawn{animation:idleyawn 2.6s ease-in-out;} #you-tok #you-img.idle-sway{animation:idlesway 2.6s ease-in-out;}
+@keyframes idlelook{0%,100%{transform:none;}18%,36%{transform:translateX(-12%) rotate(-9deg);}58%,78%{transform:translateX(12%) rotate(9deg);}}
+@keyframes idleyawn{0%,100%{transform:none;}22%{transform:scale(1.12,.86) translateY(5%);}52%{transform:scale(.9,1.18) translateY(-9%);}80%{transform:scale(1.04,.96);}}
+@keyframes idlesway{0%,100%{transform:none;}20%{transform:rotate(-11deg) translateX(-5%);}45%{transform:rotate(10deg) translateX(5%);}70%{transform:rotate(-6deg);}88%{transform:rotate(3deg);}}
+/* combat: numbers that read on any art, a combo that stays off the face, healing you can see */
+.float{-webkit-text-stroke:3px rgba(0,0,0,.9);paint-order:stroke fill;text-shadow:0 3px 0 #000,0 0 14px rgba(0,0,0,.9),0 0 10px currentColor;}
+.float.crit{-webkit-text-stroke:4px rgba(0,0,0,.92);}
+#combo{left:2%;top:auto;bottom:101%;transform:rotate(-6deg);transform-origin:0 100%;}
+#combo.broke{transform:rotate(-6deg) translateY(10px) scale(.7);}
+@keyframes combopop{0%{transform:rotate(-6deg) scale(1.9);}100%{transform:rotate(-6deg) scale(1);}}
+@media (max-width:899px){ #combo{bottom:auto;top:-6px;left:-4px;font-size:20px;} #combo.c3{font-size:22px;} #combo.c4{font-size:25px;} #combo.c5{font-size:28px;} #combo.c6{font-size:32px;} }
+#combat-relics .relic-ico.proc.heal{animation:procheal .6s ease-out;}
+@keyframes procheal{0%{transform:scale(1.5);box-shadow:0 0 0 2px #fff,0 0 22px 6px rgba(80,250,123,.95);filter:brightness(1.7);}100%{transform:none;box-shadow:none;filter:none;}}
+
+#relic-box.tightest #relic-bar{flex-direction:row;flex-wrap:wrap;gap:5px;} #relic-box.tightest .relic{width:auto;padding:0;border:0;background:none;} #relic-box.tightest .relic .rtxt{display:none;}
+#relic-box.tightest .relic .relic-ico{width:36px;height:36px;} #relic-box.tightest .relic .copies{display:none;}
