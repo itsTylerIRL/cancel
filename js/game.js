@@ -3990,7 +3990,12 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   $("port-foe").classList.add("boss"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), run.avatar); delete $("chp-you").parentElement.dataset.hp;
   const fc = $("combat-foe"); fc.width = 4; fc.height = 5;
-  lookCanvas(k.look, k.relics).then(cv=>{ if(cv && tok===combatTok) paint(fc, cv); }).catch(()=>{});
+  lookCanvas(k.look, k.relics).then(cv=>{ // the defender is drawn mirrored, so the two of them face each other
+    if(!cv || tok!==combatTok) return;
+    const m = document.createElement("canvas"); m.width = cv.width; m.height = cv.height;
+    const cx = m.getContext("2d"); cx.translate(m.width, 0); cx.scale(-1, 1); cx.drawImage(cv, 0, 0);
+    paint(fc, m);
+  }).catch(()=>{});
   $("combat-relics").innerHTML = run.relics.map((id,i)=>ICONS[id] ? "<img data-rid='"+id+"' data-tier='"+((run.tiers||[])[i]||1)+"' class='relic-ico "+tierCls((run.tiers||[])[i]||1)+"' src='"+ICONS[id]+"' alt=''>" : "").join("");
   $("foe-relics").innerHTML = relicStrip(k.relics);
   // blows in one round land one after another, as they do in any fight
