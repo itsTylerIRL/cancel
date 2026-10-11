@@ -1651,3 +1651,8 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .king-card .bface.card-face{flex:none;width:auto;aspect-ratio:auto;display:block;line-height:0;}
 .king-card .bface.card-face .bpfp{width:64px;height:64px;}
 .king-card .bface.card-face s{font-size:10px;border-width:2px;padding:3px 4px;line-height:1;}
+
+/* banishing from a draft */
+#draft-banish small{opacity:.8;margin-left:3px;font-size:inherit;}
+.banish-mode .card{border-color:rgba(255,85,85,.5);cursor:pointer;} .banish-mode .card:hover{border-color:var(--red);box-shadow:0 0 18px rgba(255,85,85,.45);transform:none;filter:grayscale(.5);}
+.banish-mode .card[data-no]{opacity:.35;cursor:not-allowed;border-color:var(--line);} .banish-mode .card[data-no]:hover{box-shadow:none;filter:none;}

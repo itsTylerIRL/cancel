@@ -620,6 +620,7 @@ function newRun(ava, opt){
   // three bosses a run: one early, one mid, and THE CANCEL always closes
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
   G.keys = pk("key1") ? 1 : 0;
+  G.banished = []; G.banishes = tribe.id==="collector" ? BANISH_COLLECTOR : BANISH_START;
   G.perks = { hp:pk("hp2") ? 20 : pk("hp1") ? 10 : 0, reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
     vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
     }; // fixed for the run (the frame isn't kept here: it is whatever is switched on in settings)
@@ -638,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -826,6 +827,7 @@ function relicPool(){
   return RELICS.filter(r => {
     if(r.tags.includes("blackmarket") && !(perk("blackmarket") && !(G && G.daily))) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !(G && G.daily)) return false; // on the daily everyone draws from the same pool, whatever they have unlocked
+    if(G && G.banished && G.banished.includes(r.id)) return false; // banished this run: it won't be offered again
     return true;
   });
 }
@@ -2064,16 +2066,39 @@ const rerollCost = () => { // Inside Man: the first one of a run is on the house
   const p = G.perks||{}, n = G.rerolls||0;
   return p.freeRoll && !n ? 0 : REROLL_BASE * (p.reroll ? 0.5 : 1) * Math.pow(2, p.freeRoll ? n-1 : n);
 };
-function openDraft(flavor, pool, luck, gen){
+/* Banishing. A relic you banish from a draft is out of the pool for the rest of the run: no draft, shop or drop will
+   offer it again. It is used in place of taking something, a run starts with a few charges (a Collector, who can't
+   reroll, gets more), and shops sell more. Legendary and cursed relics can't be banished, nor can one you are holding. */
+const BANISH_START = 3, BANISH_COLLECTOR = 5, BANISH_PRICE = 500;
+const canBanish = r => r.rar!=="legendary" && r.rar!=="cursed" && !hasRelic(r.id);
+function openDraft(flavor, pool, luck, gen, banishing){
   if(typeof pool==="function"){ gen = pool; pool = gen(); }
   const n = pool && pool.length || 3;
   gen = gen || (()=>rollRelics(n, luck));
   pool = pool && pool.length ? pool : gen();
   if(!pool.length){ mlog("Nothing new here. You already hold everything.", "bad"); return false; }
   const cost = rerollCost();
+  const left = G.banishes||0;
+  if(banishing){ // the same cards, but the one you pick is thrown out of the run
+    openModal("<h2>BANISH A RELIC</h2><div class='stat-line'><span>pick one. it is gone from this run for good: no draft, shop or drop will offer it again</span><b>"+left+" banish"+(left===1?"":"es")+" left</b></div>"
+      + "<div class='draft-cards banish-mode"+(pool.length>3?" four":"")+"'>"+pool.map((r,i)=>relicCard(r, "data-i='"+i+"'"+(canBanish(r) ? "" : " data-no='1'"), true)).join("")+"</div>"
+      + "<div class='note'>banishing uses this draft: you won't take a relic from it. legendary and cursed relics, and ones you hold, can't be banished</div>"
+      + "<div class='row'><button class='btn small' id='draft-skip'>← back to the draft</button></div>");
+    document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick = ()=>{
+      const r = pool[+c.dataset.i]; if(c.dataset.no || !(G.banishes>0)) return;
+      G.banishes--; G.banished = (G.banished||[]).concat(r.id); sfx("bad");
+      for(const k in G.shops) G.shops[k].stock = G.shops[k].stock.filter(it=>it.id!==r.id); // and off every shelf
+      mlog("🚫 Banished <b>"+r.name+"</b>. It won't be offered again this run. <i>("+G.banishes+" banish"+(G.banishes===1?"":"es")+" left)</i>", "");
+      closeModal(); renderMap(); saveRun();
+    }; });
+    $("draft-skip").onclick = ()=>{ sfx("click"); openDraft(flavor, pool, luck, gen); };
+    navSet($("draft-skip"));
+    return true;
+  }
   let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
   html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button>"
+    + "<button class='btn small danger' id='draft-banish'"+(left>0 && pool.some(canBanish) ? "" : " disabled")+" title='throw one of these out of the run for good, instead of taking one'>🚫 banish <small>"+left+"</small></button>"
     + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost || tribeIs("collector")?" disabled":"")+" title='"+(tribeIs("collector") ? "a Collector takes what is offered: no rerolls" : "a new set of relics. the price doubles each time")+"'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
     + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
   openModal(html);
@@ -2091,6 +2116,7 @@ function openDraft(flavor, pool, luck, gen){
     };
   });
   $("draft-skip").onclick=()=>{ closeModal(); renderMap(); };
+  $("draft-banish").onclick=()=>{ if(!(G.banishes>0)) return; sfx("click"); openDraft(flavor, pool, luck, gen, true); };
   $("draft-reroll").onclick=()=>{
     if(G.cult<cost || tribeIs("collector")) return;
     G.cult -= cost; G.rerolls = (G.rerolls||0)+1; sfx("coin"); renderHUD();
@@ -2132,6 +2158,8 @@ function openShop(note){
   html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Full heal</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP</span>"
     + "<div class='bar hp'><div style='width:"+clamp(100*G.stats.hp/G.stats.maxhp,0,100)+"%'></div></div></div>"
     + "<button class='btn small price' id='shop-heal'"+(G.cult<healCost||!hurt?" disabled":"")+">"+coin+healCost+"</button></div>";
+  html += "<div class='shop-row'><div class='heal-ico'>🚫</div><div class='sinfo'><b>Banish charge</b><span>you have "+(G.banishes||0)+". use one on any draft to throw a relic out of the run for good</span></div>"
+    + "<button class='btn small price' id='shop-banish'"+(G.cult<BANISH_PRICE?" disabled":"")+">"+coin+BANISH_PRICE+"</button></div>";
   if(note) html += "<div class='note good'>"+note+"</div>";
   html += "<div class='row'><button class='btn small' id='shop-leave'>leave</button></div>";
   openModal(html);
@@ -2148,6 +2176,11 @@ function openShop(note){
     if(G.cult<healCost || !hurt) return;
     G.cult-=healCost; G.stats.hp=G.stats.maxhp; sfx("heal"); shop.used = true;
     mlog("Healed to full.", "good"); renderMap(); openShop("Healed to full.");
+  };
+  $("shop-banish").onclick=()=>{
+    if(G.cult<BANISH_PRICE) return;
+    G.cult-=BANISH_PRICE; G.banishes = (G.banishes||0)+1; sfx("coin"); shop.used = true;
+    mlog("Bought a banish charge for "+BANISH_PRICE+" $CULT. You have "+G.banishes+".", "good"); renderMap(); openShop("Bought a banish charge.");
   };
   $("shop-leave").textContent = shop.used ? "leave (the mart closes)" : "leave";
   $("shop-leave").onclick=()=>{ // one visit's worth of business, then it shutters
@@ -2368,7 +2401,8 @@ function openBuild(){
   let html = "<h2>YOUR BUILD</h2><div class='build-top'><canvas id='build-ava'></canvas><div class='stat-grid'>"
     + cell("HP", s.hp+" / "+s.maxhp)+cell("ATK", s.atk)+cell("ARM", s.arm)+cell("SPD", s.spd)
     + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
-    + "</div></div><div class='sheet-top'>"+(tr ? "<span class='chip tribe-chip' title='"+esc(tr.rule+" "+tr.sig+" "+tr.cost)+"'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
+    + "</div></div><div class='sheet-top'>"+"<span class='chip' title='"+((G.banished||[]).length ? "banished this run: "+esc(G.banished.map(id=>relicById(id).name).join(", ")) : "use one on a draft to throw a relic out of the run")+"'>🚫 "+(G.banishes||0)+" banish"+((G.banishes||0)===1?"":"es")+((G.banished||[]).length ? " · "+G.banished.length+" out" : "")+"</span>"
+    + (tr ? "<span class='chip tribe-chip' title='"+esc(tr.rule+" "+tr.sig+" "+tr.cost)+"'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (thornsOf(G.stats.arm) ? "<span class='chip' title='every enemy swing that reaches you costs it a quarter of your ARM'>🛡️ thorns "+thornsOf(G.stats.arm)+"</span>" : "")
     + (G.stats.crit>100 ? "<span class='chip' title='crit chance past 100% becomes crit damage'>✨ crits deal +"+Math.round((G.stats.crit-100)*BAL.critOver*100)+"% more</span>" : "")
     + (G.day>1 ? "<span class='chip' title='burn, bleed, poison, shocks and companions grow "+Math.round(BAL.growth*100)+"% a day'>🔥🧸 statuses and companions +"+Math.round(BAL.growth*(G.day-1)*100)+"%</span>" : "")

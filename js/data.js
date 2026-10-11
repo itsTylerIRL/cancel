@@ -44,7 +44,7 @@ const TRIBES = [
  {id:"schizoposter", name:"SCHIZOPOSTER", icon:"📡", relic:"goth_headband", stat:{dodge:5}, desc:"lives at night",
   rule:"+5% dodge. At night: +4 ATK and +15% more dodge, and hunters pay double $CULT.", sig:"Every dodge makes your next hit a sure crit.", cost:"By day: −1 ATK. Campfires skip the night but don't heal you."},
  {id:"collector", name:"COLLECTOR", icon:"🗃️", relic:"swag_score", desc:"more slots, easier sets",
-  rule:"+1 relic slot. Once you hold two relics of a synergy, it counts as one more: its higher tiers come a relic early.", sig:"+1 ATK for every two synergies you have switched on.", cost:"Shops charge 25% more, and you can't reroll a draft."},
+  rule:"+1 relic slot. Once you hold two relics of a synergy, it counts as one more: its higher tiers come a relic early.", sig:"+1 ATK for every two synergies you have switched on.", cost:"Shops charge 25% more, and you can't reroll a draft. You get 5 banishes instead of 3."},
 ];
 /* Heat: optional difficulty, one level unlocked per win. Level n applies the first n lines. */
 const HEAT = [
