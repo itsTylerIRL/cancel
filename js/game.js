@@ -3815,28 +3815,145 @@ const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss
   bonkler911:  { cls:"bonk",   ms:2400, warn:"🔨 NEVER FORGET", rain:["🔨","💥","🧱"], line:"the reserve cannot save you" },
   cancel:      { cls:"cancel", ms:3400, warn:"📵 YOU ARE ABOUT TO BE", title:"CANCELLED", line:"everyone you know has seen the post" },
 };
-/* Each boss fights in its own weather: a tint over the stage and something drifting through it, in place of the night
-   shade an ordinary fight after dark gets. [what drifts, how it moves, how many] */
-const BOSS_AMBIENT = {
-  lawsuit:     { bits:["📄","📃","📑","⚖️"], move:"fall",   n:16 },
-  allegations: { bits:["💬","🧵","❗","💬","👁️"], move:"rise", n:18 },
-  drain:       { bits:["🪙","💸","🪙","🪙"], move:"siphon", n:20 },
-  shift:       { bits:["🌀","✦","🌀","✧"],  move:"swirl",  n:14 },
-  bonkler911:  { bits:["🧱","💥","▪","▪","🔥"], move:"fall", n:20 },
-  cancel:      { bits:["📵","✕","🚫","✕","📉"], move:"fall", n:22 },
-  king:        { bits:["👑","✦","✧","✦"],   move:"rise",   n:14 },
-};
+/* Each boss fights in its own weather: a scene painted on a canvas behind the stage, in place of the night shade an
+   ordinary fight after dark gets. Every scene is { make(W,H) -> state, draw(c,W,H,t,dt,state) }, t and dt in seconds. */
+const AMB = (()=>{
+  const R = (a,b)=>a+Math.random()*(b-a), TAU = Math.PI*2;
+  const many = (n, f)=>Array.from({length:n}, (_,i)=>f(i));
+  const rr = (c,x,y,w,h,r)=>{ c.beginPath(); c.roundRect(x,y,w,h,r); };
+  const wash = (c,W,H,stops,vert)=>{ const g = vert ? c.createLinearGradient(0,0,0,H) : c.createLinearGradient(0,0,W,0); stops.forEach(([o,col])=>g.addColorStop(o,col)); c.fillStyle = g; c.fillRect(0,0,W,H); };
+  const glow = (c,x,y,r,col)=>{ const g = c.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,col); g.addColorStop(1,"rgba(0,0,0,0)"); c.fillStyle = g; c.fillRect(x-r,y-r,r*2,r*2); };
+  return {
+    /* THE LAWSUIT: cold light through tall windows, paper coming down, and now and then the stamp */
+    lawsuit: { gain:.9,
+      make:(W,H)=>({ papers:many(30, ()=>({x:R(0,W), y:R(-H,H), vy:R(26,70), vx:R(-14,14), rot:R(0,TAU), vr:R(-1.2,1.2), fl:R(0,TAU), vf:R(1,3), s:R(.7,1.5), seal:Math.random()<.22})), stamps:[], next:1.2 }),
+      draw:(c,W,H,t,dt,S)=>{
+        wash(c,W,H,[[0,"rgba(150,185,235,.20)"],[.55,"rgba(40,60,110,.14)"],[1,"rgba(8,12,30,.34)"]],true);
+        c.globalCompositeOperation = "lighter";
+        for(let i=0;i<6;i++){ const x = W*(.08+i*.17)+Math.sin(t*.25+i)*W*.02, w = W*.07; const g = c.createLinearGradient(0,0,0,H*.95); g.addColorStop(0,"rgba(190,215,255,.13)"); g.addColorStop(1,"rgba(190,215,255,0)"); c.fillStyle = g;
+          c.beginPath(); c.moveTo(x,0); c.lineTo(x+w,0); c.lineTo(x+w*2.6+W*.04,H); c.lineTo(x+W*.04-w*.8,H); c.fill(); }
+        c.globalCompositeOperation = "source-over";
+        for(const p of S.papers){ p.y += p.vy*dt; p.x += (p.vx+Math.sin(t+p.fl)*18)*dt; p.rot += p.vr*dt; p.fl += p.vf*dt; if(p.y>H+60){ p.y = -60; p.x = R(0,W); }
+          const w = 34*p.s, h = 44*p.s; c.save(); c.translate(p.x,p.y); c.rotate(p.rot); c.scale(Math.cos(p.fl)*.9+.1,1); c.globalAlpha = .5;
+          c.fillStyle = "#eef3fb"; c.fillRect(-w/2,-h/2,w,h); c.fillStyle = "rgba(60,80,120,.75)"; for(let k=0;k<5;k++) c.fillRect(-w*.36,-h*.34+k*h*.14,w*(k===4?.4:.72),h*.045);
+          if(p.seal){ c.strokeStyle = "rgba(220,40,50,.95)"; c.lineWidth = 2*p.s; c.beginPath(); c.arc(w*.18,h*.26,w*.17,0,TAU); c.stroke(); } c.restore(); }
+        S.next -= dt; if(S.next<=0){ S.next = R(1.8,3.4); S.stamps.push({x:R(W*.12,W*.88), y:R(H*.14,H*.86), a:R(-.4,.4), life:0, word:["SERVED","FILED","EXHIBIT A","OBJECTION","GUILTY"][Math.floor(R(0,5))]}); }
+        c.textAlign = "center"; c.textBaseline = "middle";
+        S.stamps = S.stamps.filter(s=>(s.life += dt) < 1.9);
+        for(const s of S.stamps){ const k = Math.min(1, s.life/.14), sc = 2.2-1.2*k, al = (s.life<.14 ? k : Math.max(0, 1-(s.life-.14)/1.76))*.5, fs = Math.max(18, W*.034);
+          c.save(); c.translate(s.x,s.y); c.rotate(s.a); c.scale(sc,sc); c.globalAlpha = al; c.font = "900 "+fs+"px Impact, 'Arial Black', sans-serif"; const w = c.measureText(s.word).width+fs*.9;
+          c.strokeStyle = "#ff3b47"; c.lineWidth = fs*.12; rr(c,-w/2,-fs*.78,w,fs*1.56,fs*.16); c.stroke(); c.fillStyle = "#ff3b47"; c.fillText(s.word,0,fs*.05); c.restore(); }
+      } },
+    /* THE ALLEGATIONS: a thread going round. Replies rising, strung together, and eyes in the dark watching you read it */
+    allegations: {
+      make:(W,H)=>({ bub:many(20, ()=>({x:R(0,W), y:R(0,H*1.3), vy:R(18,46), w:R(60,150), ph:R(0,TAU), hot:Math.random()<.3, n:Math.floor(R(2,99))})), eyes:many(9, i=>({x:i%2 ? R(W*.9,W*.99) : R(W*.01,W*.1), y:R(H*.06,H*.94), s:R(16,34), ph:R(0,9)})).concat(many(5, ()=>({x:R(W*.1,W*.9), y:R(H*.01,H*.08), s:R(14,26), ph:R(0,9)}))) }),
+      draw:(c,W,H,t,dt,S)=>{
+        const pulse = .8+.2*Math.sin(t*1.9);
+        glow(c,W*.5,H*1.1,Math.max(W,H)*.95,"rgba(190,90,255,"+(.30*pulse).toFixed(3)+")"); wash(c,W,H,[[0,"rgba(30,0,60,.34)"],[.5,"rgba(30,0,60,.06)"],[1,"rgba(30,0,60,.0)"]],true);
+        for(const b of S.bub){ b.y -= b.vy*dt; b.x += Math.sin(t*.7+b.ph)*10*dt; if(b.y<-70){ b.y = H+70; b.x = R(0,W); } }
+        c.strokeStyle = "rgba(210,160,255,.16)"; c.lineWidth = 1.2; c.beginPath(); const srt = [...S.bub].sort((a,b)=>a.y-b.y); srt.forEach((b,i)=>{ i ? c.lineTo(b.x,b.y) : c.moveTo(b.x,b.y); }); c.stroke(); // the thread itself
+        for(const b of S.bub){ const h = b.w*.44; c.globalAlpha = .5; c.fillStyle = b.hot ? "rgba(255,90,150,.26)" : "rgba(190,140,255,.22)"; c.strokeStyle = b.hot ? "rgba(255,120,170,.75)" : "rgba(210,170,255,.6)"; c.lineWidth = 1.4;
+          rr(c,b.x-b.w/2,b.y-h/2,b.w,h,h*.3); c.fill(); c.stroke(); c.beginPath(); c.moveTo(b.x-b.w*.3,b.y+h/2); c.lineTo(b.x-b.w*.36,b.y+h*.82); c.lineTo(b.x-b.w*.16,b.y+h/2); c.fill();
+          c.fillStyle = "rgba(240,225,255,.7)"; c.fillRect(b.x-b.w*.38,b.y-h*.2,b.w*.7,h*.1); c.fillRect(b.x-b.w*.38,b.y+h*.04,b.w*.46,h*.1);
+          if(b.hot){ c.globalAlpha = .8; c.fillStyle = "#ff3355"; c.beginPath(); c.arc(b.x+b.w/2,b.y-h/2,9,0,TAU); c.fill(); c.fillStyle = "#fff"; c.font = "700 9px monospace"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(b.n,b.x+b.w/2,b.y-h/2+.5); } }
+        for(const e of S.eyes){ const bl = (t+e.ph)%5.5, open = bl<.16 ? Math.abs(bl-.08)/.08 : 1, dx = W*.24-e.x, dy = H*.42-e.y, d = Math.hypot(dx,dy)||1; // they look at you
+          c.save(); c.translate(e.x,e.y); c.globalAlpha = .5; c.fillStyle = "rgba(235,220,255,.9)"; c.beginPath(); c.ellipse(0,0,e.s,e.s*.48*open+.5,0,0,TAU); c.fill();
+          c.fillStyle = "#b040ff"; c.beginPath(); c.arc(dx/d*e.s*.36,dy/d*e.s*.14,e.s*.3*Math.min(1,open+.2),0,TAU); c.fill(); c.fillStyle = "#12001f"; c.beginPath(); c.arc(dx/d*e.s*.36,dy/d*e.s*.14,e.s*.14*open,0,TAU); c.fill(); c.restore(); }
+      } },
+    /* THE TREASURY DRAIN: everything gold in the room being pulled across it and down a hole on the boss's side */
+    drain: {
+      make:(W,H)=>({ coins:many(90, ()=>({x:R(0,W), y:R(0,H), sp:R(0,TAU), vs:R(4,9), r:R(4,10), a:R(.35,.8)})) }),
+      draw:(c,W,H,t,dt,S)=>{
+        const cx = W*.8, cy = H*.44;
+        wash(c,W,H,[[0,"rgba(10,8,0,.30)"],[.55,"rgba(120,80,0,.10)"],[1,"rgba(255,190,40,.20)"]],false);
+        c.globalCompositeOperation = "lighter"; glow(c,cx,cy,Math.max(W,H)*.5,"rgba(255,200,70,.22)");
+        c.lineCap = "round"; for(let a=0;a<5;a++){ c.beginPath(); for(let k=0;k<=60;k++){ const th = a*TAU/5 - t*1.3 + k*.11, r = k*Math.max(W,H)*.0085; const x = cx+Math.cos(th)*r, y = cy+Math.sin(th)*r*.62; k ? c.lineTo(x,y) : c.moveTo(x,y); } c.strokeStyle = "rgba(255,215,110,.16)"; c.lineWidth = 3; c.stroke(); }
+        c.globalCompositeOperation = "source-over"; c.fillStyle = "rgba(0,0,0,.55)"; c.beginPath(); c.ellipse(cx,cy,W*.022,W*.014,0,0,TAU); c.fill();
+        for(const p of S.coins){ const dx = cx-p.x, dy = cy-p.y, d = Math.hypot(dx,dy)||1, pull = 60+26000/(d+60);
+          p.x += (dx/d*pull - dy/d*pull*.75)*dt; p.y += (dy/d*pull + dx/d*pull*.75)*dt*.7; p.sp += p.vs*dt;
+          if(d<W*.03){ p.x = R(-W*.1,W*.5); p.y = Math.random()<.5 ? R(-40,0) : R(H,H+40); if(Math.random()<.5){ p.x = -20; p.y = R(0,H); } }
+          const k = Math.min(1, d/(W*.3)), rx = Math.abs(Math.cos(p.sp))*p.r*k+.6, ry = p.r*k;
+          c.globalAlpha = p.a*(.4+.6*k); c.fillStyle = "#ffcf4a"; c.beginPath(); c.ellipse(p.x,p.y,rx,ry,0,0,TAU); c.fill(); c.fillStyle = "#fff4c2"; c.beginPath(); c.ellipse(p.x-rx*.25,p.y-ry*.3,rx*.35,ry*.3,0,0,TAU); c.fill(); }
+      } },
+    /* THE VIBE SHIFT: ribbons of colour that won't hold still, shapes that keep changing what they are, and the ripple when it turns */
+    shift: {
+      make:(W,H)=>({ sh:many(16, ()=>({x:R(0,W), y:R(0,H), r:R(12,38), ph:R(0,TAU), vx:R(-16,16), vy:R(-12,12), vr:R(-.8,.8)})) }),
+      draw:(c,W,H,t,dt,S)=>{
+        const hue = t*46;
+        c.globalCompositeOperation = "lighter";
+        for(let i=0;i<7;i++){ const y0 = H*(.1+i*.14), amp = H*(.07+.03*Math.sin(t*.4+i)), h = (hue+i*52)%360; c.beginPath();
+          for(let x=0;x<=W;x+=24){ const y = y0+Math.sin(x*.006+t*(.7+i*.13)+i)*amp+Math.sin(x*.013-t*.9+i*2)*amp*.4; x ? c.lineTo(x,y) : c.moveTo(x,y); }
+          for(let x=W;x>=0;x-=24){ const y = y0+H*.07+Math.sin(x*.006+t*(.7+i*.13)+i+.6)*amp+Math.sin(x*.011-t*.8+i)*amp*.5; c.lineTo(x,y); }
+          c.closePath(); c.fillStyle = "hsla("+h+",95%,60%,.13)"; c.fill(); }
+        for(const s of S.sh){ s.x = (s.x+s.vx*dt+W)%W; s.y = (s.y+s.vy*dt+H)%H; s.ph += s.vr*dt; const sides = 3+Math.floor(((t*.5+s.ph)%4+4)%4), m = ((t*.5+s.ph)%1+1)%1, r = s.r*(1+.25*Math.sin(m*Math.PI)); // each one is always becoming the next shape
+          c.strokeStyle = "hsla("+((hue*1.4+s.ph*60)%360)+",95%,70%,.5)"; c.lineWidth = 2; c.beginPath(); for(let k=0;k<=sides;k++){ const a = s.ph+k*TAU/sides; k ? c.lineTo(s.x+Math.cos(a)*r,s.y+Math.sin(a)*r) : c.moveTo(s.x+Math.cos(a)*r,s.y+Math.sin(a)*r); } c.stroke(); }
+        const rp = (t%4)/4; c.strokeStyle = "hsla("+(hue%360)+",100%,75%,"+(.38*(1-rp)).toFixed(3)+")"; c.lineWidth = 6*(1-rp)+1; c.beginPath(); c.ellipse(W/2,H*.45,rp*W*.75,rp*H*.75,0,0,TAU); c.stroke();
+        c.globalCompositeOperation = "source-over";
+      } },
+    /* BONKLER 9/11: smoke going up, ash coming down, embers, falling masonry, and a flash behind it all every few seconds */
+    bonkler911: {
+      make:(W,H)=>({ smoke:many(26, ()=>({x:R(0,W), y:R(0,H*1.2), r:R(60,170), vy:R(14,38), ph:R(0,TAU)})), emb:many(80, ()=>({x:R(0,W), y:R(0,H), vy:R(40,130), ph:R(0,TAU), r:R(1,3.2)})), ash:many(50, ()=>({x:R(0,W), y:R(0,H), vy:R(12,34), ph:R(0,TAU), r:R(1.2,3)})), brick:many(9, ()=>({x:R(0,W), y:R(-H,0), vy:R(240,420), rot:R(0,TAU), vr:R(-4,4), s:R(8,18)})), flash:0, next:2 }),
+      draw:(c,W,H,t,dt,S)=>{
+        S.next -= dt; if(S.next<=0){ S.next = R(3.5,6.5); S.flash = 1; S.fx = R(W*.2,W*.8); } S.flash = Math.max(0, S.flash-dt*1.6);
+        wash(c,W,H,[[0,"rgba(22,22,26,.42)"],[.5,"rgba(60,28,12,.14)"],[1,"rgba(255,100,10,"+(.30+.07*Math.sin(t*2.6)).toFixed(3)+")"]],true);
+        if(S.flash>0){ c.globalCompositeOperation = "lighter"; glow(c,S.fx,H*.5,Math.max(W,H)*.7,"rgba(255,170,60,"+(S.flash*.34).toFixed(3)+")"); c.globalCompositeOperation = "source-over"; }
+        for(const s of S.smoke){ s.y -= s.vy*dt; s.x += Math.sin(t*.3+s.ph)*12*dt; if(s.y<-s.r){ s.y = H+s.r; s.x = R(0,W); } glow(c,s.x,s.y,s.r,"rgba(18,16,18,.20)"); }
+        c.globalCompositeOperation = "lighter";
+        for(const e of S.emb){ e.y -= e.vy*dt; e.x += Math.sin(t*2+e.ph)*26*dt; if(e.y<-10){ e.y = H+10; e.x = R(0,W); } const f = .5+.5*Math.sin(t*9+e.ph); c.fillStyle = "rgba(255,"+Math.round(120+90*f)+",40,"+(.35+.5*f).toFixed(2)+")"; c.beginPath(); c.arc(e.x,e.y,e.r,0,TAU); c.fill(); }
+        c.globalCompositeOperation = "source-over";
+        for(const a of S.ash){ a.y += a.vy*dt; a.x += Math.sin(t*.8+a.ph)*20*dt; if(a.y>H+6){ a.y = -6; a.x = R(0,W); } c.fillStyle = "rgba(205,200,195,.42)"; c.fillRect(a.x,a.y,a.r,a.r*.7); }
+        for(const b of S.brick){ b.y += b.vy*dt; b.rot += b.vr*dt; if(b.y>H+40){ b.y = R(-H*1.5,-40); b.x = R(0,W); } c.save(); c.translate(b.x,b.y); c.rotate(b.rot); c.globalAlpha = .55; c.fillStyle = "#7a4a3a"; c.fillRect(-b.s,-b.s*.5,b.s*2,b.s); c.strokeStyle = "rgba(0,0,0,.6)"; c.strokeRect(-b.s,-b.s*.5,b.s*2,b.s); c.restore(); }
+      } },
+    /* THE CANCEL: the feed turning on you. Red static, the picture tearing, notifications piling down, and the word itself going past */
+    cancel: { gain:.9,
+      make:(W,H)=>({ notes:many(18, ()=>({x:R(0,W), y:R(-H,H), vy:R(50,150), w:R(90,170), n:Math.floor(R(2,999))})), tears:[], tt:0 }),
+      draw:(c,W,H,t,dt,S)=>{
+        const pulse = .75+.25*Math.sin(t*3.4);
+        const g = c.createRadialGradient(W/2,H*.45,Math.min(W,H)*.2,W/2,H*.45,Math.max(W,H)*.75); g.addColorStop(0,"rgba(255,0,30,.03)"); g.addColorStop(1,"rgba(150,0,14,"+(.52*pulse).toFixed(3)+")"); c.fillStyle = g; c.fillRect(0,0,W,H);
+        const fs = H*.34; c.font = "900 "+fs+"px Impact, 'Arial Black', sans-serif"; c.textBaseline = "middle"; c.textAlign = "left"; const word = "CANCELLED   ", ww = c.measureText(word).width, off = -((t*90)%ww);
+        for(const [dx,col] of [[-6,"rgba(0,255,255,.09)"],[6,"rgba(255,0,60,.13)"],[0,"rgba(255,255,255,.05)"]]){ c.fillStyle = col; for(let x=off; x<W; x+=ww) c.fillText(word, x+dx+(Math.random()<.03 ? R(-30,30) : 0), H*.5); }
+        for(const n of S.notes){ n.y += n.vy*dt; if(n.y>H+50){ n.y = -50; n.x = R(0,W); n.n = Math.floor(R(2,999)); } const h = 34; c.globalAlpha = .5;
+          c.fillStyle = "rgba(20,4,6,.85)"; rr(c,n.x-n.w/2,n.y-h/2,n.w,h,7); c.fill(); c.strokeStyle = "rgba(255,60,80,.7)"; c.lineWidth = 1.2; c.stroke(); c.fillStyle = "#ff3350"; c.fillRect(n.x-n.w/2,n.y-h/2+4,3,h-8);
+          c.fillStyle = "rgba(255,220,225,.75)"; c.fillRect(n.x-n.w/2+12,n.y-7,n.w*.56,4); c.fillRect(n.x-n.w/2+12,n.y+3,n.w*.36,4);
+          c.fillStyle = "#ff2040"; c.beginPath(); c.arc(n.x+n.w/2-2,n.y-h/2+2,10,0,TAU); c.fill(); c.fillStyle = "#fff"; c.font = "700 9px monospace"; c.textAlign = "center"; c.fillText(n.n>99 ? "99+" : n.n, n.x+n.w/2-2, n.y-h/2+2.5); }
+        c.globalAlpha = 1; c.fillStyle = "rgba(255,40,60,.05)"; for(let y=(t*60)%6; y<H; y+=6) c.fillRect(0,y,W,2);
+        S.tt -= dt; if(S.tt<=0){ S.tt = R(.06,.22); S.tears = many(Math.floor(R(1,5)), ()=>({y:R(0,H), h:R(3,26), x:R(-40,40)})); }
+        for(const r of S.tears){ c.fillStyle = "rgba(255,0,50,.13)"; c.fillRect(r.x,r.y,W,r.h); c.fillStyle = "rgba(0,255,255,.07)"; c.fillRect(-r.x,r.y+r.h,W,2); }
+        c.fillStyle = "rgba(255,255,255,.10)"; for(let i=0;i<140;i++) c.fillRect(Math.random()*W, Math.random()*H, 2, 2);
+      } },
+    /* the hill: light coming down from above, and gold rising to meet it */
+    king: {
+      make:(W,H)=>({ motes:many(60, ()=>({x:R(0,W), y:R(0,H), vy:R(14,50), ph:R(0,TAU), r:R(1,2.8)})), stars:many(16, ()=>({x:R(0,W), y:R(0,H*.8), ph:R(0,TAU), s:R(6,16)})) }),
+      draw:(c,W,H,t,dt,S)=>{
+        c.globalCompositeOperation = "lighter"; glow(c,W/2,-H*.15,Math.max(W,H)*.95,"rgba(255,215,110,.30)");
+        for(let i=0;i<14;i++){ const a = Math.PI*.5 + (i-6.5)*.19 + Math.sin(t*.22+i)*.05, L = Math.max(W,H)*1.4, w = .045+.02*Math.sin(t*.6+i*1.7); c.fillStyle = "rgba(255,225,140,"+(.045+.03*Math.sin(t*.9+i)).toFixed(3)+")";
+          c.beginPath(); c.moveTo(W/2,-H*.15); c.lineTo(W/2+Math.cos(a-w)*L,-H*.15+Math.sin(a-w)*L); c.lineTo(W/2+Math.cos(a+w)*L,-H*.15+Math.sin(a+w)*L); c.fill(); }
+        for(const m of S.motes){ m.y -= m.vy*dt; m.x += Math.sin(t+m.ph)*10*dt; if(m.y<-6){ m.y = H+6; m.x = R(0,W); } c.fillStyle = "rgba(255,220,120,"+(.3+.4*Math.abs(Math.sin(t*2+m.ph))).toFixed(2)+")"; c.beginPath(); c.arc(m.x,m.y,m.r,0,TAU); c.fill(); }
+        for(const s of S.stars){ const k = Math.max(0, Math.sin(t*1.6+s.ph)); c.strokeStyle = "rgba(255,240,190,"+(k*.7).toFixed(2)+")"; c.lineWidth = 1.6; c.beginPath(); c.moveTo(s.x-s.s*k,s.y); c.lineTo(s.x+s.s*k,s.y); c.moveTo(s.x,s.y-s.s*k); c.lineTo(s.x,s.y+s.s*k); c.stroke(); }
+        c.globalCompositeOperation = "source-over";
+      } },
+  };
+})();
+let ambRun = 0;
 function bossAmbient(id){
-  const sc = $("screen-combat"), old = $("boss-amb"); if(old) old.remove();
-  const a = id && BOSS_AMBIENT[id]; if(!a) return;
-  const el = document.createElement("div"); el.id = "boss-amb"; el.className = "amb-"+id+" mv-"+a.move; el.setAttribute("aria-hidden", "true");
-  if(!META.calm) for(let i=0;i<a.n;i++){ // calm mode keeps the tint and drops the motion
-    const b = document.createElement("i"), r = Math.random;
-    b.textContent = a.bits[i%a.bits.length];
-    b.style.cssText = "left:"+(r()*100).toFixed(1)+"%;top:"+(r()*100).toFixed(1)+"%;font-size:"+(14+r()*26).toFixed(0)+"px;animation-duration:"+(7+r()*9).toFixed(1)+"s;animation-delay:-"+(r()*14).toFixed(1)+"s;--sway:"+((r()*2-1)*60).toFixed(0)+"px;--o:"+(0.16+r()*0.26).toFixed(2)+";"+(r()<0.35 ? "filter:blur(1.5px);" : "");
-    el.appendChild(b);
-  }
-  sc.appendChild(el);
+  const sc = $("screen-combat"), old = $("boss-amb"); if(old) old.remove(); ambRun++;
+  const scene = id && AMB[id]; if(!scene) return;
+  const cv = document.createElement("canvas"); cv.id = "boss-amb"; cv.className = "amb-"+id; cv.setAttribute("aria-hidden", "true");
+  sc.insertBefore(cv, sc.firstChild);
+  const c = cv.getContext("2d"), run = ambRun; let W = 0, H = 0, S = null, last = 0, t = 0;
+  const size = ()=>{ const k = Math.min(1, 1400/Math.max(innerWidth, innerHeight)); W = cv.width = Math.round(innerWidth*k); H = cv.height = Math.round(innerHeight*k); S = scene.make(W, H); }; // capped, so a huge monitor doesn't pay for pixels nobody can tell apart
+  size();
+  const frame = now => {
+    if(run!==ambRun || !cv.isConnected) return;
+    if(!sc.classList.contains("active")){ cv.remove(); return; }
+    if(Math.abs(cv.width/cv.height - innerWidth/innerHeight) > .02) size(); // the window changed shape
+    const dt = Math.min(.05, last ? (now-last)/1000 : .016); last = now; t += dt;
+    c.setTransform(1,0,0,1,0,0); c.globalAlpha = 1; c.globalCompositeOperation = "source-over"; c.clearRect(0,0,W,H);
+    c.save(); scene.draw(c, W, H, t, dt, S); c.restore();
+    c.globalCompositeOperation = "source-over"; c.globalAlpha = scene.gain==null ? .75 : scene.gain; c.drawImage(cv, 0, 0); c.globalAlpha = 1; // the scene laid over itself once more: it sits behind the whole stage, so it can afford to be strong
+    if(!META.calm) requestAnimationFrame(frame); // calm mode paints the scene once and leaves it still
+  };
+  requestAnimationFrame(frame);
 }
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
