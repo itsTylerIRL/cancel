@@ -63,7 +63,7 @@ const RELICS = [
  {id:"eth_necklace", name:"ETH Necklace", rar:"common", set:["degen"], desc:"+50% $CULT from victories.", icon:["Milady", "Necklaces", "ETH Necklace"], tags:[]},
  {id:"cobain_glasses", name:"Cobain Glasses", rar:"common", set:["schizo"], desc:"+15% dodge chance.", icon:["Milady", "Glasses", "Cobain Glasses"], tags:[]},
  {id:"hat_911", name:"911 Hat", rar:"common", set:["hype"], desc:"+3 SPD.", icon:["Remilio", "Hat", "911 Hat"], tags:[]},
- {id:"ak47", name:"AK47", rar:"common", set:["armed"], desc:"+9 ATK, -2 SPD.", icon:["Remilio", "Weapon", "AK47"], tags:[]},
+ {id:"ak47", name:"AK47", rar:"common", set:["armed"], desc:"+9 ATK, -2 SPD.", icon:["Remilio", "Weapon", "AK47"], tags:["gun"]},
  {id:"balenciaga_bat", name:"Balenciaga Bat", rar:"common", set:["hype"], desc:"+5 ATK, 12% stun on hit.", icon:["Remilio", "Glasses", "Balenciaga Bat"], tags:[]},
  {id:"diamond_stud", name:"Diamond Stud", rar:"common", set:["kawaii", "ice"], desc:"+30 max HP.", icon:["Milady", "Earrings", "Diamond Stud"], tags:[]},
  {id:"beetleposting", name:"Beetleposting", rar:"common", set:["schizo"], desc:"Enemies deal -20% damage.", icon:["Remilio", "Glasses", "Clout Goggles"], tags:[]},
@@ -72,7 +72,7 @@ const RELICS = [
  {id:"gucci_cone", name:"Gucci Cone", rar:"common", set:["hype"], desc:"+20% crit chance.", icon:["Milady", "Face Decoration", "Gucci Cone Tattoo"], tags:[]},
  {id:"snakebites", name:"Snakebites", rar:"common", set:["schizo"], desc:"Hits poison: 2 dmg/tick for 3 ticks.", icon:["Milady", "Face Decoration", "Snakebites"], tags:[]},
  {id:"blunt", name:"Blunt", rar:"rare", set:["schizo", "flame"], desc:"First hit each fight deals 3x.", icon:["Remilio", "Weapon", "Blunt"], tags:[]},
- {id:"bfg", name:"BFG9000", rar:"rare", set:["armed"], desc:"+15 ATK, -15 max HP.", icon:["Remilio", "Weapon", "BFG9000"], tags:[]},
+ {id:"bfg", name:"BFG9000", rar:"rare", set:["armed"], desc:"+15 ATK, -15 max HP.", icon:["Remilio", "Weapon", "BFG9000"], tags:["gun"]},
  {id:"birthday_hat", name:"Birthday Hat", rar:"common", set:["kawaii"], desc:"Heal 18 HP on kill.", icon:["Milady", "Hat", "Cake Hat"], tags:[]},
  {id:"bulletproof", name:"Bulletproof", rar:"common", set:["bonkler", "war"], desc:"+8 ARM.", icon:["Remilio", "Hat", "Viking"], tags:[]},
  {id:"blood_splatter", name:"Blood Splatter", rar:"common", set:["schizo", "blood"], desc:"+5 ATK while below half HP.", icon:["Remilio", "Face", "Scar"], tags:[]},
@@ -130,16 +130,19 @@ const RELICS = [
  {id:"laser_eyes", name:"Laser Eyes", rar:"rare", set:["flame"], desc:"Crits set the enemy on fire for 4 ticks. Burn deals +1.", icon:["Remilio", "Weapon", "Laser Eyes"], tags:[]},
  {id:"claw", name:"Claw Marks", rar:"common", set:["blood"], desc:"Your hits cause bleed (stacks to 4): a bleeding enemy takes 2 per stack each time it attacks.", icon:["Remilio", "Face", "Claw"], tags:[]},
  {id:"vampire", name:"Vampire Fangs", rar:"rare", set:["blood"], desc:"Your hits cause bleed. Heal 2 whenever a bleeding enemy attacks.", icon:["Remilio", "Mouth", "Vampire"], tags:[]},
- {id:"desert_eagle", name:"Desert Eagle", rar:"rare", set:["blood", "armed"], desc:"+4 ATK. Crits add 2 bleed.", icon:["Remilio", "Weapon", "Desert Eagle"], tags:[]},
+ {id:"desert_eagle", name:"Desert Eagle", rar:"rare", set:["blood", "armed"], desc:"+4 ATK. Crits add 2 bleed.", icon:["Remilio", "Weapon", "Desert Eagle"], tags:["gun"]},
  {id:"chain_earrings", name:"Chain Earrings", rar:"common", set:["ice"], desc:"Your hits chill the enemy: -8% ATK per stack (up to 3).", icon:["Milady", "Earrings", "Chain Earrings"], tags:[]},
  {id:"square_diamond", name:"Square Diamond", rar:"common", set:["ice"], desc:"Your hits chill. A chilled enemy loses 1 SPD per stack.", icon:["Remilio", "Earrings", "Square Diamond"], tags:[]},
  {id:"bugatti", name:"Bugatti Watch", rar:"rare", set:["ice", "degen"], desc:"+2 SPD. A fully chilled enemy takes 30% more damage.", icon:["Remilio", "Weapon", "Bugatti Watch"], tags:[]},
  {id:"lain", name:"Lain", rar:"cursed", set:["schizo"], desc:"25% dodge chance.", icon:["Remilio", "Costume", "Lain"], tags:["blackmarket"]},
  {id:"amogus", name:"Amogus", rar:"cursed", set:["squad"], desc:"Companion: 20% chance to one-shot non-bosses.", icon:["Remilio", "Friend", "Amogus"], tags:["blackmarket"]},
- {id:"gold_ak", name:"Gold AK47", rar:"cursed", set:["armed"], desc:"+13 ATK.", icon:["Remilio", "Weapon", "AK47 Gold"], tags:["blackmarket"]},
+ {id:"gold_ak", name:"Gold AK47", rar:"cursed", set:["armed"], desc:"+13 ATK.", icon:["Remilio", "Weapon", "AK47 Gold"], tags:["blackmarket", "gun"]},
  {id:"moteiga", name:"Mottega Shades", rar:"cursed", set:["hype"], desc:"+5 ARM, +12% dodge.", icon:["Milady", "Glasses", "Mottega Sunglasses Blue"], tags:["blackmarket"]},
  {id:"crown", name:"Burger Crown", rar:"cursed", set:["degen", "food"], desc:"+100% $CULT from victories.", icon:["Remilio", "Hat", "Burger King Crown"], tags:["blackmarket"]},
  {id:"platinum", name:"Amex Platinum", rar:"cursed", set:["degen"], desc:"Shops cost 30% less.", icon:["Remilio", "Weapon", "Money Phone"], tags:["blackmarket"]},
+ // sold only by Rivergod
+ {id:"pistol", name:"Pistol", rar:"common", set:["armed"], desc:"+5 ATK, +1 SPD.", icon:["Remilio", "Weapon", "Pistol"], tags:["gun"]},
+ {id:"super_soaker", name:"Super Soaker", rar:"common", set:["armed", "ice"], desc:"+2 ATK. Your hits chill the enemy.", icon:["Remilio", "Weapon", "Super Soaker"], tags:["gun"]},
  // THREE LETTER AGENCY
  {id:"atf_cap", name:"ATF Cap", rar:"common", set:["agency"], desc:"+2 ATK, +3 ARM.", icon:["Remilio", "Hat", "ATF Cap"], tags:[]},
  {id:"atf_agent", name:"ATF Agent", rar:"rare", set:["agency", "war"], desc:"Elites and hunters deal 15% less to you.", icon:["Remilio", "Shirt", "ATF Agent"], tags:[]},
@@ -177,7 +180,7 @@ const RELICS = [
  {id:"safety_glasses", name:"Safety Glasses", rar:"common", set:["war"], desc:"+3 ARM, +5% dodge chance.", icon:["Remilio", "Glasses", "Safety Glasses"], tags:[]},
  {id:"plaster", name:"Plaster", rar:"common", set:["war"], desc:"Heal 2 HP every time you are hit.", icon:["Remilio", "Weapon", "Plaster"], tags:[]},
  {id:"pickaxe", name:"Minecraft Pickaxe", rar:"rare", set:["war", "armed"], desc:"+5 ATK, +2 ARM.", icon:["Remilio", "Weapon", "Minecraft Pickaxe"], tags:[]},
- {id:"hk416", name:"HK416", rar:"rare", set:["war", "armed"], desc:"+7 ATK, +2 ARM.", icon:["Remilio", "Weapon", "HK416"], tags:[]},
+ {id:"hk416", name:"HK416", rar:"rare", set:["war", "armed"], desc:"+7 ATK, +2 ARM.", icon:["Remilio", "Weapon", "HK416"], tags:["gun"]},
 ];
 
 /* Synergies: hold enough relics of a set (relic.set) and its tiers switch on. tiers: [count, effect]. */

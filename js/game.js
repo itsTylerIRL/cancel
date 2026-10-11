@@ -639,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes","journal","candles"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","banished","banishes","journal","candles"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -828,6 +828,7 @@ function relicPool(){
     if(r.tags.includes("blackmarket") && !(perk("blackmarket") && !(G && G.daily))) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !(G && G.daily)) return false; // on the daily everyone draws from the same pool, whatever they have unlocked
     if(G && G.banished && G.banished.includes(r.id)) return false; // banished this run: it won't be offered again
+    if(G && G.rivergod && r.tags.includes("gun")) return false; // guns have one dealer now: they are not in chests, drops or the marts
     return true;
   });
 }
@@ -869,6 +870,8 @@ function rawStats(relics, setsAs){
   if(R("post_authorship")) s.atk += Math.min(10, G.kills);
   if(R("cancelversary")) s.atk += 4*G.bossesBeaten;
   if(R("atf_cap")){ s.atk+=2; s.arm+=3; }
+  if(R("pistol")){ s.atk+=5; s.spd+=1; }
+  if(R("super_soaker")) s.atk+=2;
   if(R("shooting_glasses")) s.atk+=3;
   if(R("goth_headband")) s.atk+=2;
   if(R("pickaxe")){ s.atk+=5; s.arm+=2; }
@@ -972,11 +975,11 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19 };
 const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
-const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp" }; // their own profile pictures
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1042,6 +1045,8 @@ function genMap(){
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
   put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
   put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); put(T.ALTAR,4); // placed last, so everything above stays where it always was on a given seed
+  G.rivergod = !(G.daily && G.daily < RIVERGOD_FROM); // daily maps from before he arrived keep the layout, and the loot, their players already saw
+  if(G.rivergod) put(T.RIVERGOD,4);
   spreadOut(rooms);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
@@ -1068,11 +1073,11 @@ function genMap(){
    rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
    of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
    a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
-const SPREAD = 12, SPREAD_FROM = "2026-10-12";
+const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12";
 function spreadOut(rooms){
   if(G.daily && G.daily < SPREAD_FROM) return;
   const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR]){
+  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD]){
     const kept = [];
     for(const r of rooms.filter(r=>G.map[r.y][r.x]===t)){
       if(kept.every(k=>far(k,r) >= SPREAD)){ kept.push(r); continue; }
@@ -1663,7 +1668,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1689,7 +1694,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
   [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. One bargain.",
-  [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip." };
+  [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
+  [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
@@ -1716,7 +1722,7 @@ function pinName(x,y){
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
-const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
   // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
   const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
@@ -1965,6 +1971,7 @@ function enterTile(t){
     case T.ONNO: openOnno(); break;
     case T.FANG: openFang(); break;
     case T.SCEARPO: openScearpo(); break;
+    case T.RIVERGOD: openRivergod(); break;
     case T.ALTAR: openAltar(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
@@ -2678,6 +2685,45 @@ function openAltar(note){
   };});
   $("altar-leave").onclick=()=>closeModal();
 }
+/* ---------- Rivergod: made the Schizoposters, and deals the only guns in the maze ----------
+   He talks like a file with half of it blacked out. Each of the four keeps its own stock of three; a sale doesn't close him. */
+const BLK = n => "<span class='redact' aria-label='redacted'>"+"█".repeat(n)+"</span>";
+const RIVER_LINES = [
+  ()=>"\"You didn't see me. This "+BLK(7)+" was never here. The Schizoposters were a "+BLK(9)+" programme and I am not at liberty to say whose.\"",
+  ()=>"\"Asset is in position. I made them to post. What they do at night is "+BLK(11)+". Buy something or keep walking.\"",
+  ()=>"\"Per directive "+BLK(4)+"-"+BLK(2)+", sidearms are no longer distributed through "+BLK(6)+". You want one, you see me. That's the whole memo.\"",
+  ()=>"\"The posters aren't hunting you. They're "+BLK(8)+". There's a difference, and it's classified.\"",
+  ()=>"\"I can neither confirm nor deny that I drew sixteen of them. The other "+BLK(5)+" are still out there. Cash only.\"",
+  ()=>"\"Operation "+BLK(10)+" is ongoing. You are a line item. This is the armoury. Don't touch the "+BLK(6)+".\"" ];
+const gunPool = () => RELICS.filter(r=>r.tags.includes("gun") && !(G.banished||[]).includes(r.id)
+  && !(r.tags.includes("blackmarket") && !(perk("blackmarket") && !G.daily)) && !(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !G.daily));
+function openRivergod(note){
+  const key = G.px+","+G.py, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
+  G.armory = G.armory || {};
+  const shop = G.armory[key] || (G.armory[key] = { stock: shuffle(gunPool()).slice(0,3).map(r=>({id:r.id, base:Math.round(RARITY[r.rar].price*1.15)})) }); // the only dealer charges like it
+  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten;
+  const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
+  let html = "<h2>RIVERGOD</h2><img class='npc-face river' src='"+localFile(NPC_ART[T.RIVERGOD])+"' alt=''>"
+    + "<div class='note river-say'><i>"+spotLine(RIVER_LINES, "river")()+"</i><br>the only guns in the maze · he stays open</div>"
+    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span><span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span></div>";
+  if(G.curses && G.curses.shunned) html += "<div class='note bad'>\"Your file is flagged. "+BLK(8)+". I don't sell to flagged.\"</div>";
+  else shop.stock.forEach((it,i)=>{ const r = relicById(it.id), p = Math.round(it.base*disc);
+    html += relicRow(r, relicExtras(r, true), "<button class='btn small price' data-gun='"+i+"'"+(G.cult<p?" disabled":"")+">"+coin+p+"</button>"); });
+  if(!shop.stock.length) html += "<div class='note'>\"Inventory is "+BLK(6)+". That means empty.\"</div>";
+  if(note) html += "<div class='note good'>"+note+"</div>";
+  html += "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-gun]").forEach(b=>{ b.onclick=()=>{
+    const it = shop.stock[+b.dataset.gun], r = relicById(it.id), p = Math.round(it.base*disc);
+    if(G.cult<p) return;
+    acquireRelic(r, old=>{
+      G.cult -= p; shop.stock.splice(shop.stock.indexOf(it), 1); sfx("coin");
+      mlog("🔫 Rivergod sold you <b>"+r.name+"</b> for "+p+" $CULT."+(old?" <i>(dropped "+old.name+")</i>":"")+" <i>This transaction did not occur.</i>", "good");
+      renderMap(); openRivergod("\"Pleasure doing "+BLK(8)+" with you.\"");
+    }, ()=>openRivergod());
+  };});
+  $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
+}
 /* ---------- Scearpo: scorched earth policy. One relic, one coin flip: doubled, or ash ---------- */
 function openScearpo(note, cls){
   const here = G.px+","+G.py, done = G.traded===here;
@@ -3123,7 +3169,7 @@ function fightEngine(foeDef, opts, io){
       if(crit && act("laser_eyes")) foe.burn = Math.max(foe.burn, 4+extra);
       const bleed = (act("claw")||act("vampire") ? 1 : 0) + (crit && act("desert_eagle") ? 2 : 0) + (act("teardrops") && you.hp < you.maxhp/2 ? 1 : 0);
       if(bleed) foe.bleed = Math.min(bleedMax(), foe.bleed+bleed);
-      if(act("chain_earrings")||act("square_diamond")){
+      if(act("chain_earrings")||act("square_diamond")||act("super_soaker")){
         foe.chill = Math.min(chillMax(), foe.chill+1);
         if(set("ice",3) && foe.chill>=chillMax() && !foe.stun){ foe.stun = 1; foe.chill = 0; io.log("🧊 "+foe.name+" freezes solid.", "good"); io.float("foe","frozen","psn"); }
       }
@@ -4886,7 +4932,7 @@ function openCodex(tab, pick){
     body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
       + EVENTS.map(e=>"<div class='cx-row' style='--sc:#bd93f9'><b>"+(e.icon||"❓")+" "+e.name+"</b><span><i>"+e.text+"</i></span></div>").join("");
   } else {
-    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO];
+    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD];
     body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
       + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");

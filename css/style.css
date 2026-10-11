@@ -1725,3 +1725,9 @@ body[data-phase="night"] .brand b{color:#b9c1ff;}
 .hface{position:relative;display:inline-block;line-height:0;margin-bottom:4px;} .hcard .hface .bpfp{margin-bottom:0;}
 .tico{position:absolute;right:-6px;bottom:-5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:13px;line-height:1;
   background:#05090b;border:1.5px solid var(--tc);box-shadow:0 0 8px color-mix(in srgb,var(--tc) 55%,transparent);}
+
+/* Rivergod: the armoury */
+.tile.poi.t19 span{border-color:#e0263a;background:#160305;box-shadow:0 2px 0 #000,0 0 14px rgba(224,38,58,.65);animation:bob 2.4s ease-in-out infinite;overflow:hidden;}
+.tile.poi.t19 .npc{width:100%;height:100%;}
+.npc-face.river{border-color:#e0263a;box-shadow:0 0 24px rgba(224,38,58,.55);}
+.river-say i{font-family:var(--mono);letter-spacing:.01em;} .redact{color:#c9d1d4;background:#c9d1d4;border-radius:1px;letter-spacing:-1px;user-select:none;font-style:normal;padding:0 1px;}

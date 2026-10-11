@@ -18,6 +18,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
 - **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and hands one of them back a grade higher. She decides which. One trade each, and neither lets you pick.
 - **Scearpo.** Scorched earth policy. Hand him a relic and he flips a coin: it comes back a tier higher, or it burns.
+- **Rivergod.** He made the Schizoposters and he sells guns. Only guns, and only him: they don't turn up in chests or shops any more. Four of him per maze. Half of what he says is redacted.
 - **Cursed altars.** A legendary relic, lying there, free. Take it and you carry a curse of your choosing for the rest of the run: a sealed slot, blood at every dawn, shops that won't serve you, or a chunk of your health.
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
 - **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
