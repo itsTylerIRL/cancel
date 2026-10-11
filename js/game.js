@@ -274,9 +274,9 @@ const localFile = path => (window.INLINE_FILES && window.INLINE_FILES[path]) || 
 const NFT = {
   milady:   { name:"Milady",          max:9999,  frame:"milady",  playable:true, src:id=>"https://www.miladymaker.net/milady/"+id+".png" },
   remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
-  pixelady: { name:"Pixelady",        max:PIXELADY_LOCAL.length, frame:"milady",  src:id=>localFile("assets/img/Pixelady/"+PIXELADY_LOCAL[(id-1)%PIXELADY_LOCAL.length]+".webp") },
+  pixelady: { name:"Pixelady",        max:PIXELADY_LOCAL.length, frame:"milady", faces:"right",  src:id=>localFile("assets/img/Pixelady/"+PIXELADY_LOCAL[(id-1)%PIXELADY_LOCAL.length]+".webp") },
   survivor: { name:"Survivor",        max:SURVIVOR_LOCAL.length, frame:"milady", src:id=>localFile("assets/img/Survivor/"+SURVIVOR_LOCAL[(id-1)%SURVIVOR_LOCAL.length]+".webp") },
-  cig:      { name:"Cigawrette Pack", max:16, frame:"milady", src:id=>localFile("assets/img/Cig/"+(1+(id-1)%16)+".webp") }, // sixteen packs, shipped with the game
+  cig:      { name:"Cigawrette Pack", max:16, frame:"milady", faces:"right", src:id=>localFile("assets/img/Cig/"+(1+(id-1)%16)+".webp") }, // sixteen packs, shipped with the game
   radbro:   { name:"Radbro",          max:RADBRO_LOCAL.length, frame:"remilio", src:id=>localFile("assets/img/Radbro/"+RADBRO_LOCAL[(id-1)%RADBRO_LOCAL.length]+".webp") },
   schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
@@ -508,6 +508,14 @@ function foePool(tier, district){
   const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e) && !(e.nft==="cig" && G && G.daily && G.daily < CIG_FROM)); // daily maps from before the packs arrived keep the enemies their players met
   const local = ok.filter(e=>district===3 || e.home.includes(district));
   return local.length ? local : ok;
+}
+/* In a fight the enemy stands on the right, so art that looks right (a collection marked faces:"right") is turned to
+   look at you. Only token art is turned, and only on the fight screen: the map and the codex show it as it was drawn. */
+function towardYou(cv, def){
+  if(!def || !def.nft || !NFT[def.nft] || NFT[def.nft].faces!=="right" || cv.cfg) return cv; // cv.cfg: it fell back to trait layers, not the token
+  const m = document.createElement("canvas"); m.width = cv.width; m.height = cv.height;
+  const cx = m.getContext("2d"); cx.translate(m.width, 0); cx.scale(-1, 1); cx.drawImage(cv, 0, 0);
+  m.frame = cv.frame; return m;
 }
 /* An enemy's portrait. Enemies from a token collection (def.nft) show a real token, picked by number;
    if it can't be fetched in time they fall back to trait layers with that collection's look. */
@@ -3849,7 +3857,7 @@ function startCombat(foeDef, opts={}){
   }
   paint($("combat-you"), G.avatar); delete $("chp-you").parentElement.dataset.hp;
   const fc = $("combat-foe"); fc.width=4; fc.height=5;
-  (opts.portrait || foePortrait(foeDef, cosmetic(()=>pinnedPicks(foeDef)), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, cv); });
+  (opts.portrait || foePortrait(foeDef, cosmetic(()=>pinnedPicks(foeDef)), foeDef.nft ? 1+Math.floor(Math.random()*NFT[foeDef.nft].max) : 0)).then(cv=>{ if(tok===combatTok) paint(fc, towardYou(cv, foeDef)); });
   sfx(boss ? "boss" : "fight");
 
   let quiet=false, timer=null, F=null, stall=0; // stall: extra time before the next round, bought by a crit's hit-stop
