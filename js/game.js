@@ -4272,9 +4272,20 @@ async function loadRank(){
   myRank = res.you ? { rank:res.you.rank, score:res.you.score, total:res.total, pid:playerId() } : { rank:0, total:res.total, pid:playerId() };
   if($("screen-title").classList.contains("active")) renderLast();
 }
+let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
   const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
   if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
+  if(!youReady){ // first load: the same outline the king's card holds, until your face is built and your rank is in
+    if(!youBoot){
+      el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card skel-wrap' aria-busy='true'><i class='bpfp big skel'></i><div class='skel-lines'><b class='skel'></b><span class='skel'></span><span class='skel short'></span></div><div class='king-clock'><span class='skel'></span><b class='skel'></b></div></div>";
+      el.classList.remove("hidden");
+      youBoot = Promise.all([ r && r.look ? lookCanvas(r.look, r.relics).catch(()=>{}) : 0,
+        online() ? new Promise(ok=>{ const t0 = Date.now(), iv = setInterval(()=>{ if(myRank || Date.now()-t0>1500){ clearInterval(iv); ok(); } }, 60); }) : 0 ])
+        .then(()=>{ youReady = true; renderLast(); });
+    }
+    return;
+  }
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
   const wl = { w:META.wins||0, l:Math.max(0, (META.runs||0)-(META.wins||0)) };
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
