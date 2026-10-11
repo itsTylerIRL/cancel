@@ -4643,7 +4643,7 @@ async function loadKing(){
     el.classList.remove("hidden");
   }
   const r = await api("/api/king?player="+playerId());
-  if(!r){ el.classList.add("hidden"); return; }
+  if(!r){ if(!el.querySelector(".king-card:not(.skel-wrap)")) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"
@@ -4939,15 +4939,63 @@ function submitRun(run, win, drip){
   });
 }
 const hereId = () => { try{ return playerId(); }catch(e){ return ""; } };
-setInterval(()=>{ if(!document.hidden && online()) api("/api/pulse?here="+hereId()).then(p=>{ const n = $("pulse-now"); if(p && n && p.now) n.textContent = p.now; }); }, 60000); // "I'm here", once a minute while the tab is in front
-async function loadPulse(){ // everyone's games and wins, on the title screen
-  const p = await api("/api/pulse?here="+hereId()), el = $("pulse");
-  if(!p || !el || !p.lifetime.games){ if(el) el.classList.add("hidden"); return; }
-  const cell = (label, d)=>"<div class='pcell'><u>"+label+"</u><b>"+d.games.toLocaleString()+"</b><span>game"+(d.games===1?"":"s")+" · "+d.wins.toLocaleString()+" win"+(d.wins===1?"":"s")+"</span></div>";
-  el.innerHTML = "<div class='phead'>the timeline, worldwide"+(p.now ? " <span class='pnow' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+p.now+"</b> playing now</span>" : "")+"</div><div class='pgrid'>"+cell("today", p.today)+cell("this week", p.week)+cell("all time", p.lifetime)
-    + "<div class='pcell'><u>all time</u><b>"+p.players.toLocaleString()+"</b><span>player"+(p.players===1?"":"s")+" · "+p.lifetime.kills.toLocaleString()+" kills</span></div></div>";
-  el.classList.remove("hidden");
+/* The timeline, worldwide: four tiles and the latest run, kept current while the title screen is open. Numbers count
+   up when the panel arrives and roll to their new value when a game somewhere ends; a tile that moved says by how much. */
+const PULSE = { built:false, runs:[], at:0, show:0, newest:"", turn:0 };
+function pulseRoll(el, to, first){ // roll a number to its new value, with separators
+  if(!el) return; const from = first ? 0 : (el._v==null ? to : el._v); el._v = to;
+  if(from===to || META.calm){ el.textContent = to.toLocaleString("en-US"); return; }
+  const t0 = performance.now(), ms = first ? 1100 : 700, tok = el._tok = (el._tok||0)+1;
+  const f = now => { if(el._tok!==tok) return; const k = Math.min(1, (now-t0)/ms); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k, 3))).toLocaleString("en-US"); if(k<1) requestAnimationFrame(f); };
+  requestAnimationFrame(f); setTimeout(()=>{ if(el._tok===tok) el.textContent = to.toLocaleString("en-US"); }, ms+80);
+  if(!first && to>from){ const c = el.closest(".pcell"); if(c){ c.classList.remove("tick"); void c.offsetWidth; c.classList.add("tick"); // something just happened here
+    if(el.dataset.main){ const up = document.createElement("i"); up.className = "pup"; up.textContent = "+"+(to-from).toLocaleString("en-US"); c.appendChild(up); setTimeout(()=>up.remove(), 1500); } } }
 }
+function pulseTicker(jump, isNew){ // the latest runs, one at a time
+  const box = $("pulse-feed"); if(!box || !PULSE.runs.length) return;
+  if(jump){ PULSE.show = 0; PULSE.hold = Date.now()+7000; } // a run that just came in stays up a while before the feed turns
+  const r = PULSE.runs[PULSE.show % PULSE.runs.length], fresh = !!isNew && r.id===PULSE.newest; // "new" only for a run that arrived while you were looking
+  const who = r.handle ? (isShip(r.handle) ? r.handle : "~"+r.handle) : r.name;
+  const row = document.createElement("div"); row.className = "pfeed-row"+(r.win ? " won" : " fell")+(fresh ? " fresh" : "");
+  row.innerHTML = "<canvas class='bpfp' width='4' height='4'></canvas><span class='pf-who'>"+(r.handle ? "<i>✓</i> " : "")+esc(who||"anon")+"</span>"
+    + "<span class='pf-what'>"+(r.win ? "saved the timeline on day "+r.day : (r.killedBy==="giving up" ? "gave up" : r.killedBy ? "&gt;"+esc(r.killedBy) : "cancelled")+" on day "+r.day)+"</span>"
+    + "<b>"+(r.score||0).toLocaleString("en-US")+"</b><em>"+agoText(r.at*1000)+"</em>";
+  const old = box.querySelector(".pfeed-row"); if(old){ old.classList.add("out"); setTimeout(()=>old.remove(), 420); }
+  box.appendChild(row);
+  if(r.look) drawLook(row.querySelector("canvas"), r.look, r.relics||[]).catch(()=>{});
+}
+async function loadPulse(){ // everyone's games and wins, on the title screen
+  const el = $("pulse"); if(!el) return;
+  const [p, rec] = await Promise.all([api("/api/pulse?here="+hereId()), api("/api/recent?limit=6")]);
+  if(!p || !p.lifetime.games){ if(!PULSE.built) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
+  const first = !PULSE.built, pct = d => d.games ? Math.round(100*d.wins/d.games) : 0;
+  if(first){
+    const tile = (k, label, sub1, sub2, bar) => "<div class='pcell' data-t='"+k+"'><u>"+label+"</u><b data-n='"+k+".a' data-main='1'>0</b><span><i data-n='"+k+".b'>0</i> "+sub1+(sub2 ? " · <i data-n='"+k+".c'>0</i> "+sub2 : "")+"</span>"
+      + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
+    el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
+      + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)+"</div>"
+      + "<div class='pfeed' id='pulse-feed' aria-live='off'></div>";
+    el.classList.remove("hidden"); PULSE.built = true;
+    if(!META.calm){ el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
+  }
+  const set = (k, v) => pulseRoll(el.querySelector("[data-n='"+k+"']"), v, first);
+  for(const k of ["today","week","lifetime"]){ const d = p[k];
+    set(k+".a", d.games); set(k+".b", d.wins);
+    const bar = el.querySelector(".pcell[data-t='"+k+"'] .pbar"); if(bar){ bar.querySelector("s").style.width = pct(d)+"%"; bar.querySelector("em").textContent = pct(d)+"% saved"; } }
+  set("players.a", p.players); set("players.b", p.lifetime.kills);
+  const now = $("pulse-now"); if(now){ now.parentElement.classList.toggle("hidden", !p.now); if(p.now && +now.textContent!==p.now){ now.textContent = p.now; now.classList.remove("bump"); void now.offsetWidth; now.classList.add("bump"); } }
+  if(rec && rec.runs && rec.runs.length){
+    const top = rec.runs[0].id, changed = top!==PULSE.newest, had = !!PULSE.newest;
+    PULSE.runs = rec.runs; PULSE.newest = top;
+    if(changed){ pulseTicker(true, had); if(had && !META.calm){ const f = $("pulse-feed"); f.classList.remove("ping"); void f.offsetWidth; f.classList.add("ping"); } }
+  }
+}
+// kept current: every 20 seconds while the title screen is showing, and a quiet "I'm here" once a minute otherwise
+setInterval(()=>{ if(document.hidden || !online()) return; PULSE.turn++;
+  if($("screen-title").classList.contains("active") && $("modal").classList.contains("hidden")) loadPulse();
+  else if(PULSE.turn%3===0) api("/api/pulse?here="+hereId());
+}, 20000);
+setInterval(()=>{ if(document.hidden || !PULSE.built || PULSE.runs.length<2 || !$("screen-title").classList.contains("active") || Date.now()<(PULSE.hold||0)) return; PULSE.show++; pulseTicker(false); }, 5000); // the feed turns over
 function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
   if(!res || !res.boards) return "";
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
