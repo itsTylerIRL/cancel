@@ -5009,25 +5009,28 @@ function beginSetup(){
   };
   backdrop(); pickTribe();
 }
+const RADBRO_TOKEN = { kind:"remilio", id:2305 }; // "Radbro" on the character screen is this one Remilio, and nothing to choose
+const isRadbro = n => !!n && n.kind===RADBRO_TOKEN.kind && +n.id===RADBRO_TOKEN.id;
 async function genAvatar(nft, last){ // last: the character from the previous run, to start from instead of a new roll
   const tok = ++avaTok;
   const keep = last && last.picks && BASE_LAYERS.every(l=>(ASSETS.Milady[l]||[]).includes(last.picks[l])) ? last : null; // only if its layers still exist
   const ava = keep ? { picks:{...keep.picks}, name:keep.name || choice(NAMES) } : { picks: basePicks(), name: choice(NAMES) };
   if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
-    const label = NFT[nft.kind].name+" #"+nft.id;
+    const rad = isRadbro(nft), label = rad ? "Radbro" : NFT[nft.kind].name+" #"+nft.id;
     $("nft-msg").textContent = "loading "+label+"…";
-    $("avatar-canvas").classList.add("loading"); $("nft-load").disabled = true;
+    $("avatar-canvas").classList.add("loading");
     // first choice: its traits, so it can be rebuilt in layers. failing that, its flat picture
     const traits = await tokenTraits(nft), tk = traits ? tokenLayers(nft.kind, traits) : null;
     const ok = tk ? true : await loadNft(nft).then(()=>true, ()=>false);
-    $("avatar-canvas").classList.remove("loading"); $("nft-load").disabled = false;
+    $("avatar-canvas").classList.remove("loading");
     if(tok!==avaTok) return;
+    if(!ok && AVA){ $("nft-msg").textContent = "couldn't load "+label+" — still showing the last one"; $("btn-begin").disabled = false; return; } // a number that doesn't load changes nothing
     $("nft-msg").textContent = tk ? "playing as "+label
       : ok ? "playing as "+label+" — its traits couldn't be read, so relics are drawn over its picture"
       : "couldn't load that one — check the number and your connection";
     if(tk){ ava.picks.kit = tokenKit(nft.kind, traits, tk); if(ava.picks.kit.tribe) PICK.tribe = ava.picks.kit.tribe; }
-    if(ok){ ava.picks.nft = nft; if(tk) ava.picks.token = tk; ava.name = NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
+    if(ok){ ava.picks.nft = nft; if(tk) ava.picks.token = tk; ava.name = rad ? "radbro" : NFT[nft.kind].name.toLowerCase()+" #"+nft.id; META.nft = nft; saveMeta(); }
   } else $("nft-msg").textContent = "";
   ava.canvas = await composeAvatar(ava.picks, []);
   if(tok!==avaTok) return;
@@ -5411,7 +5414,7 @@ function onKey(ev){
     }
     if(ev.key==="Enter" || (ev.key===" " && !typing)){
       ev.preventDefault();
-      if(typing){ if(ev.target.id==="nft-id") $("nft-load").click(); else navMove(0,1); return; }
+      if(typing){ if(ev.target.id==="nft-id") ev.target.onchange(); else navMove(0,1); return; }
       if(!navSel || !navItems(scope).includes(navSel)) navRefresh();
       if(navSel && navSel.tagName!=="SELECT") navSel.click();
       return;
@@ -5509,14 +5512,23 @@ async function init(){
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("btn-ava-back").onclick=()=>{ sfx("click"); avaTok++; show("screen-title"); renderTitle(); }; // back to the title; whatever was loading is dropped
   $("name-in").value = META.name || "";
-  $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("");
-  if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = META.nft.kind; $("nft-id").value = META.nft.id; }
+  $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("")+"<option value='radbro'>Radbro</option>";
+  if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = isRadbro(META.nft) ? "radbro" : META.nft.kind; $("nft-id").value = META.nft.id; }
+  /* No load button: the character follows the number as it is typed. A number that isn't one (empty, out of range)
+     changes nothing, and neither does one that fails to load. */
+  let nftT = 0;
+  const nftRow = ()=>{ $("nft-id").classList.toggle("hidden", $("nft-kind").value==="radbro"); };
   const useNft = ()=>{
-    const kind = $("nft-kind").value, id = parseInt($("nft-id").value, 10);
-    if(!(id>=0 && id<=NFT[kind].max)){ $("nft-msg").textContent = "enter a token number from 0 to "+NFT[kind].max; return; }
-    sfx("click"); $("btn-begin").disabled = true; genAvatar({kind, id});
+    clearTimeout(nftT);
+    const sel = $("nft-kind").value, kind = sel==="radbro" ? RADBRO_TOKEN.kind : sel, id = sel==="radbro" ? RADBRO_TOKEN.id : parseInt($("nft-id").value, 10);
+    if(!/^\d+$/.test(String(sel==="radbro" ? id : $("nft-id").value).trim()) || !(id>=0 && id<=NFT[kind].max)) return;
+    const cur = AVA && AVA.picks && AVA.picks.nft; if(cur && cur.kind===kind && +cur.id===id && !$("avatar-canvas").classList.contains("loading")) return; // already showing it
+    $("btn-begin").disabled = true; genAvatar({kind, id});
   };
-  $("nft-load").onclick = useNft;
+  $("nft-id").oninput = ()=>{ clearTimeout(nftT); nftT = setTimeout(useNft, 380); }; // a beat after the last keystroke
+  $("nft-id").onchange = useNft;
+  $("nft-kind").onchange = ()=>{ nftRow(); useNft(); };
+  nftRow();
 
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
