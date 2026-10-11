@@ -1738,3 +1738,26 @@ body[data-phase="night"] .brand b{color:#b9c1ff;}
 .npc-face.eth{border-color:#a6b8ff;box-shadow:0 0 24px rgba(166,184,255,.55);}
 .eth-pick b small{font-family:var(--mono);font-weight:400;color:var(--dim);letter-spacing:0;margin-left:6px;} .eth-pick:not(:disabled):hover{border-color:var(--sc);box-shadow:0 0 16px color-mix(in srgb,var(--sc) 35%,transparent);}
 .eth-pick .good{font-style:normal;color:var(--acid);} .rstate.eth{border-color:#a6b8ff;color:#cdd7ff;background:rgba(166,184,255,.14);}
+
+/* Healing that is blocked, cut or turned back shows on the fighter: a stamp over the portrait, its own floating text,
+   a marked health bar and a chip in words. */
+:root{--noheal:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%2350fa7b' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M4 20L20 4' stroke='%23000' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M4 20L20 4' stroke='%23ff3b3b' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  --heal:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%2350fa7b' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");}
+.float.hblock{color:#ff5a5a;font-size:19px;letter-spacing:1px;top:22%;} .float.hback{color:#ff9d5a;font-size:19px;top:22%;} .float.heal.hcut{color:#d6e36a;}
+.combat-panel .float.hblock,.combat-panel .float.hback{font-size:clamp(16px,2.2vw,30px);}
+.fx-noheal,.fx-backheal,.fx-cutheal{background:var(--noheal) center/46% no-repeat;animation:nohealstamp .7s cubic-bezier(.2,.9,.3,1) forwards;}
+.fx-noheal{box-shadow:inset 0 0 0 3px rgba(255,59,59,.8),inset 0 0 40px rgba(255,59,59,.45);}
+.fx-backheal{background-image:var(--heal);animation-name:healback;box-shadow:inset 0 0 0 3px rgba(255,140,60,.8),inset 0 0 40px rgba(255,120,40,.45);}
+.fx-cutheal{background-image:var(--heal);background-size:30%;animation-name:healcut;}
+@keyframes nohealstamp{0%{opacity:0;transform:scale(1.9);}22%{opacity:1;transform:scale(.92);}34%{transform:scale(1.04);}70%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1);}}
+@keyframes healback{0%{opacity:0;transform:scale(.7) rotate(0);filter:none;}30%{opacity:1;transform:scale(1.1) rotate(0);filter:none;}60%{opacity:1;transform:scale(1) rotate(180deg);filter:hue-rotate(-130deg) saturate(2);}100%{opacity:0;transform:scale(1.3) rotate(180deg);filter:hue-rotate(-130deg) saturate(2);}}
+@keyframes healcut{0%{opacity:.9;transform:scale(1.3);filter:none;}100%{opacity:0;transform:scale(.45) translateY(30%);filter:grayscale(1);}}
+.statuses{flex-wrap:wrap;} .statuses .hx{display:inline-flex;align-items:center;gap:4px;color:#ffd0d0;border-color:rgba(255,90,90,.55);background:rgba(60,0,0,.5);white-space:nowrap;}
+.statuses .hx::before{content:"";width:1em;height:1em;background:var(--noheal) center/contain no-repeat;flex:none;}
+.statuses .hx.back{color:#ffd9b8;border-color:rgba(255,150,70,.6);background:rgba(60,25,0,.5);}
+.statuses .hx.no{animation:hxpulse 1.1s ease-in-out infinite alternate;} @keyframes hxpulse{from{box-shadow:none;}to{box-shadow:0 0 10px rgba(255,59,59,.7);}}
+.hpbar.noheal,.hpbar.cutheal{border-color:rgba(255,90,90,.85);} .hpbar.noheal::before,.hpbar.cutheal::before{content:"";position:absolute;left:3px;top:50%;width:14px;height:14px;transform:translateY(-50%);background:var(--noheal) center/contain no-repeat;z-index:2;}
+.hpbar.noheal>div{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.38) 0 5px,transparent 5px 10px),linear-gradient(90deg,#7a5a5a,#b98a8a) !important;}
+.hpbar.cutheal::before{opacity:.75;}
+#you-status:empty{min-height:0;margin:0;}
+body.calm .statuses .hx.no{animation:none;}

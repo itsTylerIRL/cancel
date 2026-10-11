@@ -3024,8 +3024,19 @@ function combatBars(you, foe){
   const pf = $("port-foe"), py = $("port-you");
   for(const [c,on] of [["burning",foe.burn>0],["bleeding",foe.bleed>0],["chilled",foe.chill>0],["poisoned",foe.poison>0],["stunned",foe.stun>0]]) pf.classList.toggle(c, !!on);
   py.classList.toggle("hurt", you.hp>0 && you.hp<=you.maxhp*0.3); py.classList.toggle("shielded", you.shield>0); py.classList.toggle("stunned", (you.stun||0)>0);
+  // what is being done to each side's healing, in words: there is no hover on a phone
+  const hxChips = h => { if(!h) return ""; const o = [];
+    if(h.mult===0) o.push(["can't heal", "no", "nothing heals this fighter right now"]);
+    else if(h.mult!=null && h.mult<1) o.push(["heals −"+Math.round((1-h.mult)*100)+"%", "", "healing is cut"]);
+    if(h.block) o.push(["next heal blocked", "no", "the next heal will not happen"]);
+    if(h.noProc) o.push(["no lifesteal", "", "nothing heals off a hit, a dodge or being hit"]);
+    if(h.reflect) o.push(["overheal hurts", "back", "healing past full health comes back as damage"]);
+    return o.map(x=>"<span class='hx "+x[1]+"' title='"+x[2]+"'>"+x[0]+"</span>").join(""); };
+  const hxBar = (id, h) => { const b = $("chp-"+id).parentElement, none = !!(h && (h.mult===0 || h.block)); b.classList.toggle("noheal", none); b.classList.toggle("cutheal", !!h && !none && h.mult!=null && h.mult<1); };
+  hxBar("foe", foe.hx); hxBar("you", you.hx);
   $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["🚬",foe.ratio,"ratio'd: heals half as well"],["💫",foe.stun,"stunned"]]
-    .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
+    .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("") + hxChips(foe.hx);
+  if($("you-status")) $("you-status").innerHTML = hxChips(you.hx);
 }
 /* Every kind of damage has its own look. The fight log already says what happened, so the effect is read from it:
    [which portrait, which effect]. */
@@ -3055,6 +3066,8 @@ function lunge(side){ // the attacker jabs toward the other portrait
 function floatText(side, text, cls){
   const d=document.createElement("div"); d.className="float "+(cls||""); d.textContent=text;
   d.style.left=(25+Math.random()*50)+"%";
+  const hk = /hblock/.test(cls) ? "noheal" : /hback/.test(cls) ? "backheal" : /hcut/.test(cls) ? "cutheal" : ""; // healing stopped, turned back or cut: the portrait shows which
+  if(hk){ d.style.left = "50%"; hitFx(side, hk); if(hk!=="cutheal") sfx("click"); }
   $("port-"+side).appendChild(d); setTimeout(()=>d.remove(), 900);
 }
 function shake(side){
@@ -3105,18 +3118,21 @@ function fightEngine(foeDef, opts, io){
   /* What the other side is doing to this fighter's healing. In an ordinary fight nothing sets it (enemies don't carry
      relics); in a duel the other build's anti-heal is handed across each round: {mult, noProc, reflect, block, noDodge}. */
   you.hx = {};
+  const hxAt = {}; // a heal that is stopped every tick says so every other tick, not every time
+  const stopped = (side, text) => { if(hxAt[side]!=null && F.tick-hxAt[side]<2) return; hxAt[side] = F.tick; io.float(side, text, "hblock"); };
+  const cutTag = m => m!=null && m<1 ? " ▼"+Math.round((1-m)*100)+"%" : "";
   const heal = (n, proc) => { // proc: healing that comes off the enemy (a hit, a dodge, being hit)
     const hx = you.hx || {};
-    if(proc && hx.noProc) return;
-    if(hx.block){ hx.block = false; io.float("you","heal denied","psn"); return; }
-    if(hx.mult!=null){ n *= hx.mult; if(n<=0){ io.float("you","can't heal","psn"); return; } }
+    if(proc && hx.noProc){ stopped("you", "NO LIFESTEAL"); return; }
+    if(hx.block){ hx.block = false; io.float("you","HEAL BLOCKED","hblock"); return; }
+    if(hx.mult!=null){ n *= hx.mult; if(n<=0){ stopped("you", "CAN'T HEAL"); return; } }
     if(tribe==="lolita") n *= 1.5; // LOVEBOMBER
     n = grow(n); // healing keeps pace with the days, like burn and companions do: a heal sized for day 1 was a rounding error by day 6
     let amt = n*(act("heart_tattoo")?2:1);
     const before = you.hp, want = you.hp + amt;
-    if(hx.reflect && want>you.maxhp){ const back = Math.round(want-you.maxhp); you.hp = Math.min(you.maxhp, want); you.hp -= back; hurtBy("⛓️ healing turned back", back); io.log("⛓️ Too much. "+back+" of that healing comes back as damage.", "bad"); io.float("you","-"+back,"psn"); return; }
+    if(hx.reflect && want>you.maxhp){ const back = Math.round(want-you.maxhp); you.hp = Math.min(you.maxhp, want); you.hp -= back; hurtBy("⛓️ healing turned back", back); io.log("⛓️ Too much. "+back+" of that healing comes back as damage.", "bad"); io.float("you","↩ -"+back,"hback"); return; }
     you.hp = Math.min(you.maxhp, want);
-    if(you.hp>before) io.float("you", "+"+(you.hp-before), "heal");
+    if(you.hp>before) io.float("you", "+"+(you.hp-before)+cutTag(hx.mult), cutTag(hx.mult) ? "heal hcut" : "heal");
     if(want>you.maxhp && (set("grass",3) || tribe==="lolita")){ const over = Math.round(want-you.maxhp); you.shield += over; io.float("you","+"+over+" shield","heal"); } // TOUCH GRASS: nothing healed is wasted
   };
   const foeHeal = () => { // how much of its healing the enemy keeps, given what you carry and what is on it
@@ -3126,19 +3142,21 @@ function fightEngine(foeDef, opts, io){
     if(act("cigar") && foe.burn>0) m = 0;
     return m;
   };
+  Object.defineProperty(foe, "hx", { configurable:true, get:()=>({ mult:foeHeal(), block:!!foe.denied, reflect:act("prison_uniform") && !!foe.regen }) }); // for the stage to show
   F.hexOut = () => { // handed to the other side of a duel
     const o = { mult:foeHeal(), noProc:act("face_mask"), reflect:act("prison_uniform"), noDodge:act("vr_goggles"), block:!!foe.denied, strip:!!foe.stripped };
     foe.denied = false; foe.stripped = false;
     return o;
   };
   const mend = (amt, why) => { // an enemy healing itself, in an ordinary fight
-    if(foe.denied){ foe.denied = false; io.log("🥊 "+foe.name+" tries to recover. Not this time.", "good"); return 0; }
-    amt = Math.round(amt*foeHeal());
-    if(amt<=0){ io.log("🚬 "+foe.name+" can't heal.", "good"); return 0; }
+    if(foe.denied){ foe.denied = false; io.log("🥊 "+foe.name+" tries to recover. Not this time.", "good"); io.float("foe","HEAL BLOCKED","hblock"); return 0; }
+    const m = foeHeal();
+    amt = Math.round(amt*m);
+    if(amt<=0){ io.log("🚬 "+foe.name+" can't heal.", "good"); stopped("foe", "CAN'T HEAL"); return 0; }
     const want = foe.hp+amt, back = act("prison_uniform") && want>foe.maxhp ? Math.round(want-foe.maxhp) : 0;
     foe.hp = Math.min(foe.maxhp, want) - back;
-    if(back){ credit("⛓️ Prison Uniform", back); io.log("⛓️ Prison Uniform: "+back+" of its healing turns on it.", "good"); io.hit("foe", back, false); }
-    else io.float("foe", "+"+amt, "heal");
+    if(back){ credit("⛓️ Prison Uniform", back); io.log("⛓️ Prison Uniform: "+back+" of its healing turns on it.", "good"); io.float("foe","↩ TURNED BACK","hback"); io.hit("foe", back, false); }
+    else io.float("foe", "+"+amt+cutTag(m), cutTag(m) ? "heal hcut" : "heal");
     return amt;
   };
   const eat = id => { // a meal is used up when it is eaten, unless FAST FOOD keeps it on the plate
