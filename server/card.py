@@ -245,8 +245,22 @@ def set_line(relic_ids):
             n[s] = n.get(s, 0) + 1
     if "webring" in relic_ids:
         n = {k: v + 1 for k, v in n.items()}
-    on = [(s["name"], n[s["id"]]) for s in SPEC["sets"] if n.get(s["id"], 0) >= s["min"]]
-    return "  ".join("%s %d" % (name, c) for name, c in sorted(on, key=lambda x: -x[1])).lower()
+    on = [(s["id"], n[s["id"]]) for s in SPEC["sets"] if n.get(s["id"], 0) >= s["min"]]
+    return sorted(on, key=lambda x: -x[1])
+
+
+SET_ICONS = os.path.join(HERE, "set_icons")  # drawn from the game's own icons (see make_spec.mjs / README)
+_set_ico = {}
+
+
+def set_icon(sid, px):
+    key = (sid, px)
+    if key not in _set_ico:
+        try:
+            _set_ico[key] = Image.open(os.path.join(SET_ICONS, sid + ".png")).convert("RGBA").resize((px, px), Image.LANCZOS)
+        except OSError:
+            _set_ico[key] = None
+    return _set_ico[key]
 
 
 def candles(d, x, y, w, h, cs, k=1.0):
@@ -344,11 +358,19 @@ def render(run, seed="x"):
     text(str(run["score"]), 500, 438, 76, "#f1fa8c")
     sets = set_line(relic_ids)
     cs = run.get("candles") or []
-    if sets:
-        if cs:
-            text(sets, 500, 326, 18, "#bd93f9", "Regular")  # the chart takes the space beside the score
-        else:
-            text(sets, 720, 420, 20, "#bd93f9", "Regular")
+    if sets:  # each switched-on synergy as its icon and a count: names ran off the edge of the card
+        x0, y0, px, room = (500, 326, 22, 222) if cs else (720, 420, 28, 440)  # with a chart, they sit in the space beside the score
+        step = px + (26 if px < 26 else 32)
+        fit = max(1, room // step)
+        if len(sets) > fit:  # more than fit: the last place says how many more
+            fit -= 1
+            text("+%d" % (len(sets) - fit), x0 + fit * step, y0, 18 if px < 26 else 22, "#8a979c", "Regular")
+        for i, (sid, c) in enumerate(sets[:fit]):
+            x = x0 + i * step
+            ico = set_icon(sid, px)
+            if ico:
+                cv.paste(ico, (x, y0 - px + 3), ico)
+            text(str(c), x + px + 3, y0, 18 if px < 26 else 22, "#eaeaea", "Bold")
     if cs:
         candles(d, 730, 326, 420, 126, cs, 1.15)
 

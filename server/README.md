@@ -37,7 +37,7 @@ Nothing is ever uploaded. A run stores the character as a recipe (which trait la
 node server/make_spec.mjs
 ```
 
-Run that after changing relics or layers, and copy the result (and any new art) to the server. Cards are kept for 90 days.
+Run that after changing relics or layers, and copy the result (and any new art) to the server. The synergy icons on cards are the game's own, rendered once to `server/set_icons/`: copy that folder too, and re-render it if a set's icon changes. Cards are kept for 90 days.
 
 ## Sign in with RemiliaNET
 

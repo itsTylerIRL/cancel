@@ -4673,9 +4673,16 @@ async function shareCard(run, win, drip){
   text(win ? "timeline saved" : "cancelled on day "+run.day, 500, 240, 44, win ? "#50fa7b" : "#ff5555");
   text(run.bossesBeaten+" / 3 bosses  ·  "+run.kills+" kills  ·  "+run.cult+" $CULT", 500, 288, 24, "#eaeaea", "normal");
   text("DRIP", 500, 366, 18, "#666"); text(String(drip), 500, 438, 76, "#f1fa8c");
-  const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.name+" "+r.c).join("  ").toLowerCase();
   const charted = (run.candles||[]).length>0;
-  if(sets) charted ? text(sets, 500, 326, 18, "#bd93f9", "normal") : text(sets, 720, 420, 20, "#bd93f9", "normal");
+  { // each switched-on synergy as its icon and a count: names ran off the edge of the card
+    const on = setRows(run.relics).filter(r=>r.on.length).sort((a,b)=>b.c-a.c);
+    const [x0, y0, px, room] = charted ? [500, 326, 22, 222] : [720, 420, 28, 440], step = px + (px<26 ? 26 : 32);
+    let fit = Math.max(1, Math.floor(room/step));
+    if(on.length>fit){ fit--; text("+"+(on.length-fit), x0+fit*step, y0, px<26 ? 18 : 22, "#8a979c", "normal"); } // more than fit: the last place says how many more
+    const shown = on.slice(0, fit);
+    const icons = await Promise.all(shown.map(r=>loadImg("data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' width='64' height='64'>"+(SET_SVG[r.t.id]||"").replace(/currentColor/g, r.t.color)+"</svg>")).catch(()=>null)));
+    shown.forEach((r,i)=>{ const x = x0+i*step; if(icons[i]) cx.drawImage(icons[i], x, y0-px+3, px, px); text(String(r.c), x+px+3, y0, px<26 ? 18 : 22, "#eaeaea"); });
+  }
   if(charted){ drawCandles(cx, 730, 326, 420, 126, run.candles, 1.15); cx.textAlign = "left"; }
   // relics
   const ims = await Promise.all(run.relics.map(id=>loadImg(ICONS[id]).catch(()=>null)));
