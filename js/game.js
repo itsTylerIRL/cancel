@@ -269,6 +269,7 @@ const SCHIZO_LOCAL = ["atlantean","brobot","celestial","crystalline","demon","gr
 // Radbros ship with the game too: the collection's images live on a gateway that fails more often than it answers
 const PIXELADY_LOCAL = [77,111,256,404,888,1500,1999,2222,4242,5000,5555,6000,6969,8192,9001]; // and Pixeladys (Paper Hands, Pixelady), for the same reason
 const RADBRO_LOCAL = [7,420,1111,1337,1984,2187,2600];
+const RADCAT_LOCAL = [722, 5304, 1923, 2817]; // Radcats from the Radbro Webring, shipped with the game
 const SURVIVOR_LOCAL = [18620, 18628]; // the two Death Knights: Survivors from Pixelady Maker CATA, chosen because they look the part
 const localFile = path => (window.INLINE_FILES && window.INLINE_FILES[path]) || path;
 const NFT = {
@@ -277,6 +278,7 @@ const NFT = {
   pixelady: { name:"Pixelady",        max:PIXELADY_LOCAL.length, frame:"milady", faces:"right",  src:id=>localFile("assets/img/Pixelady/"+PIXELADY_LOCAL[(id-1)%PIXELADY_LOCAL.length]+".webp") },
   survivor: { name:"Survivor",        max:SURVIVOR_LOCAL.length, frame:"milady", src:id=>localFile("assets/img/Survivor/"+SURVIVOR_LOCAL[(id-1)%SURVIVOR_LOCAL.length]+".webp") },
   cig:      { name:"Cigawrette Pack", max:16, frame:"milady", faces:"right", src:id=>localFile("assets/img/Cig/"+(1+(id-1)%16)+".webp") }, // sixteen packs, shipped with the game
+  radcat:   { name:"Radcat",          max:RADCAT_LOCAL.length, frame:"square", src:id=>localFile("assets/img/Radcat/"+RADCAT_LOCAL[(id-1)%RADCAT_LOCAL.length]+".webp") },
   radbro:   { name:"Radbro",          max:RADBRO_LOCAL.length, frame:"remilio", faces:"right", src:id=>localFile("assets/img/Radbro/"+RADBRO_LOCAL[(id-1)%RADBRO_LOCAL.length]+".webp") },
   schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
@@ -505,7 +507,7 @@ function collectionOf(def){ return def.nft || def.cfg.toLowerCase(); }
 function clashes(def){ return collectionOf(def)===playerCollection(); }
 const CIG_FROM = "2026-10-12";
 function foePool(tier, district){
-  const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e) && !(e.nft==="cig" && G && G.daily && G.daily < CIG_FROM)); // daily maps from before the packs arrived keep the enemies their players met
+  const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e) && !((e.nft==="cig" || e.nft==="radcat") && G && G.daily && G.daily < CIG_FROM)); // daily maps from before the packs arrived keep the enemies their players met
   const local = ok.filter(e=>district===3 || e.home.includes(district));
   return local.length ? local : ok;
 }
