@@ -2691,7 +2691,7 @@ function openAltar(note){
 }
 /* ---------- ETH Chan: pay her, and one of your synergies counts one more relic for the rest of the run ----------
    She speaks Ethereum: the infinite garden, ultrasound money, the tribes. One blessing, then she moves on. */
-const ETH_PRICE = 140;
+const ETH_PRICE = 250;
 const ETH_LINES = [
   "\"welcome to the infinite garden~ it isn't finished. it's never finished. that's why it's a garden.\"",
   "\"ultrasound money, anon. every block a little less of it. hold still and you get rarer.\"",
