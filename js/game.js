@@ -638,7 +638,7 @@ function newRun(ava, opt){
   G.perks = { hp:pk("hp2") ? 20 : pk("hp1") ? 10 : 0, reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
     vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
     }; // fixed for the run (the frame isn't kept here: it is whatever is switched on in settings)
-  G.flags = {}; G.curses = {}; G.altars = {};
+  G.flags = {}; G.curses = {}; G.altars = {}; youLeft = false; // a new run starts looking right
   G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
@@ -1596,9 +1596,11 @@ function renderMap(){
 function clearPath(){ document.querySelectorAll("#map .tile.path").forEach(t=>t.classList.remove("path")); }
 let camSnap = true;
 const GAP = 0; // px between tiles, as in the stylesheet: the ground is one continuous surface
+let youLeft = false; // which way the token on the map is looking. The art looks right; it is turned for a step to the left
 function placeYou(){
   const t = $("you-tok"), img = $("you-img"), cell = "((100% - "+(W-1)*GAP+"px) / "+W+" + "+GAP+"px)";
   if(img.getAttribute("src")!==G.face) img.src = G.face;
+  t.classList.toggle("left", youLeft);
   t.classList.toggle("snap", camSnap); // arriving on this screen: appear in place, don't slide in from the last run
   t.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
   const moved = t.dataset.at !== G.px+","+G.py;
@@ -1846,6 +1848,7 @@ function tryMove(x,y){
   if(Math.abs(x-G.px)+Math.abs(y-G.py)!==1) return;
   if(G.fog[y][x] || !isFloor(x,y)) return;
   const was = districtAt(G.px,G.py);
+  if(x!==G.px) youLeft = x<G.px; // she looks the way she walks; a step up or down keeps the way she was looking
   G.px=x; G.py=y; G.sel="";
   if(districtAt(x,y)!==was){ const dd = DISTRICTS[districtAt(x,y)]; // a line across the screen: where you are now, and the rule it bends
     splash("<span style='color:"+dd.color+"'>"+dd.name+"</span><small>"+dd.rule+"</small>", "district"); }
