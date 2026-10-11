@@ -5039,7 +5039,7 @@ async function genAvatar(nft, last){ // last: the character from the previous ru
   paint(cv, ava.canvas); paint($("hud-avatar"), ava.canvas);
   cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
   $("name-in").placeholder = ava.name;
-  document.querySelector("#screen-avatar h2").textContent = "your "+(ava.picks.nft && ava.picks.nft.kind==="remilio" ? "remilio" : "milady");
+  document.querySelector("#screen-avatar h2").textContent = isRadbro(ava.picks.nft) ? "that's radbro" : "your "+(ava.picks.nft && ava.picks.nft.kind==="remilio" ? "remilio" : "milady");
   renderPicks();
   $("btn-begin").disabled = false;
   if(navBegin){ navBegin = false; navSet($("btn-begin")); } // arriving here, Enter should start the run
