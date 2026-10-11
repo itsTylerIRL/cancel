@@ -1682,7 +1682,7 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .splash.district{top:16%;font-size:clamp(22px,4.4vw,46px);letter-spacing:.14em;text-shadow:0 0 26px currentColor,0 3px 0 #000;animation-duration:1.6s;}
 .splash.district small{font-size:.34em;letter-spacing:.16em;color:#dfeef2;}
 
-.end-chart{display:block;width:100%;max-width:520px;height:auto;aspect-ratio:1040/300;margin:2px 0 10px;}
+.end-chart{display:block;width:100%;height:150px;margin:2px 0 10px;}
 
 /* ---------- polish pass: day and night you can tell apart, a build box that fits, a livelier idle, clearer combat ---------- */
 /* day is warm, night is cold, and the frame of the map says which */

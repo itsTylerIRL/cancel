@@ -1160,7 +1160,7 @@ function trackCult(){
   while(cs.length<=i){ const p = cs.length ? cs[cs.length-1][3] : G.cult; cs.push([p,p,p,p]); }
   const c = cs[i]; c[3] = G.cult; if(G.cult>c[1]) c[1] = G.cult; if(G.cult<c[2]) c[2] = G.cult;
 }
-function drawCandles(cx, x, y, w, h, cs, k){ // k: text scale. Nine slots across; days never reached stay empty.
+function drawCandles(cx, x, y, w, h, cs, k, flush){ // k: text scale. Nine slots across; days never reached stay empty. flush: the slots run edge to edge, to sit under nine columns of the same width
   k = k || 1;
   cx.save();
   cx.fillStyle = "rgba(2,7,10,.72)"; cx.strokeStyle = "rgba(139,233,253,.28)"; cx.lineWidth = 1;
@@ -1172,11 +1172,11 @@ function drawCandles(cx, x, y, w, h, cs, k){ // k: text scale. Nine slots across
   cx.textAlign = "right"; cx.font = "700 "+Math.round(12*k)+"px "+MONO; cx.fillStyle = up ? "#50fa7b" : "#ff5555";
   cx.fillText(last.toLocaleString("en-US")+"  "+(pct>=0 ? "+" : "")+pct+"%", x+w-pad, y+15*k);
   const lo = Math.min(...cs.map(c=>c[2])), hi = Math.max(...cs.map(c=>c[1])), span = Math.max(1, hi-lo);
-  const top = y+head+4*k, bot = y+h-pad, Y = v => bot-(v-lo)/span*(bot-top), slot = (w-2*pad)/9, bw = Math.max(3*k, slot*0.52);
+  const top = y+head+4*k, bot = y+h-pad, Y = v => bot-(v-lo)/span*(bot-top), cpad = flush ? 0 : pad, slot = (w-2*cpad)/9, bw = Math.max(3*k, Math.min(slot*0.52, 46*k));
   cx.strokeStyle = "rgba(139,233,253,.09)"; cx.lineWidth = 1; // faint grid
   for(let g=0; g<=3; g++){ const gy = Math.round(top+(bot-top)*g/3)+0.5; cx.beginPath(); cx.moveTo(x+pad, gy); cx.lineTo(x+w-pad, gy); cx.stroke(); }
   cs.slice(0,9).forEach((c,i)=>{
-    const mx = x+pad+slot*(i+0.5), green = c[3]>=c[0], col = green ? "#50fa7b" : "#ff5555";
+    const mx = x+cpad+slot*(i+0.5), green = c[3]>=c[0], col = green ? "#50fa7b" : "#ff5555";
     cx.strokeStyle = col; cx.lineWidth = Math.max(1, 1.4*k); cx.beginPath(); cx.moveTo(mx, Y(c[1])); cx.lineTo(mx, Y(c[2])); cx.stroke();
     const a = Y(Math.max(c[0],c[3])), b = Y(Math.min(c[0],c[3]));
     cx.fillStyle = col; cx.fillRect(mx-bw/2, a, bw, Math.max(2*k, b-a));
@@ -3833,6 +3833,7 @@ function runStripHTML(run, win){ // nine days in a row: what you picked up, who 
       + (win && day===run.day ? "<span class='rs-win'>👑 saved</span>" : "")
       + (gone ? "" : !d.boss && !rel.length && !d.kills && !last ? "<span class='rs-quiet'>quiet</span>" : "")+"</div>"; }).join("")+"</div>";
 }
+let endChartT = 0, endChartFn = ()=>{};
 function endRun(win){
   trackCult();
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
@@ -3892,7 +3893,9 @@ function endRun(win){
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
     paint($("end-avatar"), win ? run.avatar : (run.lossLook = run.lossLook || cancelledPortrait(run)));
-    if($("end-chart")) drawCandles($("end-chart").getContext("2d"), 1, 1, 1038, 298, run.candles, 2);
+    const chart = ()=>{ const cv = $("end-chart"); if(!cv || !run.candles || !run.candles.length) return; // as wide as the nine days above it, so each candle stands under its day
+      const w = Math.max(240, Math.round(cv.clientWidth*2)); cv.width = w; cv.height = 300; drawCandles(cv.getContext("2d"), 1, 1, w-2, 298, run.candles, 2, true); };
+    chart(); clearTimeout(endChartT); window.removeEventListener("resize", endChartFn); endChartFn = ()=>{ clearTimeout(endChartT); endChartT = setTimeout(chart, 120); }; window.addEventListener("resize", endChartFn);
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
     $("end-rank").innerHTML = rankHtml;
