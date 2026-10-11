@@ -1695,7 +1695,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
-  [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. One bargain.",
+  [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. <b class='bad'>Walking away costs "+150+" $CULT</b>: step up without it and you take the curse.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
   [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns.",
   [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone." };
@@ -2662,6 +2662,10 @@ const CURSES = [
   { id:"frail",   icon:"💔", name:"it takes your health",  text:"−15 max HP, for good",
     can:()=> G.stats.maxhp > 30 ? "" : "there isn't enough of you left to take", take:()=>{ G.bonus.maxhp -= 15; G.curses.frail = (G.curses.frail||0)+15; } },
 ];
+/* Walking up to a cursed altar is a commitment: leaving what is on it costs ALTAR_PASS $CULT. If you can't pay, you take
+   it, curse and all. (If no curse can be taken either, the altar lets you go: there has to be a way out.) */
+const ALTAR_PASS = 150;
+let altarHold = false; // an altar is open and hasn't been answered
 function openAltar(note){
   G.curses = G.curses || {}; G.altars = G.altars || {};
   const key = G.px+","+G.py;
@@ -2670,24 +2674,37 @@ function openAltar(note){
     G.altars[key] = (best[0] || good[0] || {}).id || "";
   }
   const r = relicById(G.altars[key]);
-  if(!r){ clearTile(); mlog("🕯️ The altar is bare. Whatever it held is gone.", ""); return; }
+  if(!r){ altarHold = false; clearTile(); mlog("🕯️ The altar is bare. Whatever it held is gone.", ""); return; }
   let html = "<h2>THE CURSED ALTAR</h2><div class='npc-face well altar'>🕯️</div>"
     + "<div class='note'><i>Something is lying on the stone, and nobody is guarding it. That is the part that should worry you.</i><br>take it, and carry one curse of your choosing for the rest of the run</div>"
     + (note ? "<div class='note bad'>"+note+"</div>" : "")
     + "<div class='draft-cards altar-offer'>"+relicCard(r, "", true)+"</div><div class='curses'>";
   CURSES.forEach((c,i)=>{ const no = c.can();
     html += "<button class='choice' data-curse='"+i+"'"+(no?" disabled":"")+"><b>"+c.icon+" "+c.name+"</b><span>"+c.text+(no ? " — <i>"+no+"</i>" : "")+"</span></button>"; });
-  html += "</div><div class='row'><button class='btn small' id='altar-leave'>leave it on the stone</button></div>";
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", canPay = G.cult>=ALTAR_PASS, stuck = CURSES.every(c=>c.can());
+  html += "</div><div class='note "+(canPay || stuck ? "" : "bad")+"'>"+(stuck && !canPay ? "there is no curse left that you could carry. the altar lets you go"
+      : canPay ? "leaving it costs <b>"+ALTAR_PASS+" $CULT</b>. the altar doesn't like being looked at for nothing"
+      : "you have "+G.cult+" $CULT. walking away costs "+ALTAR_PASS+". <b>you can't afford to leave: choose a curse</b>")+"</div>"
+    + "<div class='row'><button class='btn small"+(stuck && !canPay ? "" : " price")+"' id='altar-leave'"+(canPay || stuck ? "" : " disabled")+">"+(stuck && !canPay ? "back away" : "leave it on the stone · "+coin+ALTAR_PASS)+"</button></div>";
+  altarHold = true;
   openModal(html);
   $("modal-panel").querySelectorAll("[data-curse]").forEach(b=>{ b.onclick=()=>{
     const c = CURSES[+b.dataset.curse]; if(c.can()) return;
     acquireRelic(r, old=>{
+      altarHold = false;
       c.take(); recalcStats(); achieve("altar"); clearTile(); delete G.altars[key]; sfx("boss"); burst("🕯️🩸");
       mlog("🕯️ You took <b>"+r.name+"</b> from the altar"+(old?" <i>(dropped "+old.name+")</i>":"")+". The price: <b>"+c.icon+" "+c.name+"</b>.", "bad");
       closeModal(); renderMap();
     }, ()=>openAltar());
   };});
-  $("altar-leave").onclick=()=>closeModal();
+  $("altar-leave").onclick=()=>{
+    if(!(canPay || stuck)) return;
+    altarHold = false;
+    if(canPay){ G.cult -= ALTAR_PASS; clearTile(); delete G.altars[key]; sfx("coin");
+      mlog("🕯️ You left the altar's offering where it lay. It cost you <b>"+ALTAR_PASS+" $CULT</b>, and the altar went dark.", "bad"); }
+    else mlog("🕯️ The altar has nothing you could pay it with. It lets you back away.", "");
+    closeModal(); renderMap();
+  };
 }
 /* ---------- ETH Chan: pay her, and one of your synergies counts one more relic for the rest of the run ----------
    She speaks Ethereum: the infinite garden, ultrasound money, the tribes. One blessing, then she moves on. */
@@ -2961,6 +2978,7 @@ function placeModal(){
 }
 window.addEventListener("resize", ()=>{ if(!$("modal").classList.contains("hidden")) placeModal(); });
 function closeModal(){ $("modal").classList.add("hidden");
+  if(altarHold) setTimeout(()=>{ if(altarHold && G && !G.over && $("modal").classList.contains("hidden") && $("screen-map").classList.contains("active") && G.map[G.py][G.px]===T.ALTAR) openAltar(); }, 0); // an altar isn't walked away from for free
   if(setupStep) setTimeout(()=>{ if(setupStep && $("modal").classList.contains("hidden") && $("screen-map").classList.contains("active")) setupStep(); }, 0); setTimeout(pump,0); setTimeout(navRefresh,0); }
 
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */
@@ -4671,7 +4689,7 @@ async function shareCard(run, win, drip){
   return cv;
 }
 function leaveRun(){
-  SEED = null; stopTravel();
+  SEED = null; stopTravel(); altarHold = false;
   $("modal").classList.add("hidden");
   $("boss-banner").classList.add("hidden");
 }
@@ -5200,7 +5218,7 @@ async function init(){
   $("btn-continue").onclick=async()=>{
     const d = loadRun(); if(!d) return renderTitle();
     $("btn-continue").disabled=true;
-    try{ await ready; await resumeRun(d); sfx("relic"); }
+    try{ await ready; await resumeRun(d); sfx("relic"); if(G && !G.over && G.map[G.py][G.px]===T.ALTAR) openAltar(); } // reloading at an altar doesn't get you out of it
     catch(e){ clearRun(); renderTitle(); }
     $("btn-continue").disabled=false;
   };
