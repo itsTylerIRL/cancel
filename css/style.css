@@ -1853,3 +1853,6 @@ body.calm .eframe{animation:none;}
 .tenx-ask u{text-decoration:none;font-family:var(--label);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);} .tenx-ask b{font-family:var(--mono);font-size:56px;line-height:1;color:#39ff9c;text-shadow:0 0 22px rgba(57,255,156,.7);} .tenx-ask span{font-size:12px;color:var(--txt);text-align:center;}
 .chip.tenx{border-color:rgba(57,255,156,.6);color:#39ff9c;}
 @media (max-width:520px){ .tenx-deps{grid-template-columns:1fr;} }
+
+/* Rivergod by day: there, but not dealing */
+#map .tile.shut span{opacity:.5;filter:grayscale(1) brightness(.8);}

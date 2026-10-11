@@ -1531,6 +1531,7 @@ function renderMap(){
         d.innerHTML = "<span>"+(t===T.FORGE ? "<img class='npc' src='"+localFile(REMILIA_LOGO)+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : ico || T_EMOJI[t])+"</span>";
         d.title = T_NAME[t];
         if(t===T.GATE && G.bossUnlocked>=0) d.classList.add("gate-open");
+        if(t===T.RIVERGOD && G.phase==="day"){ d.classList.add("shut"); d.title = T_NAME[t]+" (opens at night)"; }
         if(t===T.FIRE){ // a campfire lights the ground around it, and at night it is the thing you look for
           const g = document.createElement("div"); g.className = "fire-glow";
           g.style.left = "calc("+(x+0.5)+" * 100% / "+W+")"; g.style.top = "calc("+(y+0.5)+" * 100% / "+W+")";
@@ -1703,7 +1704,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
   [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. <b class='bad'>Walking away costs "+150+" $CULT</b>: step up without it and you take the curse.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
-  [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns.",
+  [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns. <b>At night only.</b>",
   [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone.",
   [T.TENX]:"<b>10x</b> — dev for the Radbros and the Schizoposters. Deposit $CULT and he names a number of Schizoposters to kill before your next boss fight. Do it and you're paid back with interest. Miss and he rugs you." };
 function foeLine(def, elite, opts){
@@ -2841,13 +2842,17 @@ const RIVER_LINES = [
 const gunPool = () => RELICS.filter(r=>r.tags.includes("gun") && !(G.banished||[]).includes(r.id)
   && !(r.tags.includes("blackmarket") && !(perk("blackmarket") && !G.daily)) && !(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !G.daily));
 function openRivergod(note){
+  if(G.phase==="day"){ // he deals after dark, the way a fire is only for sleeping at night
+    mlog("🔫 Rivergod. \"Not in daylight. "+BLK(9)+" has eyes on this corner until dark.\" <b>He only sells at night.</b>", ""); mapFloat("🔫 night only", "loot"); sfx("click");
+    return;
+  }
   const key = G.px+","+G.py, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   G.armory = G.armory || {};
   const shop = G.armory[key] || (G.armory[key] = { stock: shuffle(gunPool()).slice(0,3).map(r=>({id:r.id, base:Math.round(RARITY[r.rar].price*1.15)})) }); // the only dealer charges like it
   const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten;
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   let html = "<h2>RIVERGOD</h2><img class='npc-face river' src='"+localFile(NPC_ART[T.RIVERGOD])+"' alt=''>"
-    + "<div class='note river-say'><i>"+spotLine(RIVER_LINES, "river")()+"</i><br>the only guns in the maze · he stays open</div>"
+    + "<div class='note river-say'><i>"+spotLine(RIVER_LINES, "river")()+"</i><br>the only guns in the maze · open at night only, and he stays open all night</div>"
     + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span><span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span></div>";
   if(G.curses && G.curses.shunned) html += "<div class='note bad'>\"Your file is flagged. "+BLK(8)+". I don't sell to flagged.\"</div>";
   else shop.stock.forEach((it,i)=>{ const r = relicById(it.id), p = Math.round(it.base*disc);
