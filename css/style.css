@@ -1646,3 +1646,8 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .bface.lost .bpfp{filter:grayscale(.75) brightness(.7);}
 .bface s{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-24deg);text-decoration:none;font-family:var(--label);font-weight:800;font-size:7.5px;letter-spacing:.06em;line-height:1;
   color:#ff3b3b;border:1.5px solid #ff3b3b;border-radius:2px;padding:2px 3px;background:rgba(20,0,0,.55);white-space:nowrap;text-shadow:0 0 6px rgba(255,40,40,.7);box-shadow:0 0 8px rgba(255,40,40,.35);pointer-events:none;}
+
+/* the same stamp on a player card whose run ended badly */
+.king-card .bface.card-face{flex:none;width:auto;aspect-ratio:auto;display:block;line-height:0;}
+.king-card .bface.card-face .bpfp{width:64px;height:64px;}
+.king-card .bface.card-face s{font-size:10px;border-width:2px;padding:3px 4px;line-height:1;}

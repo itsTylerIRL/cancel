@@ -3951,7 +3951,7 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card"+(r && r.win ? " won" : "")+"'>"
-    + (r && r.look ? "<canvas class='bpfp big' width='4' height='4'></canvas>" : "")
+    + (r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
     + "<div><b>"+esc(u ? u.name : (r ? r.name : META.name || "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
       + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
@@ -4657,7 +4657,7 @@ function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
 }
 function runCardHTML(r, i){ // one finished run, as a card: who, which tribe, how it ended, what was carried
   return "<div class='king-card last-card run-card"+(r.win ? " won" : "")+"'>"
-    + (r.look ? "<canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>" : "")
+    + (r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
     + "<div><b>"+esc(r.name)+"</b><span class='badge-row'>"+tribeBadge(r.tribe)+"</span>"
       + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
