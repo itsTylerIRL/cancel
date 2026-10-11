@@ -235,7 +235,7 @@ const ENEMIES = [
  {id:"elite", name:"Remilio Elite", cfg:"Remilio", tier:"elite", home:[1], hp:42, atk:8, arm:1, spd:5, lck:8, cult:[45,70]},
  {id:"journo", name:"Journo", cfg:"Remilio", tier:"elite", home:[0,1], hp:40, atk:9, arm:1, spd:6, lck:10, cult:[50,75]},
  {id:"pixelady", name:"Pixelady", cfg:"Milady", nft:"pixelady", tier:"mon", home:[0], fx:"pixel", hp:21, atk:6, arm:0, spd:6, lck:10, cult:[20,35]},
- {id:"dk", name:"Death Knight", cfg:"Milady", nft:"pixelady", nftFx:"frost", tier:"elite", home:[0,2], trait:"revive", fx:"undead", hp:28, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
+ {id:"dk", name:"Death Knight", cfg:"Milady", nft:"survivor", tier:"elite", home:[0,2], trait:"revive", fx:"undead", hp:28, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
  {id:"radbro", name:"Radbro", cfg:"Remilio", nft:"radbro", tier:"mon", home:[1], trait:"mirror", picks:{Glasses:"Clout Goggles"}, hp:24, atk:4, arm:0, spd:5, lck:8, cult:[25,40]},
  {id:"angel", name:"Spring Angel", cfg:"Milady", nft:"seen", tier:"elite", home:[0,3], regen:0.07, hp:34, atk:8, arm:1, spd:6, lck:15, cult:[55,85]},
  {id:"station", name:"Player Character", cfg:"Milady", nft:"station", tier:"mon", home:[0,1], fx:"ps1", hp:24, atk:5, arm:2, spd:4, lck:5, cult:[25,40]},
