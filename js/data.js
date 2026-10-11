@@ -222,6 +222,7 @@ const RARITY = { common:{w:10, price:60}, rare:{w:4, price:100}, legendary:{w:1.
    tier: mon | elite | hunter. home: district indexes it spawns in (the CULT district spawns anything).
    trait "mirror" copies part of your ATK, "thief" steals $CULT on hit (kill it to get it back),
    "hard" gains ATK every 3rd tick, "creeper" blows up when it dies, "bomber" bombs you every 4th tick, "revive" gets back up once at half HP.
+   "smoker" halves your healing while it stands (a Face Mask keeps the smoke out).
    fx "fried" = CHEESEWORLD deep-fry with a caption, "blocky" = MILADYCRAFT blocks, "schizo" = SCHIZOPOSTERS
    text overlay, "ps1" = MILADYSTATION low-poly dither, "pixel" = PIXELADY, "undead" = Pixelady WOTLK Death Knight. picks pin trait layers. */
 const ENEMIES = [
@@ -248,6 +249,9 @@ const ENEMIES = [
   picks:{Costume:"Shark", Shirt:"Scarface Suit", Mouth:"Cigar"}, hp:44, atk:7, arm:1, spd:5, lck:10, cult:[80,120]},
  {id:"griefer", name:"Griefer", cfg:"Remilio", picks:{Costume:"Creeper"}, tier:"mon", home:[0,2], trait:"creeper", fx:"blocky", hp:18, atk:6, arm:0, spd:7, lck:5, cult:[20,35]},
  {id:"bomber", name:"Blimp Bomber", cfg:"Remilio", tier:"elite", home:[0], trait:"bomber", fx:"blocky", hp:36, atk:6, arm:1, spd:4, lck:8, cult:[55,85]},
+ {id:"loosie", name:"Loosie", cfg:"Milady", nft:"cig", tier:"mon", home:[0,1,2], hp:17, atk:6, arm:0, spd:8, lck:10, cult:[20,35]},
+ {id:"softpack", name:"Soft Pack", cfg:"Milady", nft:"cig", tier:"mon", home:[1,2], trait:"smoker", hp:25, atk:5, arm:1, spd:5, lck:5, cult:[25,40]},
+ {id:"carton", name:"Carton", cfg:"Milady", nft:"cig", tier:"elite", home:[0,1,2], trait:"smoker", hp:46, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
  {id:"fud", name:"Schizoposter", cfg:"Milady", nft:"schizo", fx:"schizo", tier:"hunter", home:[], hp:22, atk:5, arm:0, spd:6, lck:10, cult:[40,60]},
 ];
 

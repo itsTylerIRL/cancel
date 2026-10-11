@@ -276,6 +276,7 @@ const NFT = {
   remilio:  { name:"Remilio",         max:9999,  frame:"remilio", playable:true, src:id=>"https://remilio.org/remilio/"+id+".png" },
   pixelady: { name:"Pixelady",        max:PIXELADY_LOCAL.length, frame:"milady",  src:id=>localFile("assets/img/Pixelady/"+PIXELADY_LOCAL[(id-1)%PIXELADY_LOCAL.length]+".webp") },
   survivor: { name:"Survivor",        max:SURVIVOR_LOCAL.length, frame:"milady", src:id=>localFile("assets/img/Survivor/"+SURVIVOR_LOCAL[(id-1)%SURVIVOR_LOCAL.length]+".webp") },
+  cig:      { name:"Cigawrette Pack", max:16, frame:"milady", src:id=>localFile("assets/img/Cig/"+(1+(id-1)%16)+".webp") }, // sixteen packs, shipped with the game
   radbro:   { name:"Radbro",          max:RADBRO_LOCAL.length, frame:"remilio", src:id=>localFile("assets/img/Radbro/"+RADBRO_LOCAL[(id-1)%RADBRO_LOCAL.length]+".webp") },
   schizo:   { name:"SchizoPoster",    max:SCHIZO_LOCAL.length, frame:"poster", src:id=>localFile("assets/img/Schizo/"+SCHIZO_LOCAL[(id-1)%SCHIZO_LOCAL.length]+".webp") },
   station:  { name:"MiladyStation",   max:1212,  frame:"square",  src:id=>IPFS+"QmSjnEsFWBWC3hCcm1UarThXLSRrKuYLq1e8oYFaZpVmJS/"+id+".png" },
@@ -502,8 +503,9 @@ const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1,
 function playerCollection(){ return G && G.base && G.base.nft ? G.base.nft.kind : "milady"; }
 function collectionOf(def){ return def.nft || def.cfg.toLowerCase(); }
 function clashes(def){ return collectionOf(def)===playerCollection(); }
+const CIG_FROM = "2026-10-12";
 function foePool(tier, district){
-  const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e));
+  const ok = ENEMIES.filter(e=>e.tier===tier && !clashes(e) && !(e.nft==="cig" && G && G.daily && G.daily < CIG_FROM)); // daily maps from before the packs arrived keep the enemies their players met
   const local = ok.filter(e=>district===3 || e.home.includes(district));
   return local.length ? local : ok;
 }
@@ -3216,6 +3218,7 @@ function combatBars(you, foe, lead){
     if(f.trait==="creeper") o.push(["💥 blows up on death", "", "it explodes when it dies, but can't finish you"]);
     if(f.trait==="bomber") o.push(["🎈 bomb in "+(4-((f.tk||0)%4)), (f.tk||0)%4===3 ? "soon" : "", "8 damage every 4th tick, whatever your armor"]);
     if(f.trait==="mirror") o.push(["🪞 copied your attack", "", "it hits at least 60% as hard as you do"]);
+    if(f.trait==="smoker") o.push(["🚬 secondhand smoke", "", "you heal half as well while it stands. a Face Mask keeps the smoke out"]);
     if(f.trait==="thief") o.push(["💸 steals $CULT"+(f.stolen ? " · holds "+f.stolen : ""), "", "every hit takes $CULT. kill it to get it back"]);
     return o.map(x=>"<span class='trait "+x[1]+"' title='"+esc(x[2])+"'>"+x[0]+"</span>").join(""); };
   $("foe-status").innerHTML = traits(foe) + worn(foe) + hxChips(foe.hx);
@@ -3378,6 +3381,10 @@ function fightEngine(foeDef, opts, io){
   }
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
+  if(foe.trait==="smoker"){ // secondhand smoke: you heal half as well while it stands. a Face Mask keeps it out
+    if(act("face_mask")) io.log("😷 Face Mask: "+foe.name+"'s smoke doesn't reach you.", "good");
+    else { you.hx = { mult:0.5 }; io.log("🚬 "+foe.name+" is smoking. In its smoke <b>you heal half as well</b>.", "bad"); }
+  }
   const tv = (id, n) => Math.round(n*tm(id)); // a relic's number at its tier
   you.shield = (act("network_spirituality")?tv("network_spirituality",16):0) + (act("jesus_tank")?tv("jesus_tank",12):0) + (set("cult",2)?8:0);
   if(you.shield) io.log("🕯️ You start shielded for "+you.shield+".", "good");
@@ -4376,6 +4383,7 @@ const CUES = [
   [/blows up in/, "you", "boom", "kill", "boom"], [/Dug in\./, "you", "dug in", "good"], [/Bike Helmet takes/, "you", "helmet takes it", "good"], [/knew it was coming/, "you", "saw it coming", "good"],
   [/Instant kill/, "foe", "instant kill", "kill"], [/freezes solid/, "foe", "frozen", "ice"], [/is stunned!/, "foe", "stunned", "ice"], [/hits itself/, "foe", "hits itself", "gold"],
   [/Tyson Tribal/, "foe", "guard down", "bad"], [/^🚬 Newports/, "foe", "ratio'd", "bad"], [/tries to get back up, and can't/, "foe", "stays down", "gold"],
+  [/is smoking\. In its smoke/, "you", "secondhand smoke", "bad"], [/smoke doesn't reach you/, "you", "mask holds", "good"],
   [/goes harder\. ATK/, "foe", "goes harder", "bad"], [/copies your style/, "foe", "copies you", "bad"],
   [/FUD suppresses .*?([A-Z][^!]*)!/, "you", "fud: $1 off", "fud"], [/INJUNCTION: (.+) frozen/, "you", "injunction: $1", "law"], [/DRAINED: (\d+)/, "you", "drained −$1 $CULT", "drain"],
   [/pockets (\d+) \$CULT/, "you", "−$1 $CULT", "drain"], [/RATIO'D —/, "you", "ratio'd", "bad"], [/has cancelled (.+)\. It is gone/, "you", "cancelled: $1", "kill"],
@@ -5353,7 +5361,7 @@ function openAchievements(){
 /* ---------- the codex: everything in the game, in one place ---------- */
 const codexPool = () => RELICS.filter(r=>!r.tags.includes("blackmarket") || perk("blackmarket"));
 const TRAIT_TEXT = { mirror:"copies part of your ATK when the fight starts", thief:"steals $CULT with every hit. kill it to get it back", hard:"gains ATK every third tick",
-  creeper:"blows up in your face when it dies", bomber:"bombs you every fourth tick", revive:"gets back up once, at half health" };
+  creeper:"blows up in your face when it dies", bomber:"bombs you every fourth tick", revive:"gets back up once, at half health", smoker:"secondhand smoke: you heal half as well while it stands. a Face Mask keeps it out" };
 const CODEX_TABS = [["relics","💎 relics"],["sets","✨ synergies"],["foes","👹 enemies"],["bosses","☠ bosses"],["maze","🗺 the maze"],["lore","📜 lore"]];
 function openCodex(tab, pick){
   tab = tab || "relics";
