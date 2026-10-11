@@ -1867,3 +1867,36 @@ body.calm .eframe{animation:none;}
 .hcard .tribe-badge{font-size:8.5px;padding:0 5px 0 3px;max-width:100%;margin:2px 0;color:var(--tc);} .hcard .tribe-badge i{font-size:10px;}
 .hcard .hres{font-size:10px;} .hcard .hres.good{color:var(--acid);} .hcard .hres.bad{color:#ff8b8b;}
 .hcard.fell{border-color:rgba(255,85,85,.4);background:rgba(255,40,40,.04);} .hcard.fell em{color:#ffb0b0;}
+
+/* hall of fame as a calendar: a week to a row, Monday to Sunday, and the week's king in gold at the end */
+#modal-panel:has(.cal){max-width:900px;}
+.cal-top{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px 0 8px;} .cal-top b{font-family:var(--label);letter-spacing:.14em;text-transform:uppercase;font-size:14px;color:var(--txt);min-width:190px;text-align:center;}
+.cal-people{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:0 0 10px;} .cal-people .pick{font-size:11px;padding:4px 9px;min-height:0;} .cal-people .pick b{color:var(--gold);margin-left:3px;} .cal-people .pick i{font-style:normal;color:var(--gold);margin-left:4px;font-size:10px;} .cal-people .pick.clear{border-style:dashed;color:var(--dim);}
+.cal-wrap{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(220px,1fr);gap:14px;align-items:start;}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,1.08fr);gap:5px;}
+.cal>u{text-decoration:none;font-family:var(--label);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);text-align:center;padding-bottom:2px;} .cal>u.kcol{color:var(--gold);}
+.cal-cell{position:relative;aspect-ratio:1;min-width:0;padding:0;border:1px solid var(--line);border-radius:7px;background:rgba(139,233,253,.03);overflow:hidden;display:block;font:inherit;color:inherit;cursor:pointer;transition:transform .12s,box-shadow .12s,opacity .2s,filter .2s;}
+i.cal-cell{cursor:default;} .cal-cell.out{border-color:transparent;background:none;} .cal-cell.empty{background:rgba(139,233,253,.015);} .cal-cell.future{opacity:.35;cursor:default;}
+.cal-cell .bpfp{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;display:block;}
+.cal-cell em{position:absolute;left:3px;top:2px;font-style:normal;font-family:var(--mono);font-size:10px;font-weight:700;line-height:1;color:#fff;text-shadow:0 1px 0 #000,0 0 4px #000,0 0 6px #000;z-index:2;}
+.cal-cell.empty em,.cal-cell.future em{color:var(--dim);text-shadow:none;}
+.cal-cell.won{border-color:rgba(80,250,123,.55);} .cal-cell.fell{border-color:rgba(255,85,85,.6);} .cal-cell.fell .bpfp{filter:grayscale(.8) brightness(.65);}
+.cal-cell s{position:absolute;right:2px;bottom:1px;text-decoration:none;color:#ff3b3b;font-weight:800;font-size:13px;line-height:1;text-shadow:0 0 4px #000,0 0 6px rgba(255,40,40,.8);z-index:2;}
+.cal-cell.live{border-style:dashed;border-color:var(--acid);box-shadow:0 0 10px rgba(80,250,123,.3);}
+.cal-cell.kcell{border-color:rgba(255,209,102,.8);background:linear-gradient(160deg,rgba(255,209,102,.22),rgba(255,160,40,.05) 55%,rgba(255,209,102,.16));box-shadow:0 0 12px rgba(255,209,102,.2),inset 0 0 0 1px rgba(255,235,170,.14);margin-left:5px;}
+.cal-cell.kcell.empty{border-color:rgba(255,209,102,.18);background:rgba(255,209,102,.03);box-shadow:none;} .cal-cell.kcell.live{border-style:dashed;} .cal-cell.kcell em{left:auto;right:3px;font-size:11px;}
+button.cal-cell:not(.future):hover,button.cal-cell:focus-visible{transform:scale(1.07);z-index:3;box-shadow:0 0 0 2px var(--neon),0 0 16px rgba(139,233,253,.45);outline:none;}
+.cal-cell.sel{box-shadow:0 0 0 2px #fff,0 0 16px rgba(255,255,255,.35);z-index:2;} .cal-cell.dim{opacity:.16;filter:grayscale(1);}
+.cal-cell.skel{border:0;cursor:default;}
+.cal-detail{min-height:230px;border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.03);padding:12px 10px;}
+.cal-det{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;} .cal-det .hface.bface{width:112px;height:112px;aspect-ratio:auto;margin:0;} .cal-det .hface .bpfp{width:112px;height:112px;border-radius:9px;}
+.cal-det .hface.bface s{font-size:12px;border-width:2px;padding:4px 5px;}
+.cal-info{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;max-width:100%;font-size:12px;} .cal-info>u{text-decoration:none;font-family:var(--label);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);}
+.cal-info>b{font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .cal-info .hwho{color:var(--acid);text-shadow:0 0 8px rgba(80,250,123,.35);} .cal-info .hwho.ur{color:var(--urbit);}
+.cal-info>em{font-style:normal;font-family:var(--mono);font-weight:800;font-size:22px;color:var(--gold);line-height:1.1;} .cal-info>span{color:var(--dim);font-size:11px;} .cal-info .hres.good{color:var(--acid);} .cal-info .hres.bad{color:#ff8b8b;}
+.cal-info .duel-relics{justify-content:center;margin-top:5px;flex-wrap:wrap;} .cal-info .tribe-badge{font-size:9.5px;}
+.cal-det.king{color:var(--gold);} .cal-det.king .bpfp{box-shadow:0 0 0 2px rgba(255,209,102,.8),0 0 18px rgba(255,209,102,.35);} .cal-det.king .cal-info>em{font-size:14px;letter-spacing:.04em;} .cal-detail:has(.king){border-color:rgba(255,209,102,.7);background:linear-gradient(160deg,rgba(255,209,102,.16),rgba(255,160,40,.04) 55%,rgba(255,209,102,.1));}
+.cal-detail:has(.fell){border-color:rgba(255,85,85,.4);} .cal-none{display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--dim);font-size:12px;text-align:center;padding:0 10px;}
+@media (max-width:760px){ .cal-wrap{grid-template-columns:1fr;} .cal{gap:3px;} .cal-cell{border-radius:5px;} .cal-cell.kcell{margin-left:2px;} .cal-cell em{font-size:9px;} .cal>u{font-size:7.5px;letter-spacing:.04em;} .cal>u.kcol{font-size:7.5px;}
+  .cal-detail{min-height:0;} .cal-det{flex-direction:row;align-items:flex-start;text-align:left;gap:10px;} .cal-det .hface.bface,.cal-det .hface .bpfp{width:84px;height:84px;} .cal-info{align-items:flex-start;} .cal-info .duel-relics{justify-content:flex-start;} .cal-none{min-height:84px;} .cal-top b{min-width:150px;font-size:12px;} }
+body.calm .cal-cell{transition:none;}

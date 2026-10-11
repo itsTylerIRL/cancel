@@ -4959,6 +4959,7 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
 let boardGot = null; // the board last fetched, so turning a page doesn't ask again
 const BOARD_PAGE = 10;
+let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
   const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
@@ -4982,35 +4983,71 @@ async function openBoard(tab, back, seed, page){
   const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
   const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
   if(!turning){ // the shape of what is on its way, instead of the word "loading"
-    openModal(shell(tab==="hall" ? "<div class='hall skel-wrap' aria-busy='true'>"+"<div class='hcard skel'><i></i><u></u><b></b><em></em></div>".repeat(8)+"</div>"
+    openModal(shell(tab==="hall" ? "<div class='cal-wrap skel-wrap' aria-busy='true'><div class='cal'>"+"<i class='cal-cell skel'></i>".repeat(40)+"</div><div class='cal-detail'></div></div>"
       : "<div class='lineup skel-wrap' style='--n:10' aria-busy='true'>"+"<i class='bpfp big skel'></i>".repeat(10)+"</div><div class='board skel-wrap'>"+"<div class='brow skel'><i></i><i class='sq'></i><b></b><span></span><em></em></div>".repeat(7)+"</div>")); wire(); }
-  if(tab==="hall"){ // every daily map's champion, as a wall of faces
-    const h = await api("/api/hall");
+  if(tab==="hall"){ // every daily map's champion, on a calendar: a week to a row, Monday to Sunday, and in an eighth column the king who held the hill that week
+    const [h, kg] = await Promise.all([api("/api/hall"), api("/api/king?player="+playerId())]);
     if($("modal").classList.contains("hidden") || !$("board-close")) return;
-    // each day's champion, and in gold whoever held the hill as each week ended, newest first
-    const mon = d => new Date(Date.parse(d+"T12:00:00Z")).toLocaleDateString("en-US", {month:"short", day:"numeric", timeZone:"UTC"});
-    const items = !h ? [] : h.days.map(e=>({...e, at:e.date}))
-      .concat((h.kings||[]).map(k=>({...k, king:true, at:new Date(Date.parse(k.week+"T12:00:00Z")+6*86400e3).toISOString().slice(0,10)+"~"})))
-      .sort((x,y)=> x.at<y.at ? 1 : -1);
-    // a verified player is shown by their account, in its color, with the character's name on hover; anyone else by the name they played under
+    if(!h){ openModal(shell("<div class='note bad'>the leaderboard can't be reached right now</div>")); wire(); return; }
+    const D = s => new Date(s+"T12:00:00Z"), iso = d => d.toISOString().slice(0,10), fmt = (s, o) => D(s).toLocaleDateString("en-US", {...o, timeZone:"UTC"});
+    const addDays = (s, n) => iso(new Date(D(s).getTime()+n*86400e3));
+    const mondayOf = s => addDays(s, -((D(s).getUTCDay()+6)%7)); // a hill week is keyed by its Monday
+    const days = {}, kings = {}; for(const e of h.days) days[e.date] = e; for(const k of (h.kings||[])) kings[k.week] = k;
+    if(kg && kg.king) kings[mondayOf(h.today)] = {...kg.king, week:mondayOf(h.today), live:true}; // this week's king is still on the hill
+    const key = e => e.handle ? "h:"+e.handle : "n:"+String(e.name||"").toLowerCase(); // a verified account, or else the name they played under
     const who = e => !e.handle ? "<b>"+esc(e.name)+"</b>"
       : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"</b>";
-    // a date a person would say: today, yesterday, then "Sat Oct 10". the full date is on hover
-    const dayLabel = d => !h ? d : d===h.today ? "today" : d===dayBefore(h.today) ? "yesterday" : new Date(d+"T12:00:00Z").toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric", timeZone:"UTC"});
-    const face = (e, i) => "<span class='hface bface"+(e.king || e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.king || e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>";
-    openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
-      : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
-      : "<div class='hall'>"+items.map((e,i)=> e.king
-          ? "<div class='hcard king' title='held the hill when the week ended'>"+face(e, i)+"<u>week of "+esc(mon(e.week))+"</u>"+who(e)+tribeBadge(e.tribe)+"<em>👑 king of the hill</em><span>"
-            + (e.defences ? e.defences+" defense"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
-          : "<div class='hcard"+(e.date===h.today?" live":"")+(e.win ? "" : " fell")+"'>"+face(e, i)+"<u title='"+esc(e.date)+"'>"+esc(dayLabel(e.date))+"</u>"+who(e)+tribeBadge(e.tribe)+"<em>"+e.score+"</em>"
-            + "<span class='hres "+(e.win ? "good" : "bad")+"'>"+(e.win ? "saved on day "+e.day : "cancelled on day "+e.day)+"</span><span>"
-            + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
-        + "<div class='note'>the best run on each day's map: a win if anyone had one, the furthest anyone got if nobody did"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
-    for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
-      if(!cv.isConnected) return;
-      try{ await drawLook(cv, items[+cv.dataset.n].look, items[+cv.dataset.n].relics); }catch(err){}
-    }
+    const short = e => e.handle ? (isShip(e.handle) ? e.handle : "~"+e.handle) : e.name;
+    // everyone on the calendar, most days first
+    const tally = {}; for(const e of h.days){ const t = tally[key(e)] = tally[key(e)] || { e, days:0, crowns:0 }; t.days++; }
+    for(const w in kings){ const k = kings[w], t = tally[key(k)] = tally[key(k)] || { e:k, days:0, crowns:0 }; t.crowns++; }
+    const people = Object.entries(tally).sort((x,y)=> y[1].days-x[1].days || y[1].crowns-x[1].crowns);
+    const first = h.days.length ? h.days[h.days.length-1].date : h.today, firstMonth = first.slice(0,7), lastMonth = h.today.slice(0,7);
+    const st = hallState = hallState && hallState.today===h.today ? hallState : { today:h.today, month:lastMonth, sel:days[h.today] ? h.today : (h.days[0] ? h.days[0].date : h.today), filter:"" };
+    const item = id => id && id[0]==="k" ? kings[id.slice(1)] : days[id];
+    const detail = id => { const e = item(id), king = id && id[0]==="k";
+      if(!e) return "<div class='cal-none'>"+(id && id>h.today ? "this day hasn't happened yet" : id===h.today ? "nobody has played today's map yet. it's open." : "nobody played this day's map")+"</div>";
+      return "<div class='cal-det"+(king ? " king" : e.win ? "" : " fell")+"'>"
+        + "<span class='hface bface"+(king || e.win ? "" : " lost")+"'><canvas class='bpfp' data-det='1' width='4' height='4'></canvas>"+(king || e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>"
+        + "<div class='cal-info'><u>"+(king ? "week of "+fmt(e.week, {month:"long", day:"numeric"}) : id===h.today ? "today · "+fmt(id, {weekday:"long", month:"long", day:"numeric"}) : fmt(id, {weekday:"long", month:"long", day:"numeric"}))+"</u>"
+        + who(e)+tribeBadge(e.tribe)
+        + (king ? "<em>👑 king of the hill</em><span class='hres'>"+(e.live ? "holding the hill now · " : "held it when the week ended · ")+(e.defences ? e.defences+" challenger"+(e.defences===1?"":"s")+" beaten" : "unchallenged")+"</span>"
+                : "<em>"+e.score+"</em><span class='hres "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span>"
+                  + "<span>"+(id===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+" on this map"+(e.heat ? " · 🔥 heat "+e.heat : "")+"</span>")
+        + relicStrip(e.relics||[])+"</div></div>"; };
+    const paintDetail = id => { const box = $("cal-detail"); if(!box) return; box.innerHTML = detail(id); const cv = box.querySelector("canvas"), e = item(id); if(cv && e) drawLook(cv, e.look, e.relics).catch(()=>{}); };
+    const draw = ()=>{
+      const [Y, M] = st.month.split("-").map(Number), one = st.month+"-01", last = iso(new Date(Date.UTC(Y, M, 0, 12)));
+      let html = "<div class='cal-top'><button class='btn small' id='cal-prev'"+(st.month<=firstMonth ? " disabled" : "")+" aria-label='earlier month'>←</button><b>"+fmt(one, {month:"long", year:"numeric"})+"</b>"
+        + "<button class='btn small' id='cal-next'"+(st.month>=lastMonth ? " disabled" : "")+" aria-label='later month'>→</button></div>"
+        + "<div class='cal-people'>"+people.map(([k,t])=>"<button class='pick"+(st.filter===k ? " on" : "")+"' data-who='"+esc(k)+"' title='show only the days "+esc(short(t.e))+" won'>"+esc(short(t.e))+" <b>"+t.days+"</b>"+(t.crowns ? " <i>👑"+t.crowns+"</i>" : "")+"</button>").join("")
+          + (st.filter ? "<button class='pick clear' data-who=''>show everyone</button>" : "")+"</div>"
+        + "<div class='cal-wrap'><div class='cal'>"+["mon","tue","wed","thu","fri","sat","sun"].map(d=>"<u>"+d+"</u>").join("")+"<u class='kcol'>👑 king</u>";
+      for(let w = mondayOf(one); w<=last; w = addDays(w, 7)){
+        for(let i=0;i<7;i++){ const d = addDays(w, i), e = days[d], out = d.slice(0,7)!==st.month, dim = st.filter && (!e || key(e)!==st.filter);
+          html += out ? "<i class='cal-cell out'></i>"
+            : "<button class='cal-cell"+(e ? (e.win ? " won" : " fell") : " empty")+(d===h.today ? " live" : "")+(d>h.today ? " future" : "")+(dim ? " dim" : "")+(st.sel===d ? " sel" : "")+"' data-id='"+d+"' aria-label='"+esc(fmt(d, {month:"long", day:"numeric"})+(e ? ": "+short(e) : ""))+"'>"
+              + (e ? "<canvas class='bpfp' data-day='"+d+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>✕</s>") : "")+"<em>"+(+d.slice(8))+"</em></button>"; }
+        const k = kings[w], kd = st.filter && (!k || key(k)!==st.filter);
+        html += k ? "<button class='cal-cell kcell"+(k.live ? " live" : "")+(kd ? " dim" : "")+(st.sel==="k"+w ? " sel" : "")+"' data-id='k"+w+"' aria-label='king of the hill, week of "+esc(fmt(w, {month:"long", day:"numeric"}))+": "+esc(short(k))+"'><canvas class='bpfp' data-king='"+w+"' width='4' height='4'></canvas><em>👑</em></button>"
+                  : "<i class='cal-cell kcell empty'></i>";
+      }
+      html += "</div><div id='cal-detail' class='cal-detail'></div></div>"
+        + "<div class='note'>the best run on each day's map: a win if anyone had one, the furthest anyone got if nobody did. in gold, the king who held the hill each week. today's spot is open until midnight Eastern.</div>";
+      openModal(shell(html)); wire();
+      const P = $("modal-panel");
+      $("cal-prev").onclick = ()=>{ sfx("click"); st.month = iso(new Date(Date.UTC(Y, M-2, 1, 12))).slice(0,7); draw(); };
+      $("cal-next").onclick = ()=>{ sfx("click"); st.month = iso(new Date(Date.UTC(Y, M, 1, 12))).slice(0,7); draw(); };
+      P.querySelectorAll("[data-who]").forEach(b=>{ b.onclick = ()=>{ sfx("click"); st.filter = st.filter===b.dataset.who ? "" : b.dataset.who; draw(); }; });
+      P.querySelectorAll(".cal-cell[data-id]").forEach(b=>{
+        b.onclick = ()=>{ sfx("click"); st.sel = b.dataset.id; P.querySelectorAll(".cal-cell.sel").forEach(x=>x.classList.remove("sel")); b.classList.add("sel"); paintDetail(st.sel); };
+        b.onmouseenter = ()=>{ if(!TOUCH) paintDetail(b.dataset.id); }; b.onfocus = ()=>paintDetail(b.dataset.id);
+      });
+      const grid = P.querySelector(".cal"); if(grid) grid.onmouseleave = ()=>paintDetail(st.sel); // a hover is a look; the pinned day comes back
+      paintDetail(st.sel);
+      (async ()=>{ for(const cv of [...P.querySelectorAll(".cal canvas")]){ if(!cv.isConnected) return; const e = cv.dataset.day ? days[cv.dataset.day] : kings[cv.dataset.king]; try{ await drawLook(cv, e.look, e.relics); }catch(err){} } })();
+    };
+    draw();
     return;
   }
   const res = turning ? boardGot.res : await api("/api/board?"+q+"&limit=100&player="+playerId());
