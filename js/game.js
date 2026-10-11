@@ -3113,11 +3113,6 @@ function fightEngine(foeDef, opts, io){
     if(tribe==="lolita") n *= 1.5; // LOVEBOMBER
     n = grow(n); // healing keeps pace with the days, like burn and companions do: a heal sized for day 1 was a rounding error by day 6
     let amt = n*(act("heart_tattoo")?2:1);
-    if(foe.puppet){ // on the hill a round's healing is limited, like a round's damage: half of what one round can take
-      const room = Math.ceil(you.maxhp*BAL.guardDuel*0.5) - (you.healedTick||0);
-      if(room<=0) return;
-      amt = Math.min(amt, room); you.healedTick = (you.healedTick||0)+amt;
-    }
     const before = you.hp, want = you.hp + amt;
     if(hx.reflect && want>you.maxhp){ const back = Math.round(want-you.maxhp); you.hp = Math.min(you.maxhp, want); you.hp -= back; hurtBy("⛓️ healing turned back", back); io.log("⛓️ Too much. "+back+" of that healing comes back as damage.", "bad"); io.float("you","-"+back,"psn"); return; }
     you.hp = Math.min(you.maxhp, want);
@@ -3316,7 +3311,7 @@ function fightEngine(foeDef, opts, io){
   }
   F.step = function(){
     if(F.over) return;
-    F.tick++; F.fxDelay=0; you.healedTick = 0;
+    F.tick++; F.fxDelay=0;
     if(foe.ratio>0) foe.ratio--;
     if(foe.regen && !foe.puppet && foe.hp>0 && foe.hp<foe.maxhp && F.tick>1){ if(mend(Math.max(1, foe.maxhp*foe.regen)) > 0 && F.tick===2) io.log("✨ "+foe.name+" mends itself every tick. Something that stops healing would help.", "bad"); }
     // boss: allegations suppression (a suppressed relic gives nothing this tick, stats included)
