@@ -1806,3 +1806,37 @@ body.calm .statuses .hx.no{animation:none;}
 .fx-gbreak{box-shadow:inset 0 0 0 4px rgba(241,250,140,.9);animation:fadeaway .55s ease-out forwards;} .fx-gbreak i{width:14px;height:6px;background:#f1fa8c;box-shadow:0 0 8px #f1fa8c;animation:spray .55s ease-out forwards;}
 .float.gbreak{color:var(--gold);font-size:19px;letter-spacing:1px;top:22%;} .combat-panel .float.gbreak{font-size:clamp(16px,2.2vw,30px);}
 @media (max-width:700px){ .ptag{font-size:9px;letter-spacing:.06em;padding:.4em .6em;} .ptags{bottom:4%;gap:2px;} }
+
+/* ---------- combat: synergies, elites, night ---------- */
+.csets{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:6px;min-height:0;}
+.csets .syn{position:relative;display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid color-mix(in srgb,var(--sc) 55%,transparent);border-radius:999px;background:color-mix(in srgb,var(--sc) 10%,rgba(0,0,0,.55));color:var(--sc);font-size:12px;line-height:1.3;white-space:nowrap;}
+.csets .syn b{color:#fff;font-weight:700;} .csets .syn i{font-style:normal;font-size:8px;letter-spacing:1px;opacity:.85;} .csets .syn .si{width:14px;height:14px;}
+.csets .syn.max{border-color:var(--sc);box-shadow:0 0 8px color-mix(in srgb,var(--sc) 45%,transparent);}
+.csets .syn.fire{animation:synfire .7s ease-out;z-index:3;} .csets .syn.fire::after{content:attr(data-n);position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);padding:2px 7px;border-radius:4px;background:var(--sc);color:#061216;font-family:var(--mono);font-weight:800;font-size:10px;letter-spacing:.1em;white-space:nowrap;box-shadow:0 0 0 1px #000,0 0 12px var(--sc);animation:synname .7s ease-out forwards;pointer-events:none;}
+@keyframes synfire{0%{transform:scale(1.45);background:var(--sc);box-shadow:0 0 0 2px #fff,0 0 22px 6px var(--sc);filter:brightness(1.6);}100%{transform:none;filter:none;}}
+@keyframes synname{0%{opacity:0;transform:translate(-50%,6px) scale(.8);}18%{opacity:1;transform:translate(-50%,0) scale(1);}75%{opacity:1;}100%{opacity:0;transform:translate(-50%,-5px);}}
+@media (min-width:900px){ .combat-panel .csets .syn{font-size:14px;padding:3px 10px;} .combat-panel .csets .syn .si{width:17px;height:17px;} .combat-panel .csets .syn.fire::after{font-size:12px;} }
+/* an elite: a frame that means it */
+.eframe{display:none;position:absolute;inset:-7px;z-index:3;pointer-events:none;border-radius:14px;border:2px solid #ffb347;box-shadow:0 0 0 1px #000,0 0 26px rgba(255,140,0,.7),inset 0 0 26px rgba(255,120,0,.35);animation:eliteframe 1.1s ease-in-out infinite alternate;}
+.portrait.elite .eframe{display:block;}
+.eframe::before,.eframe::after{content:"";position:absolute;width:26%;height:20%;border:4px solid #ffd75e;filter:drop-shadow(0 0 6px #ff8a00);}
+.eframe::before{left:-6px;top:-6px;border-right:0;border-bottom:0;border-radius:12px 0 0 0;} .eframe::after{right:-6px;bottom:-6px;border-left:0;border-top:0;border-radius:0 0 12px 0;}
+.eframe b{position:absolute;left:50%;top:-11px;transform:translateX(-50%) skewX(-8deg);padding:2px 12px;background:linear-gradient(90deg,#ff8a00,#ffd75e);color:#1a0d00;font-family:var(--mono);font-weight:800;font-size:11px;letter-spacing:.3em;text-transform:uppercase;box-shadow:0 0 0 2px #000,0 0 14px rgba(255,140,0,.8);}
+.portrait.elite canvas{border-color:#ffb347;}
+@keyframes eliteframe{from{box-shadow:0 0 0 1px #000,0 0 14px rgba(255,140,0,.45),inset 0 0 18px rgba(255,120,0,.2);}to{box-shadow:0 0 0 1px #000,0 0 40px rgba(255,120,0,.95),inset 0 0 34px rgba(255,120,0,.5);}}
+.ptag.elite{background:linear-gradient(90deg,#ff8a00,#ffd75e);font-size:clamp(13px,1.8vw,24px);letter-spacing:.3em;box-shadow:0 0 0 2px #000,0 0 26px rgba(255,140,0,.9);}
+body.calm .eframe{animation:none;}
+/* a fight at night */
+#screen-combat.night .pfx::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(36,44,150,.42),rgba(8,8,44,.5));mix-blend-mode:multiply;}
+#screen-combat.night::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at 50% 30%,rgba(40,50,170,.10),rgba(6,8,50,.22));} #screen-combat.night #combat-title::before{content:"🌙 ";}
+#screen-combat.night .portrait canvas{box-shadow:0 0 26px rgba(90,110,255,.35);}
+/* their crit on you */
+.portrait.crit-on{animation:criton .5s ease-out;} @keyframes criton{0%{filter:brightness(2) saturate(0) contrast(1.6);transform:scale(.94) rotate(-2deg);}100%{filter:none;transform:none;}}
+/* a Griefer going off */
+.portrait.boom canvas{animation:boom .9s ease-out forwards;} @keyframes boom{0%{transform:scale(1);filter:brightness(1);}18%{transform:scale(1.35);filter:brightness(4) saturate(0);}100%{transform:scale(1.8);filter:brightness(2);opacity:0;}}
+#screen-combat.boomflash::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at 70% 45%,rgba(255,200,90,.75),rgba(255,120,30,.3) 55%,transparent 80%);animation:boomflash .9s ease-out forwards;} @keyframes boomflash{0%{opacity:1;}100%{opacity:0;}}
+/* war room, and the evil eye */
+.fx-warroom{background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.85),rgba(183,165,122,.6) 30%,transparent 62%);animation:warroom .7s ease-out forwards;} .fx-warroom i{width:16px;height:5px;background:#e6d6a8;box-shadow:0 0 8px #b7a57a;animation:spray .6s ease-out forwards;}
+@keyframes warroom{0%{opacity:1;transform:scale(.3);}35%{opacity:1;transform:scale(1.25);}100%{opacity:0;transform:scale(1.5);}}
+.fx-eye::before{content:"";position:absolute;inset:14%;border:4px solid #b9a4ff;border-radius:50%;box-shadow:0 0 22px #b9a4ff,inset 0 0 26px rgba(185,164,255,.7);animation:ripple .55s ease-out forwards;}
+.fx-eye::after{content:"";position:absolute;left:42%;top:42%;width:16%;height:16%;border-radius:50%;background:#b9a4ff;box-shadow:0 0 18px #b9a4ff;animation:fadeaway .55s ease-out forwards;}
