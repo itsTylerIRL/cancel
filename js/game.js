@@ -2991,29 +2991,42 @@ function clog(msg, cls){
   const el=$("combat-log"); const d=document.createElement("div");
   if(cls)d.className=cls; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG); el.appendChild(d); el.scrollTop=el.scrollHeight;
 }
-function combatBars(you, foe){
+function combatBars(you, foe, lead){
   for(const [id, c] of [["you",you],["foe",foe]]){
     const w = clamp(100*c.hp/c.maxhp,0,100)+"%";
     $("chp-"+id).style.width = w; $("chp-"+id+"-g").style.width = w; // the pale ghost bar catches up a moment later
+    const sh = $("chp-"+id+"-s"); // a shield is drawn on the bar it protects, and is seen going down
+    if(sh){ const v = Math.max(0, c.shield||0); sh.style.width = clamp(100*v/c.maxhp,0,100)+"%"; sh.classList.toggle("on", v>0);
+      if(v < (+sh.dataset.v||0) - 0.5 && !META.calm){ sh.classList.remove("chip"); void sh.offsetWidth; sh.classList.add("chip"); } sh.dataset.v = v; }
   }
+  if(!STAGE.led){ STAGE.led = true; const who = lead || (you.spd>=foe.spd ? "you" : "foe"); setTimeout(()=>{ if($("screen-combat").classList.contains("active")) ptag(who, "strikes first", "first", 2200); }, 350); }
   $("chp-you-t").textContent=Math.max(0,Math.round(you.hp))+" / "+you.maxhp+(you.shield>0?" 🕯️"+you.shield:"");
   { // health coming back is worth seeing: the bar lights green for a moment whenever it goes up
     const bar = $("chp-you").parentElement, was = +bar.dataset.hp;
     if(was===was && you.hp > was+0.5 && !META.calm){ bar.classList.remove("healed"); void bar.offsetWidth; bar.classList.add("healed"); }
     bar.dataset.hp = you.hp;
   }
-  $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp;
+  $("chp-foe-t").textContent=Math.max(0,Math.round(foe.hp))+" / "+foe.maxhp+(foe.shield>0?" 🕯️"+foe.shield:"");
   { // the match-up in numbers, both sides, kept current as the fight changes them
-    const chip = (ico, label, v, extra, cls) => "<span title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+si(ico)+" <b>"+v+"</b>"+(extra||"")+"</span>";
+    const chip = (ico, label, v, extra, cls) => "<span data-k='"+ico+"' title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+si(ico)+" <b>"+v+"</b>"+(extra||"")+"</span>";
+    const nd = (you.hx||{}).noDodge, fnd = (foe.hx||{}).noDodge;
     const hard = you.hard||0, heft = heftOf(you.maxhp);
     $("you-stats").innerHTML = chip("⚔️","attack"+(heft ? " (plus "+heft+" from heft on every hit)" : ""), Math.round(you.atk)+(hard ? "<i>+"+hard+"</i>" : ""), "", hard ? "up" : "")
       + chip("🛡️","armor", you.arm) + chip("💨","speed: the faster side strikes first", you.spd, "", you.spd>=foe.spd ? "lead" : "")
-      + chip("✨","crit chance", Math.round(you.crit)+"%") + chip("🌀","dodge chance", Math.round(you.dodge||0)+"%")
+      + chip("✨","crit chance", Math.round(you.crit)+"%") + (nd ? chip("🌀","dodge is switched off by the other side", Math.round(you.dodge||0)+"%", "", "off") : chip("🌀","dodge chance", Math.round(you.dodge||0)+"%"))
       + (you.shield>0 ? chip("🕯️","shield", you.shield, "", "up") : "");
     $("foe-stats").innerHTML = chip("⚔️","attack", Math.round(foe.atk), "", foe.chill>0 ? "down" : "")
       + chip("🛡️","armor", Math.max(0, foe.arm)) + chip("💨","speed: the faster side strikes first", foe.spd, "", foe.spd>you.spd ? "lead" : "")
       + chip("✨","crit chance", Math.round(5+(foe.lck||0)/2)+"%")
+      + (foe.dodge>0 ? chip("🌀", fnd ? "dodge is switched off by your build" : "dodge chance", Math.round(foe.dodge)+"%", "", fnd ? "off" : "") : "")
+      + (foe.shield>0 ? chip("🕯️","shield", foe.shield, "", "up") : "")
       + (foe.adapt ? chip("📈","the timeline pushed back: this one was raised to meet your build", "+"+Math.round(foe.adapt*100)+"%", "", "down") : "");
+  }
+  // a number that moves says so: an arrow on the chip, green when it helps you and red when it doesn't
+  for(const side of ["you","foe"]) for(const el of $(side+"-stats").querySelectorAll("span[data-k]")){
+    const k = side+el.dataset.k, v = parseFloat(el.querySelector("b").textContent), was = STAGE.prev[k]; STAGE.prev[k] = v;
+    if(was==null || v!==v || v===was || META.calm) continue;
+    const up = v>was; el.classList.add("moved", (up===(side==="you")) ? "mgood" : "mbad"); el.dataset.d = (up ? "▲" : "▼")+Math.abs(Math.round((v-was)*10)/10);
   }
   { // the fight at a glance: whose share of health is holding up
     const a = clamp(you.hp/you.maxhp,0,1), b = clamp(foe.hp/foe.maxhp,0,1), t = $("tug");
@@ -3023,6 +3036,8 @@ function combatBars(you, foe){
   // the portraits wear what is happening to them
   const pf = $("port-foe"), py = $("port-you");
   for(const [c,on] of [["burning",foe.burn>0],["bleeding",foe.bleed>0],["chilled",foe.chill>0],["poisoned",foe.poison>0],["stunned",foe.stun>0]]) pf.classList.toggle(c, !!on);
+  for(const [c,on] of [["burning",you.burn>0],["bleeding",you.bleed>0],["chilled",you.chill>0],["poisoned",you.poison>0]]) py.classList.toggle(c, !!on); // in a hill fight you wear what the king's build does to you
+  pf.classList.toggle("shielded", foe.shield>0);
   py.classList.toggle("hurt", you.hp>0 && you.hp<=you.maxhp*0.3); py.classList.toggle("shielded", you.shield>0); py.classList.toggle("stunned", (you.stun||0)>0);
   // what is being done to each side's healing, in words: there is no hover on a phone
   const hxChips = h => { if(!h) return ""; const o = [];
@@ -3034,22 +3049,34 @@ function combatBars(you, foe){
     return o.map(x=>"<span class='hx "+x[1]+"' title='"+x[2]+"'>"+x[0]+"</span>").join(""); };
   const hxBar = (id, h) => { const b = $("chp-"+id).parentElement, none = !!(h && (h.mult===0 || h.block)); b.classList.toggle("noheal", none); b.classList.toggle("cutheal", !!h && !none && h.mult!=null && h.mult<1); };
   hxBar("foe", foe.hx); hxBar("you", you.hx);
-  $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["🚬",foe.ratio,"ratio'd: heals half as well"],["💫",foe.stun,"stunned"]]
-    .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("") + hxChips(foe.hx);
-  if($("you-status")) $("you-status").innerHTML = hxChips(you.hx);
+  const worn = c => [["🔥",c.burn,"burning"],["🩸",c.bleed,"bleeding"],["🧊",c.chill,"chilled"],["🐍",c.poison,"poisoned"],["🚬",c.ratio,"ratio'd: heals half as well"],["💫",c.stun,"stunned"]]
+    .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
+  // what this enemy does, said before it does it
+  const traits = f => { const o = [], pc = n => Math.round(n*100);
+    if(f.mech) o.push(["⚠️ "+f.mech.split(":")[0].toLowerCase(), "", f.mech]);
+    if(f.regen) o.push(["✨ mends "+pc(f.regen)+"% a tick", f.hx && f.hx.mult===0 ? "spent" : "", "it heals itself every tick. something that stops healing would help"]);
+    if(f.trait==="revive") o.push(f.revived ? ["💀 got back up", "spent", "it has used its one revive"] : ["💀 gets up once", "", "the first time it dies it comes back at half health"]);
+    if(f.trait==="hard") o.push(["🧀 +1 ATK a round", "", "it hits harder the longer the fight lasts"]);
+    if(f.trait==="creeper") o.push(["💥 blows up on death", "", "it explodes when it dies, but can't finish you"]);
+    if(f.trait==="bomber") o.push(["🎈 bomb in "+(4-((f.tk||0)%4)), (f.tk||0)%4===3 ? "soon" : "", "8 damage every 4th tick, whatever your armor"]);
+    if(f.trait==="mirror") o.push(["🪞 copied your attack", "", "it hits at least 60% as hard as you do"]);
+    if(f.trait==="thief") o.push(["💸 steals $CULT"+(f.stolen ? " · holds "+f.stolen : ""), "", "every hit takes $CULT. kill it to get it back"]);
+    return o.map(x=>"<span class='trait "+x[1]+"' title='"+esc(x[2])+"'>"+x[0]+"</span>").join(""); };
+  $("foe-status").innerHTML = traits(foe) + worn(foe) + hxChips(foe.hx);
+  if($("you-status")) $("you-status").innerHTML = worn(you) + hxChips(you.hx);
 }
 /* Every kind of damage has its own look. The fight log already says what happened, so the effect is read from it:
    [which portrait, which effect]. */
 const LOG_FX = [ [/\(guarded\)/, "foe", "guard"], [/^🔥/, "foe", "burn"], [/^🩸 The curse/, "", ""], [/^🩸/, "foe", "bleed"], [/^🐍/, "foe", "poison"], [/^⚡/, "foe", "shock"],
   [/freezes solid/, "foe", "frost"], [/^🛡️ Your armor/, "foe", "thorns"], [/^🧿/, "foe", "thorns"], [/^💨 You (dodge|slip)/, "you", "dodge"],
-  [/^🕯️/, "you", "ward"], [/^(🧸|🦊|🦖|📮)/, "foe", "pounce"], [/^💥|^🎈|^📉/, "you", "blast"], [/^📢|^🏦|^🌀|^📵/, "you", "hex"] ];
+  [/^🕯️/, "you", "ward"], [/^(🧸|🦊|🦖|📮)/, "foe", "pounce"], [/^💥|^🎈/, "you", "blast"], [/^📉/, "you", "ratio"], [/^📢/, "you", "fud"], [/^🏦|^💸 .* pockets/, "you", "drain"], [/^🌀/, "you", "vibe"], [/^📵/, "you", "xout"], [/^⚖️/, "you", "gavel"] ];
 function logFx(m){ const t = m.replace(/<[^>]+>/g,""); for(const [rx, side, kind] of LOG_FX) if(rx.test(t)) return side ? [side, kind] : null; return null; }
 function hitFx(side, kind){
   if(META.calm) return;
   const port = $("port-"+side); if(!port) return;
   const d = document.createElement("div"); d.className = "hitfx fx-"+kind;
   if(kind==="slash" || kind==="crit") d.style.setProperty("--rot", (-50+Math.random()*100).toFixed(0)+"deg");
-  if(["bleed","burn","poison","frost","pounce","blast"].includes(kind)) d.innerHTML = Array.from({length:kind==="frost"?7:6}, (_,i)=>"<i style='--a:"+Math.round(i*360/6+Math.random()*30)+"deg;--d:"+(30+Math.round(Math.random()*40))+"px'></i>").join("");
+  if(["bleed","burn","poison","frost","pounce","blast","drain","gbreak"].includes(kind)) d.innerHTML = Array.from({length:kind==="frost"?7:6}, (_,i)=>"<i style='--a:"+Math.round(i*360/6+Math.random()*30)+"deg;--d:"+(30+Math.round(Math.random()*40))+"px'></i>").join("");
   port.appendChild(d); setTimeout(()=>d.remove(), 700);
 }
 function critFlash(){ if(META.calm) return; const s = $("screen-combat"); s.classList.remove("critflash"); void s.offsetWidth; s.classList.add("critflash"); setTimeout(()=>s.classList.remove("critflash"), 260); }
@@ -3066,7 +3093,7 @@ function lunge(side){ // the attacker jabs toward the other portrait
 function floatText(side, text, cls){
   const d=document.createElement("div"); d.className="float "+(cls||""); d.textContent=text;
   d.style.left=(25+Math.random()*50)+"%";
-  const hk = /hblock/.test(cls) ? "noheal" : /hback/.test(cls) ? "backheal" : /hcut/.test(cls) ? "cutheal" : ""; // healing stopped, turned back or cut: the portrait shows which
+  const hk = /hblock/.test(cls) ? "noheal" : /hback/.test(cls) ? "backheal" : /hcut/.test(cls) ? "cutheal" : /gbreak/.test(cls) ? "gbreak" : ""; // healing stopped, turned back or cut: the portrait shows which
   if(hk){ d.style.left = "50%"; hitFx(side, hk); if(hk!=="cutheal") sfx("click"); }
   $("port-"+side).appendChild(d); setTimeout(()=>d.remove(), 900);
 }
@@ -3143,6 +3170,7 @@ function fightEngine(foeDef, opts, io){
     return m;
   };
   Object.defineProperty(foe, "hx", { configurable:true, get:()=>({ mult:foeHeal(), block:!!foe.denied, reflect:act("prison_uniform") && !!foe.regen }) }); // for the stage to show
+  if(boss && boss.mechanic) foe.mech = boss.mechanic;
   F.hexOut = () => { // handed to the other side of a duel
     const o = { mult:foeHeal(), noProc:act("face_mask"), reflect:act("prison_uniform"), noDodge:act("vr_goggles"), block:!!foe.denied, strip:!!foe.stripped };
     foe.denied = false; foe.stripped = false;
@@ -3299,7 +3327,7 @@ function fightEngine(foeDef, opts, io){
     // poison
     if(isYou && act("snakebites")){ def.poison = 3 + (act("lab_coat") ? 2 : 0); }
     if(isYou && act("newports")){ if(!(foe.ratio>0)) io.log("🚬 Newports. "+dn+" is ratio'd: it heals half as well.", "good"); foe.ratio = 2; }
-    if(isYou && crit && act("tyson_tattoo")){ foe.denied = true; foe.stripped = true; if(foe.shield>0){ foe.shield = 0; } io.log("🥊 Tyson Tribal: "+dn+"'s guard is down and its next heal won't come.", "good"); }
+    if(isYou && crit && act("tyson_tattoo")){ foe.denied = true; foe.stripped = true; if(foe.shield>0){ foe.shield = 0; io.float("foe","GUARD BROKEN","gbreak"); } io.log("🥊 Tyson Tribal: "+dn+"'s guard is down and its next heal won't come.", "good"); }
   }
   function lethalCheck(){
     if(you.hp>0) return false;
@@ -3329,7 +3357,7 @@ function fightEngine(foeDef, opts, io){
   }
   F.step = function(){
     if(F.over) return;
-    F.tick++; F.fxDelay=0;
+    F.tick++; F.fxDelay=0; foe.tk = F.tick;
     if(foe.ratio>0) foe.ratio--;
     if(foe.regen && !foe.puppet && foe.hp>0 && foe.hp<foe.maxhp && F.tick>1){ if(mend(Math.max(1, foe.maxhp*foe.regen)) > 0 && F.tick===2) io.log("✨ "+foe.name+" mends itself every tick. Something that stops healing would help.", "bad"); }
     // boss: allegations suppression (a suppressed relic gives nothing this tick, stats included)
@@ -3610,7 +3638,7 @@ function startCombat(foeDef, opts={}){
     d ? setTimeout(run, d) : run();
   };
   const io = {
-    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); },
+    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); fx(()=>STAGE.cue(m)); },
     hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); if(crit) stall += 110; clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
@@ -4073,10 +4101,10 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
   const kg = kingContext(k), kn = "👑 "+esc(k.name);
   G.stats.hp = G.stats.maxhp;
   const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
-  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, strip(){} };
+  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c, "you"); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, strip(){} };
   const flip = {good:"bad", bad:"good"};
   const ioB = { log:(m,c)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
-      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c); },
+      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c, "foe"); },
     hit:(s,d,c)=>{ if(V && s==="you") V.hit("foe", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("foe", t, c); }, strip(){} };
   const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
   const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
@@ -4093,7 +4121,7 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
     if(round - (stunAt.has(to) ? stunAt.get(to) : -9) > 1){ to.you.stun = 1; stunAt.set(to, round); }
   };
   carryStun(A, B); carryStun(B, A); // anything that stuns as the fight opens
-  const hand = (from, to) => { const h = from.hexOut(); to.you.hx = h; if(h.strip && to.you.shield>0){ to.you.shield = 0; } }; // what one build does to the other's healing, shield and dodging
+  const hand = (from, to) => { const h = from.hexOut(); to.you.hx = h; if(h.strip && to.you.shield>0){ to.you.shield = 0; if(V) V.float(to===B ? "foe" : "you", "GUARD BROKEN", "gbreak"); } }; // what one build does to the other's healing, shield and dodging
   const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); hand(A, B); fromYou += Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; carryStun(A, B); };
   const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); hand(B, A); fromKing += Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; carryStun(B, A); };
   const D = { A, B, you:A.you, king:B.you, kg, rounds:0, over:false, win:false, youFirst,
@@ -4153,8 +4181,69 @@ const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/L
 const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
   [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armor bites back/i, ["cactus_shirt"]],
   [/strike again/i, ["bonkler"]], [/shocks/i, ["pikachu"]], [/hits itself/i, ["bonkler"]], [/takes the hit for you/i, ["hobbes"]], [/patches you up/i, ["gnome"]], [/caught (off guard|flat)/i, ["vibe_shift","airtag"]] ];
-const STAGE = { combo:0, best:0,
-  reset(tribe){ this.tribe = tribe || ""; $("you-tribe").innerHTML = tribe ? tribeBadge(tribe) : ""; this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
+/* A ribbon across the foot of a portrait, naming what just happened to (or came from) that fighter. */
+function ptag(side, text, cls, ms){
+  if(META.calm) return;
+  const port = $("port-"+side); if(!port) return;
+  let box = port.querySelector(".ptags"); if(!box){ box = document.createElement("div"); box.className = "ptags"; port.appendChild(box); }
+  while(box.children.length>=3) box.firstChild.remove();
+  const d = document.createElement("div"); d.className = "ptag "+(cls||""); d.textContent = text; d.style.animationDuration = (ms||1250)+"ms";
+  box.appendChild(d); setTimeout(()=>d.remove(), ms||1250);
+}
+/* What a line in the fight log looks like on stage: [line, whose portrait, ribbon text, look, extra].
+   In a hill fight the king's lines are the same lines, so the sides swap. $1 is whatever the line names. */
+const CUES = [
+  [/You strike again!|strike again!/, "you", "strikes again", "gold"], [/crit chains/, "you", "crit chain", "gold"], [/first hit lands twice/, "you", "double opener", "gold"],
+  [/slip it and counter|slips? it and counters?|strike back for|strikes? back for/, "you", "counter", "gold"], [/takes the hit for/, "you", "hobbes takes it", "good", "hobbes"],
+  [/patches .* up/, "you", "", "", "gnome"], [/Dug in\./, "you", "dug in", "good"], [/Bike Helmet takes/, "you", "helmet takes it", "good"], [/knew it was coming/, "you", "saw it coming", "good"],
+  [/Instant kill/, "foe", "instant kill", "kill"], [/freezes solid/, "foe", "frozen", "ice"], [/is stunned!/, "foe", "stunned", "ice"], [/hits itself/, "foe", "hits itself", "gold"],
+  [/Tyson Tribal/, "foe", "guard down", "bad"], [/^🚬 Newports/, "foe", "ratio'd", "bad"], [/tries to get back up, and can't/, "foe", "stays down", "gold"],
+  [/goes harder\. ATK/, "foe", "goes harder", "bad"], [/copies your style/, "foe", "copies you", "bad"],
+  [/FUD suppresses .*?([A-Z][^!]*)!/, "you", "fud: $1 off", "fud"], [/INJUNCTION: (.+) frozen/, "you", "injunction: $1", "law"], [/DRAINED: (\d+)/, "you", "drained −$1 $CULT", "drain"],
+  [/pockets (\d+) \$CULT/, "you", "−$1 $CULT", "drain"], [/RATIO'D —/, "you", "ratio'd", "bad"], [/has cancelled (.+)\. It is gone/, "you", "cancelled: $1", "kill"],
+  [/VIBE SHIFT|Vibe shift/, "you", "vibe shift", "vibe"], [/Blimp bombing/, "you", "bombed", "bad"], [/blows up|explodes/, "you", "blast", "bad"],
+  [/Burger Earring\.\S* Eaten/, "you", "burger eaten", "good"], [/Modelo\./, "you", "modelo: atk up", "good"], [/Bought the dip/, "you", "bought the dip", "life", "life:bought the dip"],
+  [/MEMORY CARD\./, "you", "", "", "life:memory card:memcard"], [/WARTIME PFP/, "you", "", "", "life:wartime pfp:wartime_pfp"], [/BURN TO REDEEM/, "you", "", "", "life:burn to redeem:reserve"],
+  [/It gets back up/, "foe", "", "", "life:it gets back up"] ];
+const COMPANIONS = { "🧸":"remilio_friend", "🦊":"tails", "🦖":"dino", "🕴️":"cia" };
+function dash(rid, toSide){ // a companion leaves the row of relics, crosses the stage and comes home
+  if(META.calm) return;
+  const from = $("combat-relics").querySelector("[data-rid='"+rid+"']"), to = $("port-"+toSide); if(!from || !to || !from.animate) return;
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if(!a.width || !b.width) return;
+  const g = from.cloneNode(); g.className = "relic-ico comp-dash"; g.removeAttribute("title");
+  g.style.cssText = "left:"+a.left+"px;top:"+a.top+"px;width:"+a.width+"px;height:"+a.height+"px;";
+  document.body.appendChild(g);
+  const dx = b.left+b.width*(0.3+Math.random()*0.4)-a.left-a.width/2, dy = b.top+b.height*(0.35+Math.random()*0.3)-a.top-a.height/2, big = Math.max(2.2, Math.min(4, b.width/a.width*0.42));
+  g.animate([{transform:"translate(0,0) scale(1)", opacity:1}, {transform:"translate("+dx+"px,"+dy+"px) scale("+big+") rotate("+(toSide==="foe"?14:-14)+"deg)", opacity:1, offset:.55},
+    {transform:"translate("+dx+"px,"+dy+"px) scale("+(big*1.15)+")", opacity:1, offset:.7}, {transform:"translate(0,0) scale(1)", opacity:.2}], {duration:520, easing:"cubic-bezier(.3,.8,.3,1)"}).onfinish = ()=>g.remove();
+  setTimeout(()=>g.remove(), 700);
+}
+const STAGE = { combo:0, best:0, prev:{}, led:false,
+  cue(msg, theirs){ // the line as something to watch
+    if(META.calm) return;
+    const t = msg.replace(/<[^>]+>/g, ""), swap = s => theirs ? (s==="you" ? "foe" : "you") : s;
+    if(!theirs) for(const e in COMPANIONS) if(t.startsWith(e)){ dash(COMPANIONS[e], "foe"); if(G && G.relics && G.relics.includes("gold_sonic")) setTimeout(()=>dash("gold_sonic", "foe"), 90); }
+    for(const [rx, side, text, cls, extra] of CUES){ const m = rx.exec(t); if(!m) continue;
+      const who = swap(side);
+      if(extra && extra.startsWith("life")){ const p = extra.split(":"); this.second(who, p[1], theirs ? "" : p[2]); }
+      else if(extra && !theirs) dash(extra, "you");
+      if(text) ptag(who, text.replace("$1", (m[1]||"").replace(/👑\s*/,"").slice(0,22)), cls);
+      if(cls==="kill"){ critFlash(); quake(); }
+      break; }
+  },
+  second(side, title, rid){ // a life that should have ended and didn't: the fight stops to say so
+    const sc = $("screen-combat"), yours = side==="you";
+    const old = $("life-word"); if(old) old.remove();
+    const w = document.createElement("div"); w.id = "life-word"; w.className = yours ? "mine" : "theirs";
+    w.innerHTML = (rid && ICONS[rid] ? "<img src='"+ICONS[rid]+"' alt=''>" : "")+"<b>"+(yours ? "second life" : "not yet")+"</b><span>"+esc(title)+"</span>";
+    sc.appendChild(w);
+    sc.classList.remove("life-you","life-foe"); void sc.offsetWidth; sc.classList.add(yours ? "life-you" : "life-foe");
+    const bar = $("chp-"+side).parentElement; bar.classList.remove("refill"); void bar.offsetWidth; bar.classList.add("refill");
+    const port = $("port-"+side); port.classList.remove("risen"); void port.offsetWidth; port.classList.add("risen");
+    sfx(yours ? "relic" : "bad"); if(!yours) quake();
+    setTimeout(()=>{ w.remove(); sc.classList.remove("life-you","life-foe"); bar.classList.remove("refill"); port.classList.remove("risen"); }, 1500);
+  },
+  reset(tribe){ this.tribe = tribe || ""; this.prev = {}; this.led = false; for(const e of document.querySelectorAll("#screen-combat .ptags, #life-word, .comp-dash")) e.remove(); for(const id of ["chp-you-s","chp-foe-s"]) if($(id)) delete $(id).dataset.v; $("screen-combat").classList.remove("life-you","life-foe"); $("you-tribe").innerHTML = tribe ? tribeBadge(tribe) : ""; this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
   hit(side, crit){ // side: who was hit
     if(side==="foe"){ this.combo++; this.best = Math.max(this.best, this.combo); } else this.combo = 0;
     const c = $("combo"); if(!c) return;
@@ -4220,10 +4309,12 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
     float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
   };
   STAGE.reset(run.tribe);
-  const D = makeDuel(run, k, (m,c)=>{ clog(m,c); if(!quiet) STAGE.proc(m, run.relics); }, V), you = D.you, king = D.king;
+  const D = makeDuel(run, k, (m,c,who)=>{ clog(m,c); if(!quiet) fx(()=>{ if(who!=="foe") STAGE.proc(m, run.relics); STAGE.cue(m, who==="foe"); }); }, V), you = D.you, king = D.king;
   // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
   const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, ratio:D.A.foe.ratio, stun:king.stun||0 });
-  const bars = ()=>combatBars(you, view());
+  // and you, wearing what the king's build has put on you (kept on their side's stand-in)
+  const mine = ()=>{ const f = D.B.foe, o = Object.create(you); o.burn = f.burn; o.bleed = f.bleed; o.chill = f.chill; o.poison = f.poison; o.ratio = f.ratio; return o; };
+  const bars = ()=>combatBars(mine(), view(), D.youFirst ? "you" : "foe");
   const finish = ()=>{
     if(ended) return; ended = true; clearTimeout(timer); SEED = keep; bars(); STAGE.peril({hp:0,maxhp:1}, {hp:0,maxhp:1});
     $("combat-ctl").classList.add("hidden"); $("boss-intro").className = ""; $("port-foe").classList.remove("slam");
