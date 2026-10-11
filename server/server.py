@@ -12,6 +12,7 @@ Standard library only. Listens on localhost; nginx terminates TLS and proxies to
   GET  /api/king    this week's king of the hill, and when the hill and the daily next reset
   POST /api/king/challenge   a run that beat THE CANCEL fights the king: claim an empty hill, take it, or lose
   GET  /api/pulse   games and wins today, this week and ever
+  GET  /api/recent  the latest finished runs, newest first (?limit=1..100, default 50), each shaped like a board entry
   GET  /api/hall    the best run of every daily map, and whoever held the hill as each past week ended
   POST /api/claim    on sign-in, a browser's earlier anonymous runs become the account's (the better row per board stays)
   POST /api/profile  a signed-in player's progress (unlocks, achievements, record, streak), merged with what the account holds
@@ -581,6 +582,22 @@ def pulse():
     return out
 
 
+def recent(limit):
+    """The latest finished runs, newest first, each shaped like a board entry. Every run posted is here, not only the
+    ones that made a board. Read from the run cards, so it reaches back as far as cards are kept."""
+    out = []
+    with db() as con:
+        for cid, created, data in con.execute("SELECT id, created, data FROM cards ORDER BY created DESC, rowid DESC LIMIT ?", (limit,)):
+            d = json.loads(data)
+            out.append({"id": cid, "name": d.get("name"), "handle": d.get("handle"), "score": d.get("score"), "day": d.get("day"),
+                        "win": bool(d.get("win")), "bosses": d.get("bosses"), "kills": d.get("kills", 0), "heat": d.get("heat", 0),
+                        "tribe": d.get("tribe"), "cult": d.get("cult"), "killedBy": d.get("killedBy") or "",
+                        "collection": d.get("collection"), "token": d.get("token"), "relics": d.get("relics") or [], "look": d.get("look"),
+                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created,
+                        "share": "%s/r/%s" % (PUBLIC, cid), "image": "%s/api/card/%s.png" % (PUBLIC, cid)})
+    return out
+
+
 def hall(limit):
     """The best run of every daily map, newest first."""
     with db() as con:
@@ -1040,6 +1057,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dict(pulse(), now=here(one("here"), self.client_key())))
         if u.path == "/api/hall":
             return self.send(200, hall(120))
+        if u.path == "/api/recent":
+            try:
+                limit = max(1, min(100, int(one("limit") or 50)))
+            except ValueError:
+                limit = 50
+            return self.send(200, {"runs": recent(limit)})
         if u.path == "/api/token":
             kind = one("kind")
             if kind not in TOKEN_SOURCES or not re.match(r"^\d{1,4}$", one("id")):
