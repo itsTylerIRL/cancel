@@ -29,7 +29,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="the cancel">
-<link rel="stylesheet" href="css/style.css?v=20f45bb5dc">
+<link rel="stylesheet" href="css/style.css?v=6425e87717">
 </head>
 <body>
 <div class="corner-brackets"><div class="bottom"></div></div>
@@ -96,7 +96,7 @@
   <section id="screen-map" class="screen">
     <header id="topbar">
       <div class="brand">THE CANCEL <b>IS COMING</b></div>
-      <div class="top-right"><div id="doom"></div><button class="mute" title="sound">🔊</button><button class="gear icon-btn" title="settings">⚙️</button><button class="fs icon-btn" title="fullscreen" aria-label="fullscreen">⛶</button></div>
+      <div class="top-right"><div id="doom"></div><button class="mute" title="sound">🔊</button><button class="icon-btn" id="btn-codex" title="codex: every relic, set, enemy and tribe (K)" aria-label="codex">📖</button><button class="gear icon-btn" title="settings">⚙️</button><button class="fs icon-btn" title="fullscreen" aria-label="fullscreen">⛶</button></div>
     </header>
     <div id="timeline"></div>
     <div id="boss-banner" class="hidden"></div>
@@ -134,7 +134,7 @@
         <div id="map-log"></div>
       </div>
     </div>
-    <div class="hint">arrow keys move you · in any menu the arrows move the highlight, Enter picks it, Esc backs out · 1-9 also pick · B your build · C call out the next boss · Esc settings · or click any explored tile to walk there</div>
+    <div class="hint">arrow keys move you · in any menu the arrows move the highlight, Enter picks it, Esc backs out · 1-9 also pick · B your build · K codex · C call out the next boss · Esc settings · or click any explored tile to walk there</div>
   </section>
 
   <!-- COMBAT -->
@@ -145,6 +145,7 @@
         <div class="fighter">
           <div class="portrait" id="port-you"><canvas id="combat-you" width="600" height="750"></canvas><div class="pfx"><i class="fx-burn"></i><i class="fx-bleed"></i><i class="fx-chill"></i><i class="fx-psn"></i><i class="fx-stun">💫</i></div></div>
           <div class="cname" id="you-name">YOU</div>
+          <div id="you-tribe" class="you-tribe"></div>
           <div class="hpbar"><i id="chp-you-g"></i><div id="chp-you"></div><span id="chp-you-t"></span></div>
           <div id="you-stats" class="cstats"></div>
           <div id="combat-relics"></div>
@@ -175,7 +176,7 @@
   <!-- MODAL -->
   <div id="modal" class="hidden"><div class="panel" id="modal-panel"></div></div>
 </div>
-<script src="js/data.js?v=20f45bb5dc"></script>
-<script src="js/game.js?v=20f45bb5dc"></script>
+<script src="js/data.js?v=6425e87717"></script>
+<script src="js/game.js?v=6425e87717"></script>
 </body>
 </html>

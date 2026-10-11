@@ -1656,3 +1656,28 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 #draft-banish small{opacity:.8;margin-left:3px;font-size:inherit;}
 .banish-mode .card{border-color:rgba(255,85,85,.5);cursor:pointer;} .banish-mode .card:hover{border-color:var(--red);box-shadow:0 0 18px rgba(255,85,85,.45);transform:none;filter:grayscale(.5);}
 .banish-mode .card[data-no]{opacity:.35;cursor:not-allowed;border-color:var(--line);} .banish-mode .card[data-no]:hover{box-shadow:none;filter:none;}
+
+/* ---------- the HUD carries the newer systems ---------- */
+.hud-res{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;margin-left:2px;} .chip.res{color:#b8c7cc;}
+#hud-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.you-tribe{min-height:18px;margin:-2px 0 4px;text-align:center;} .you-tribe .tribe-badge.sig{animation:sigfire .7s ease-out;}
+@keyframes sigfire{0%{transform:scale(1.5);box-shadow:0 0 0 2px #fff,0 0 26px 6px var(--tc);filter:brightness(1.8);}100%{transform:none;filter:none;}}
+@media (min-width:900px) and (min-height:560px){ .combat-panel .you-tribe .tribe-badge{font-size:12px;padding:2px 9px 2px 7px;} .combat-panel .you-tribe .tribe-badge i{font-size:15px;} }
+/* places you know */
+.places{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;} .obj.place{cursor:pointer;} .obj.place:hover{border-color:var(--neon);}
+.obj.place i{width:16px;height:16px;display:inline-flex;flex:none;} .obj.place i .pico,.obj.place i .npc{width:16px;height:16px;border-radius:50%;object-fit:cover;} .obj.place small{color:var(--dim);}
+@media (max-width:1279px){ .places{grid-template-columns:1fr;} }
+/* a relic doing its thing on the map */
+.relic.rproc{animation:rproc 1s ease-out;} @keyframes rproc{0%{background:rgba(241,250,140,.28);box-shadow:0 0 0 1px var(--gold),0 0 18px rgba(241,250,140,.5);}100%{background:none;box-shadow:none;}}
+.relic.rproc .relic-ico{animation:proc .55s ease-out;}
+/* the run, day by day */
+.run-strip{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:3px;margin:8px 0 10px;}
+.rs-day{border:1px solid var(--line);border-radius:5px;padding:4px 3px 5px;min-height:74px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;background:rgba(139,233,253,.03);overflow:hidden;}
+.rs-day u{text-decoration:none;font-family:var(--label);font-size:8px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;}
+.rs-day.boss{border-color:rgba(255,85,85,.6);background:rgba(255,85,85,.06);} .rs-day.died{border-color:var(--red);background:rgba(255,40,40,.12);} .rs-day.won{border-color:var(--gold);background:rgba(241,250,140,.08);} .rs-day.gone{opacity:.28;}
+.rs-boss{font-size:8.5px;line-height:1.15;color:#ff8b8b;font-weight:700;} .rs-rel{display:flex;flex-wrap:wrap;justify-content:center;gap:1px;} .rs-rel .relic-ico{width:17px;height:17px;border-radius:4px;border-width:1px;} .rs-rel small{font-size:8px;color:var(--dim);}
+.rs-k,.rs-quiet{font-size:8.5px;color:var(--dim);} .rs-close{font-size:8.5px;color:#ffb86c;} .rs-end{font-size:8.5px;color:#ff8b8b;line-height:1.15;} .rs-win{font-size:9px;color:var(--gold);font-weight:700;}
+@media (max-width:600px){ .run-strip{grid-template-columns:repeat(3,minmax(0,1fr));} .rs-day{min-height:58px;} }
+/* crossing into a district */
+.splash.district{top:16%;font-size:clamp(22px,4.4vw,46px);letter-spacing:.14em;text-shadow:0 0 26px currentColor,0 3px 0 #000;animation-duration:1.6s;}
+.splash.district small{font-size:.34em;letter-spacing:.16em;color:#dfeef2;}

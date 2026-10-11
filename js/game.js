@@ -639,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes","journal"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1123,7 +1123,10 @@ function updateFog(){ // you see three steps down every corridor, and the walls 
     const [fx,fy] = k.split(",").map(Number);
     for(let y=fy-1;y<=fy+1;y++) for(let x=fx-1;x<=fx+1;x++){
       if(x<0||y<0||x>=W||y>=H) continue;
-      if(G.fog[y][x] && ++G.tilesSeen>=400 && !G.setup) achieve("cartographer");
+      if(G.fog[y][x]){
+        if(++G.tilesSeen>=400 && !G.setup) achieve("cartographer");
+        if(G.tilesSeen%12===0 && G.tilesSeen<=360 && !G.setup && G.stats && hasRelic("mushroom")){ recalcStats(); G.stats.hp = Math.min(G.stats.maxhp, G.stats.hp+tm("mushroom")); mlog("🍄 The Mushroom grows: <b>+"+tm("mushroom")+" max HP</b>.", "good"); pulseRelic("mushroom"); }
+      }
       G.fog[y][x] = false;
     }
   }
@@ -1178,7 +1181,11 @@ function renderHUD(){
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
-  $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))+(G.keys?chip("🗝️","keys",G.keys):"")
+  $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
+    + "<span class='hud-res'>"+tribeBadge(G.tribe)
+      + "<span class='chip res' title='keys: each one opens a vault'>🗝️ "+(G.keys||0)+"</span>"
+      + "<span class='chip res' title='banishes: use one on a draft to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
+      + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a draft will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
     + (G.curses ? (G.curses.dawn?"<span class='chip curse' title='cursed: you lose this much HP every dawn'>🩸 −"+G.curses.dawn+"/dawn</span>":"")
       + (G.curses.shunned?"<span class='chip curse' title='cursed: no shop will serve you'>🚫 shunned</span>":"")
       + (G.curses.sealed?"<span class='chip curse' title='cursed: relic slots sealed'>🔒 −"+G.curses.sealed+" slot</span>":"")
@@ -1188,7 +1195,7 @@ function renderHUD(){
   shownStats = now;
   const dist = DISTRICTS[districtAt(G.px,G.py)];
   const tr = TRIBES.find(t=>t.id===G.tribe);
-  $("hud-name").textContent = G.name+(tr ? " "+tr.icon : "")+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : "");
+  $("hud-name").textContent = G.name+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : ""); // the tribe has its own badge below
   $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day;
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
   const total = G.phase==="day" ? dayMoves() : nightMoves();
@@ -1199,13 +1206,13 @@ function renderHUD(){
   let rb = "";
   for(let i=0;i<G.maxSlots;i++){
     const rel = G.relics[i] && shown(relicById(G.relics[i]));
-    rb += rel ? "<div class='relic"+spentCls(rel.id)+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+relicState(rel.id)+" <small>"+rel.set.map(k=>setIco(SETS.find(t=>t.id===k))).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
+    rb += rel ? "<div class='relic"+spentCls(rel.id)+(Date.now()-(relicPulseAt[rel.id]||0) < 1100 ? " rproc" : "")+"' data-rid='"+rel.id+"' data-tier='"+tierAt(i)+"'><img class='relic-ico "+tierCls(tierAt(i))+spentCls(rel.id)+"' src='"+ICONS[rel.id]+"' alt=''>"+(G.relics.indexOf(rel.id)!==i ? "<i class='copies'>copy</i>" : "")+"<div class='rtxt'><b class='"+rel.rar+"'>"+rel.name+tierLabel(tierAt(i))+relicState(rel.id)+" <small>"+rel.set.map(k=>setIco(SETS.find(t=>t.id===k))).join("")+"</small></b><span>"+textAt(rel,i)+"</span></div></div>"
               : "<div class='relic'><div class='relic-ico empty'></div><div class='rtxt'><span>empty slot</span></div></div>";
   }
   $("relic-bar").innerHTML = rb;
   $("syn-bar").innerHTML = setsHTML(G.relics, false);
   for(const k of Object.keys(G.pins||{})){ const [x,y] = k.split(",").map(Number); if(G.map[y][x]===T.EMPTY) delete G.pins[k]; } // what was there is gone
-  $("obj-bar").innerHTML = objectivesHTML()+pinsHTML();
+  $("obj-bar").innerHTML = objectivesHTML()+pinsHTML()+placesHTML();
   $("obj-bar").querySelectorAll("[data-pin]").forEach(el=>{ el.onclick=()=>{ const [x,y] = el.dataset.pin.split(",").map(Number); stopTravel(); travelTo(x,y); }; });
   renderTimeline();
 }
@@ -1411,6 +1418,8 @@ function renderLegend(){ // the key under the map uses the same drawings as the 
 }
 /* Some relics are not simply "on": a meal is waiting to be eaten once, and a few only work after dark. They say so. */
 const MEALS = { burger_earring:"eaten below 30% health", sandwich:"eaten at dawn if you're hurt", modelo:"drunk at the next boss" };
+const relicPulseAt = {}; // relic id -> when it last did something on the map
+function pulseRelic(id){ relicPulseAt[id] = Date.now(); setTimeout(()=>{ if(G && !G.over && $("screen-map").classList.contains("active")) renderHUD(); }, 30); }
 function relicState(id){
   if(MEALS[id]) return " <i class='rstate meal' title='a meal: used once, then gone'>🍴 "+MEALS[id]+"</i>";
   if(id==="crescent") return G.phase==="night" ? " <i class='rstate on'>🌙 awake</i>" : " <i class='rstate'>🌙 waits for night</i>";
@@ -1660,6 +1669,25 @@ function pinName(x,y){
   const t = G.map[y][x], foe = G.foes[x+","+y];
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
+/* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
+const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+function placesHTML(){
+  // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
+  const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
+  for(let i=0;i<q.length;i++){ const [x,y] = q[i], d = dist[x+","+y];
+    if((x!==G.px || y!==G.py) && (G.map[y][x]!==T.EMPTY || G.hunters.some(h=>h.x===x&&h.y===y))) continue;
+    for(const [dx,dy] of DIRS4){ const nx = x+dx, ny = y+dy, k = nx+","+ny; if(isFloor(nx,ny) && !G.fog[ny][nx] && dist[k]==null){ dist[k] = d+1; q.push([nx,ny]); } } }
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const t = G.map[y][x]; if(G.fog[y][x] || !PLACE_KINDS.includes(t) || (x===G.px && y===G.py)) continue;
+    const d = dist[x+","+y]; if(d==null) continue;
+    const f = found[t] = found[t] || {n:0, d:1e9, k:""}; f.n++; if(d<f.d){ f.d = d; f.k = x+","+y; }
+  }
+  const rows = PLACE_KINDS.filter(t=>found[t]).sort((a,b)=>found[a].d-found[b].d);
+  if(!rows.length) return "";
+  return "<div class='box-h' style='margin-top:10px'>PLACES YOU KNOW</div><div class='places'>"+rows.map(t=>{ const f = found[t];
+    const ico = t===T.FORGE ? "<img class='npc' src='"+localFile(REMILIA_LOGO)+"' alt=''>" : NPC_ART[t] ? "<img class='npc' src='"+localFile(NPC_ART[t])+"' alt=''>" : POI_SVG[t] || "";
+    return "<div class='obj place' data-pin='"+f.k+"' title='walk to the nearest'><i>"+ico+"</i><span>"+T_NAME[t]+(f.n>1 ? " <small>×"+f.n+"</small>" : "")+"</span><em>"+f.d+" step"+(f.d===1?"":"s")+"</em></div>"; }).join("")+"</div>";
+}
 function pinsHTML(){
   const pins = Object.keys(G.pins||{}); if(!pins.length) return "";
   const dist = walkDist(G.px, G.py);
@@ -1737,6 +1765,8 @@ function tryMove(x,y){
   if(G.fog[y][x] || !isFloor(x,y)) return;
   const was = districtAt(G.px,G.py);
   G.px=x; G.py=y; G.sel="";
+  if(districtAt(x,y)!==was){ const dd = DISTRICTS[districtAt(x,y)]; // a line across the screen: where you are now, and the rule it bends
+    splash("<span style='color:"+dd.color+"'>"+dd.name+"</span><small>"+dd.rule+"</small>", "district"); }
   if(districtAt(x,y)!==was && (G.stats.sets.grass||0)>=2 && G.stats.hp<G.stats.maxhp){ const h = Math.min(4, G.stats.maxhp-G.stats.hp); G.stats.hp += h; mapFloat("🌿 +"+h, "loot"); }
   sfx("step");
   updateFog();
@@ -1821,9 +1851,9 @@ function startDay(){
     mlog("🩸 The curse takes its due: <b>−"+d+" HP</b>.", "bad");
   }
   recalcStats(); // some relics only work in the dark, and some grow with the map
-  if(hasRelic("sleepyhead") && G.stats.hp<G.stats.maxhp){ const h = Math.min(G.stats.maxhp-G.stats.hp, Math.round(8*tm("sleepyhead"))); G.stats.hp += h; mlog("😴 Sleepyhead: you slept anyway. <b>+"+h+" HP</b>.", "good"); }
+  if(hasRelic("sleepyhead") && G.stats.hp<G.stats.maxhp){ const h = Math.min(G.stats.maxhp-G.stats.hp, Math.round(8*tm("sleepyhead"))); G.stats.hp += h; mlog("😴 Sleepyhead: you slept anyway. <b>+"+h+" HP</b>.", "good"); pulseRelic("sleepyhead"); }
   if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
-    G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good");
+    G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good"); pulseRelic("sandwich");
     if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
     else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); if((G.flags.meals = (G.flags.meals||0)+1) >= 2) achieve("meals"); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
   }
@@ -1988,7 +2018,13 @@ function setChips(r, preview){ // which sets a relic feeds, and whether taking i
       + (preview && hit ? "<span class='syn-hit'>"+hit[1]+"</span>" : "");
   }).join("")+"</div>";
 }
-function gotRelic(r){ discover(r.id); sfx("relic"); burst(rarity(r)==="common" ? "✨" : "✨💖🌸"); flyRelic(r.id); }
+/* A short diary of the run, one entry a day, for the strip on the summary screen. */
+function jot(k, v){
+  if(!G || G.setup) return;
+  const j = G.journal = G.journal || {}, d = j[G.day] = j[G.day] || {};
+  if(k==="relic") (d.relics = d.relics||[]).push(v); else if(k==="kill") d.kills = (d.kills||0)+1; else d[k] = v;
+}
+function gotRelic(r){ jot("relic", r.id); discover(r.id); sfx("relic"); burst(rarity(r)==="common" ? "✨" : "✨💖🌸"); flyRelic(r.id); }
 function flyRelic(id){ // the relic leaps from the middle of the screen onto your Milady
   if(META.calm) return;
   const to = $("hud-avatar").getBoundingClientRect();
@@ -2765,7 +2801,7 @@ function confirmBox(o, onYes, back){
 function openModal(html){
   const p=$("modal-panel"); p.innerHTML=html; p.scrollTop=0;
   // a narrow screen has no side column to read from while you choose, so the dialog carries your numbers with it
-  if(G && !G.over && !setupStep && G.stats && window.innerWidth<900 && $("screen-map").classList.contains("active") && !/^<h2>(⚙️ SETTINGS|YOUR BUILD|HOW TO|leaderboard)/.test(html)) p.insertAdjacentHTML("afterbegin", runStrip());
+  if(G && !G.over && !setupStep && G.stats && window.innerWidth<900 && $("screen-map").classList.contains("active") && !/^<h2>(⚙️ SETTINGS|YOUR BUILD|HOW TO|leaderboard|CODEX)/.test(html)) p.insertAdjacentHTML("afterbegin", runStrip());
   $("modal").classList.remove("hidden");
   placeModal();
   navRefresh();
@@ -3275,7 +3311,8 @@ function settleWin(F, opts, log){
     if(gone>0){ if((G.flags.meals = (G.flags.meals||0)+gone) >= 2) achieve("meals"); const m = "🍴 <b>"+relicById(id).name+"</b> was "+(id==="modelo" ? "drunk" : "eaten")+" in that fight. The slot is free again."; log(m, "gold"); mlog(m, "gold"); }
   }
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
-  G.kills++;
+  G.kills++; jot("kill"); if(boss) jot("boss", boss.name); if(opts.elite) jot("elite", (((G.journal||{})[G.day]||{}).elite||0)+1);
+  if(you.hp>0 && you.hp<=you.maxhp*0.2) jot("close", 1);
   if(opts.elite && G.day<3) G.flags.eliteEarly = true;
   if(G.phase==="night" && (G.flags.nightWins = (G.flags.nightWins||0)+1) >= 4) achieve("night_owl");
   if(you.hp>0 && you.hp<=3) achieve("clutch");
@@ -3293,11 +3330,11 @@ function settleWin(F, opts, log){
   G.cult += c + foe.stolen;
   if(dbl) log("🌾 Abundance: this one paid double."+(G.flags.payDouble ? " "+G.flags.payDouble+" more to come." : ""), "good");
   log("🏆 Victory! +"+c+" $CULT."+(foe.stolen?" Recovered "+foe.stolen+" stolen.":""), "good");
-  if(hasRelic("silver_coin")){ const sc = Math.round(15*tm("silver_coin")); G.cult+=sc; log("🪙 Silver Coin: +"+sc+" $CULT.", "good"); }
+  if(hasRelic("silver_coin")){ const sc = Math.round(15*tm("silver_coin")); G.cult+=sc; log("🪙 Silver Coin: +"+sc+" $CULT.", "good"); pulseRelic("silver_coin"); }
   const hm = hasRelic("heart_tattoo") ? 2 : 1;
   for(const [id,n,label] of [["birthday_hat",18,"🎂 Birthday Hat"],["maid",10,"🧹 Maid Outfit"],["strawberry",6,"🍓 Strawberry Earring"],["flower_clip",5,"🌸 Flower Clip"]]
       .concat(hasRelic("mcdonalds") && rnd()<0.3 ? [["mcdonalds",12,"🍟 McDonalds"]] : []))
-    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id)*(tribeIs("lolita") ? 1.5 : 1))); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); }
+    if(hasRelic(id)){ const h = grow(Math.round(n*hm*tm(id)*(tribeIs("lolita") ? 1.5 : 1))); you.hp=Math.min(you.maxhp,you.hp+h); log(label+": +"+h+" HP.", "good"); pulseRelic(id); }
   const hp = clamp(Math.round(you.hp),1,you.maxhp);
   recalcStats(); // kills and burned relics change the build
   G.stats.hp = Math.min(hp, G.stats.maxhp);
@@ -3354,7 +3391,7 @@ function startCombat(foeDef, opts={}){
   sfx(boss ? "boss" : "fight");
 
   let quiet=false, timer=null, F=null, stall=0; // stall: extra time before the next round, bought by a crit's hit-stop
-  STAGE.reset();
+  STAGE.reset(G.tribe);
   const fx = fn => {
     if(quiet) return;
     const run = ()=>{ if(tok===combatTok) fn(); }, d = F ? F.fxDelay/META.speed : 0;
@@ -3525,6 +3562,19 @@ function winSequence(then){ // THE CANCEL is down: a few seconds that belong to 
 const CULT_DRIP_MAX = 100;
 const EARLY_WIN = 80; // points for each day THE CANCEL was beaten ahead of day 9: more than a day of looting would have added
 const cultDrip = c => Math.min(CULT_DRIP_MAX, Math.floor(Math.min(c, 1000)/25) + Math.floor(Math.max(0, c-1000)/100));
+function runStripHTML(run, win){ // nine days in a row: what you picked up, who you beat, when it nearly ended, and where it did
+  const j = run.journal || {};
+  return "<div class='run-strip'>"+Array.from({length:9}, (_,i)=>{ const day = i+1, d = j[day] || {}, last = !win && day===run.day, gone = day>run.day;
+    const rel = (d.relics||[]).filter(id=>ICONS[id]);
+    return "<div class='rs-day"+(gone?" gone":"")+(last?" died":"")+(d.boss?" boss":"")+(win && day===run.day ? " won" : "")+"'><u>day "+day+"</u>"
+      + (d.boss ? "<b class='rs-boss' title='beat "+esc(d.boss)+"'>☠ "+esc(d.boss)+"</b>" : "")
+      + (rel.length ? "<span class='rs-rel'>"+rel.slice(0,4).map(id=>"<img class='relic-ico "+relicById(id).rar+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>").join("")+(rel.length>4 ? "<small>+"+(rel.length-4)+"</small>" : "")+"</span>" : "")
+      + (d.kills ? "<span class='rs-k'>"+d.kills+" kill"+(d.kills===1?"":"s")+(d.elite ? " · "+d.elite+" elite" : "")+"</span>" : "")
+      + (d.close ? "<span class='rs-close' title='a fight ended with a fifth of your health or less'>⚠ close call</span>" : "")
+      + (last ? "<span class='rs-end'>💀 "+esc(run.killedBy||"cancelled")+"</span>" : "")
+      + (win && day===run.day ? "<span class='rs-win'>👑 saved</span>" : "")
+      + (gone ? "" : !d.boss && !rel.length && !d.kills && !last ? "<span class='rs-quiet'>quiet</span>" : "")+"</div>"; }).join("")+"</div>";
+}
 function endRun(win){
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
@@ -3562,6 +3612,7 @@ function endRun(win){
     + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
     + (G.newAch ? "<div class='note good'>🏆 "+G.newAch+" achievement"+(G.newAch>1?"s":"")+" unlocked</div>" : "")
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
+    + runStripHTML(G, win)
     + parts.map(p=>"<div class='stat-line'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
     + "<div class='drip-total'>DRIP EARNED <b id='end-drip'>0</b></div>";
   const signed = !!rnUser();
@@ -3854,11 +3905,12 @@ const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[
    - a relic's icon lights up when it does its thing
    - hits landed in a row without being hit back are counted
    - when either side is nearly gone the stage tightens and slows down */
+const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/Love bomb/i, harajuku:/first hit lands twice/i, prep:/Dug in|armour bites back/i, schizoposter:/You dodge|slip it and counter/i, collector:null };
 const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
   [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armour bites back/i, ["cactus_shirt"]],
   [/strike again/i, ["bonkler"]], [/shocks/i, ["pikachu"]], [/hits itself/i, ["bonkler"]], [/takes the hit for you/i, ["hobbes"]], [/patches you up/i, ["gnome"]], [/caught (off guard|flat)/i, ["vibe_shift","airtag"]] ];
 const STAGE = { combo:0, best:0,
-  reset(){ this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
+  reset(tribe){ this.tribe = tribe || ""; $("you-tribe").innerHTML = tribe ? tribeBadge(tribe) : ""; this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
   hit(side, crit){ // side: who was hit
     if(side==="foe"){ this.combo++; this.best = Math.max(this.best, this.combo); } else this.combo = 0;
     const c = $("combo"); if(!c) return;
@@ -3869,6 +3921,8 @@ const STAGE = { combo:0, best:0,
   proc(msg, relics){ // light the icon of whatever just did something: by its name in the line, or by what the line describes
     if(META.calm) return;
     const t = msg.replace(/<[^>]+>/g, ""), ids = new Set();
+    { const rx = TRIBE_SIG[this.tribe], b = $("you-tribe").firstElementChild; // your tribe's signature just fired
+      if(rx && b && rx.test(t)){ b.classList.remove("sig"); void b.offsetWidth; b.classList.add("sig"); } }
     for(const id of relics){ const r = relicById(id); if(r && t.includes(r.name)) ids.add(id); }
     for(const [rx, list] of PROC_WORDS) if(rx.test(t)) for(const id of list) if(relics.includes(id)) ids.add(id);
     if(/strikes|spins in|bites|Companion/i.test(t)) for(const id of relics) if(t.toLowerCase().includes(relicById(id).name.toLowerCase().split(" ")[0])) ids.add(id);
@@ -3910,7 +3964,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>floatText(side,text,cls)),
   };
-  STAGE.reset();
+  STAGE.reset(run.tribe);
   const D = makeDuel(run, k, (m,c)=>{ clog(m,c); if(!quiet) STAGE.proc(m, run.relics); }, V), you = D.you, king = D.king;
   // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
   const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, stun:king.stun||0 });
@@ -4639,7 +4693,7 @@ function renderMenu(){
   $("menu-unlocks").classList.toggle("ready", afford); // something is affordable
 }
 const backRow = "<div class='row'><button class='btn small' id='menu-close'>close</button></div>";
-const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); renderTitle(); }; };
+const wireClose = ()=>{ $("menu-close").onclick=()=>{ sfx("click"); closeModal(); if($("screen-title").classList.contains("active")) renderTitle(); }; }; // these dialogs open from a run too
 /* ---------- drip unlocks ---------- */
 let unlShowOwned = false; // like achievements: the shop opens on what is left to buy
 function openUnlocks(from){ // from: the DRIP shown a moment ago, so a purchase is seen being paid for
@@ -4953,7 +5007,8 @@ function onKey(ev){
   if(!G || G.over) return;
   if(ev.key==="Escape"){ openSettings(); return; }
   if(ev.key==="b" || ev.key==="B"){ openBuild(); return; }
-  if((ev.key==="c" || ev.key==="C") && !busy()){ sfx("click"); skipToBoss(); return; } // call out the next boss: the same as clicking it on the timeline
+  if((ev.key==="c" || ev.key==="C") && !busy()){ sfx("click"); skipToBoss(); return; }
+  if((ev.key==="k" || ev.key==="K") && !busy() && !G.queue.length){ sfx("click"); openCodex(); return; } // call out the next boss: the same as clicking it on the timeline
   if((ev.key==="p" || ev.key==="P") && hoverTile && !busy()){ togglePin(hoverTile[0], hoverTile[1]); return; }
   const dir = KEY_DIRS[ev.key.length===1 ? ev.key.toLowerCase() : ev.key];
   if(!dir || busy()) return;
@@ -5053,6 +5108,7 @@ async function init(){
     META.last = AVA.picks.nft ? { nft:AVA.picks.nft } : { picks:AVA.picks, name:AVA.name }; saveMeta();
     beginSetup();
   };
+  $("btn-codex").onclick=()=>{ if(G && !G.over && !busy() && !G.queue.length){ sfx("click"); openCodex(); } };
   $("relic-bar").onclick=openBuild;
   $("hud-avatar").onclick=openBuild;
   $("timeline").onclick=ev=>{ if(ev.target.closest("[data-skip]")){ sfx("click"); skipToBoss(); } };
