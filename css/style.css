@@ -1840,3 +1840,6 @@ body.calm .eframe{animation:none;}
 @keyframes warroom{0%{opacity:1;transform:scale(.3);}35%{opacity:1;transform:scale(1.25);}100%{opacity:0;transform:scale(1.5);}}
 .fx-eye::before{content:"";position:absolute;inset:14%;border:4px solid #b9a4ff;border-radius:50%;box-shadow:0 0 22px #b9a4ff,inset 0 0 26px rgba(185,164,255,.7);animation:ripple .55s ease-out forwards;}
 .fx-eye::after{content:"";position:absolute;left:42%;top:42%;width:16%;height:16%;border-radius:50%;background:#b9a4ff;box-shadow:0 0 18px #b9a4ff;animation:fadeaway .55s ease-out forwards;}
+
+/* badges under a fighter stay inside that fighter's column: they wrap onto more rows, and a long one wraps inside itself */
+.statuses{max-width:100%;row-gap:5px;} .statuses span{max-width:100%;box-sizing:border-box;} .statuses .trait{white-space:normal;text-align:center;line-height:1.25;}

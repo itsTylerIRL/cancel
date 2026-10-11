@@ -3054,7 +3054,10 @@ function combatBars(you, foe, lead){
     .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
   // what this enemy does, said before it does it
   const traits = f => { const o = [], pc = n => Math.round(n*100);
-    if(f.mech) o.push(["⚠️ "+f.mech.split(":")[0].toLowerCase(), "", f.mech]);
+    if(f.id==="cancel"){ const sn = f.mech.split(/\.\s+/), left = 5-((f.tk||0)%5); // two things, so two badges
+      o.push(["📵 cancels a relic", (f.tk||0)>0 ? "spent" : "", sn[0]+"."]); o.push(["📉 ratio'd in "+left, left===1 ? "soon" : "", sn[1]||""]); }
+    else if(f.mech) for(const part of (/^[A-Z' ]+:/.test(f.mech) ? [f.mech] : f.mech.split(/\.\s+/).filter(Boolean))) // a named mechanic is one badge; anything else is a badge per sentence
+      o.push(["⚠️ "+(/^[A-Z' ]+:/.test(part) ? part.split(":")[0] : part.replace(/\.$/,"")).toLowerCase(), "", part]);
     if(f.regen) o.push(["✨ mends "+pc(f.regen)+"% a tick", f.hx && f.hx.mult===0 ? "spent" : "", "it heals itself every tick. something that stops healing would help"]);
     if(f.trait==="revive") o.push(f.revived ? ["💀 got back up", "spent", "it has used its one revive"] : ["💀 gets up once", "", "the first time it dies it comes back at half health"]);
     if(f.trait==="hard") o.push(["🧀 +1 ATK a round", "", "it hits harder the longer the fight lasts"]);
