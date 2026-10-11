@@ -4984,7 +4984,10 @@ function pulseTicker(jump, isNew){ // the latest runs, one at a time
   row.innerHTML = "<canvas class='bpfp' width='4' height='4'></canvas><span class='pf-who'>"+(r.handle ? "<i>✓</i> " : "")+esc(who||"anon")+"</span>"
     + "<span class='pf-what'>"+(r.win ? "saved the timeline on day "+r.day : (r.killedBy==="giving up" ? "gave up" : r.killedBy ? "&gt;"+esc(r.killedBy) : "cancelled")+" on day "+r.day)+"</span>"
     + "<b>"+(r.score||0).toLocaleString("en-US")+"</b><em>"+agoText(r.at*1000)+"</em>";
-  const old = box.querySelector(".pfeed-row"); if(old){ old.classList.add("out"); setTimeout(()=>old.remove(), 420); }
+  for(const old of [...box.querySelectorAll(".pfeed-row")]){ // every row already there leaves: two changes close together used to strand one underneath
+    if(META.calm || old.classList.contains("out") || document.hidden){ old.remove(); continue; }
+    old.classList.add("out"); setTimeout(()=>old.remove(), 220);
+  }
   box.appendChild(row);
   if(r.look) drawLook(row.querySelector("canvas"), r.look, r.relics||[]).catch(()=>{});
 }
