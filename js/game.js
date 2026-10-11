@@ -934,7 +934,7 @@ function rawStats(relics, setsAs){
   s.shopDisc = (tribeIs("gyaru") ? 1.15 : tribeIs("collector") ? 1.25 : 1) * (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
   return s;
 }
-/* synergy rows for the sidebar, the build sheet and draft cards */
+/* synergy rows for the sidebar, the build sheet and mint cards */
 function setRows(relics){
   const n = setCounts(relics);
   return SETS.filter(t=>n[t.id]).map(t=>{
@@ -1238,8 +1238,8 @@ function renderHUD(){
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
       + "<span class='chip res' title='keys: each one opens a vault'>"+KEY_ICO+" "+(G.keys||0)+"</span>"
-      + "<span class='chip res' title='banishes: use one on a draft to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
-      + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a draft will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
+      + "<span class='chip res' title='banishes: use one on a mint to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
+      + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a mint will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
     + (G.curses ? (G.curses.dawn?"<span class='chip curse' title='cursed: you lose this much HP every dawn'>🩸 −"+G.curses.dawn+"/dawn</span>":"")
       + (G.curses.shunned?"<span class='chip curse' title='cursed: no shop will serve you'>🚫 shunned</span>":"")
       + (G.curses.sealed?"<span class='chip curse' title='cursed: relic slots sealed'>🔒 −"+G.curses.sealed+" slot</span>":"")
@@ -1691,11 +1691,11 @@ function renderMinimap(){
   cx.fillStyle = "#50fa7b"; cx.fillRect(G.px*k-2, G.py*k-2, k+4, k+4);
 }
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
-const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic draft, or some $CULT.",
-  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and draft a relic.",
+const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic mint, or some $CULT.",
+  [T.SHOP]:"<b>Remilio Mart</b> — buy relics or a full heal. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and mint a relic.",
   [T.FIRE]:"<b>Campfire</b> — at night only: sleep to heal to full and skip to dawn. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
-  [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a draft of better relics.",
+  [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a mint of better relics.",
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
   [T.ONNO]:"<b>onno</b> — hand over any relic and get a random one of the same tier back. One trade.",
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
@@ -2056,7 +2056,7 @@ function foeBase(def){
     cult:def.cult.map(c=>Math.round(c*lvl)) };
 }
 
-/* ---------- relic draft ---------- */
+/* ---------- relic mint ---------- */
 function relicExtras(r, preview){ // what taking r would do: stat changes and set progress, or what a duplicate is for
   if(preview && hasRelic(r.id)){ // a copy stacks with the one you hold
     const d = statDelta(r), worth = tm(r.id);
@@ -2157,14 +2157,14 @@ function confirmSwap(r, j, onDone, onBack){
   $("swap-no").onclick = ()=>{ sfx("click"); onBack(); };
   $("swap-yes").onclick = ()=>{ G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
 }
-/* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of draft again).
+/* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of mint again).
    A reroll costs $CULT and the price doubles every time you use one in a run. */
 const REROLL_BASE = 30;
 const rerollCost = () => { // Inside Man: the first one of a run is on the house, and the price starts climbing after it
   const p = G.perks||{}, n = G.rerolls||0;
   return p.freeRoll && !n ? 0 : REROLL_BASE * (p.reroll ? 0.5 : 1) * Math.pow(2, p.freeRoll ? n-1 : n);
 };
-/* Banishing. A relic you banish from a draft is out of the pool for the rest of the run: no draft, shop or drop will
+/* Banishing. A relic you banish from a mint is out of the pool for the rest of the run: no mint, shop or drop will
    offer it again. It is used in place of taking something, a run starts with a few charges (a Collector, who can't
    reroll, gets more), and shops sell more. Legendary and cursed relics can't be banished, nor can one you are holding. */
 const BANISH_START = 3, BANISH_COLLECTOR = 5, BANISH_PRICE = 500;
@@ -2178,10 +2178,10 @@ function openDraft(flavor, pool, luck, gen, banishing){
   const cost = rerollCost();
   const left = G.banishes||0;
   if(banishing){ // the same cards, but the one you pick is thrown out of the run
-    openModal("<h2>BANISH A RELIC</h2><div class='stat-line'><span>pick one. it is gone from this run for good: no draft, shop or drop will offer it again</span><b>"+left+" banish"+(left===1?"":"es")+" left</b></div>"
+    openModal("<h2>BANISH A RELIC</h2><div class='stat-line'><span>pick one. it is gone from this run for good: no mint, shop or drop will offer it again</span><b>"+left+" banish"+(left===1?"":"es")+" left</b></div>"
       + "<div class='draft-cards banish-mode"+(pool.length>3?" four":"")+"'>"+pool.map((r,i)=>relicCard(r, "data-i='"+i+"'"+(canBanish(r) ? "" : " data-no='1'"), true)).join("")+"</div>"
-      + "<div class='note'>banishing uses this draft: you won't take a relic from it. legendary and cursed relics, and ones you hold, can't be banished</div>"
-      + "<div class='row'><button class='btn small' id='draft-skip'>← back to the draft</button></div>");
+      + "<div class='note'>banishing uses this mint: you won't take a relic from it. legendary and cursed relics, and ones you hold, can't be banished</div>"
+      + "<div class='row'><button class='btn small' id='draft-skip'>← back to the mint</button></div>");
     document.querySelectorAll("#modal-panel .card").forEach(c=>{ c.onclick = ()=>{
       const r = pool[+c.dataset.i]; if(c.dataset.no || !(G.banishes>0)) return;
       G.banishes--; G.banished = (G.banished||[]).concat(r.id); sfx("bad");
@@ -2193,14 +2193,14 @@ function openDraft(flavor, pool, luck, gen, banishing){
     navSet($("draft-skip"));
     return true;
   }
-  let html = "<h2>CHOOSE A RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
+  let html = "<h2>MINT A NEW RELIC</h2><div class='stat-line'><span>"+flavor+"</span><b>"+G.relics.length+" / "+G.maxSlots+" slots</b></div><div class='draft-cards"+(pool.length>3?" four":"")+"'>";
   pool.forEach((r,i)=>{ html += relicCard(r, "data-i='"+i+"' style='animation-delay:"+(i*90)+"ms'", true); });
   html += "</div><div class='row'><button class='btn small' id='draft-skip'>leave it</button>"
     + "<button class='btn small danger' id='draft-banish'"+(left>0 && pool.some(canBanish) ? "" : " disabled")+" title='throw one of these out of the run for good, instead of taking one'>🚫 banish <small>"+left+"</small></button>"
     + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost || tribeIs("collector")?" disabled":"")+" title='"+(tribeIs("collector") ? "a Collector takes what is offered: no rerolls" : "a new set of relics. the price doubles each time")+"'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
     + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
   openModal(html);
-  // A draft often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
+  // A mint often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
   // land on a card that has only just appeared: cards take a beat before they can be picked.
   const armed = performance.now() + 450;
   document.querySelectorAll("#modal-panel .card").forEach(c=>{
@@ -2218,7 +2218,7 @@ function openDraft(flavor, pool, luck, gen, banishing){
   $("draft-reroll").onclick=()=>{
     if(G.cult<cost || tribeIs("collector")) return;
     G.cult -= cost; G.rerolls = (G.rerolls||0)+1; sfx("coin"); renderHUD();
-    mlog("🎲 Rerolled the draft for "+cost+" $CULT.", "");
+    mlog("🎲 Rerolled the mint for "+cost+" $CULT.", "");
     openDraft(flavor, gen, luck);
   };
   return true;
@@ -2256,7 +2256,7 @@ function openShop(note){
   html += "<div class='shop-row'><div class='heal-ico'>💖</div><div class='sinfo'><b>Full heal</b><span>"+G.stats.hp+" / "+G.stats.maxhp+" HP</span>"
     + "<div class='bar hp'><div style='width:"+clamp(100*G.stats.hp/G.stats.maxhp,0,100)+"%'></div></div></div>"
     + "<button class='btn small price' id='shop-heal'"+(G.cult<healCost||!hurt?" disabled":"")+">"+coin+healCost+"</button></div>";
-  html += "<div class='shop-row'><div class='heal-ico'>🚫</div><div class='sinfo'><b>Banish charge</b><span>you have "+(G.banishes||0)+". use one on any draft to throw a relic out of the run for good</span></div>"
+  html += "<div class='shop-row'><div class='heal-ico'>🚫</div><div class='sinfo'><b>Banish charge</b><span>you have "+(G.banishes||0)+". use one on any mint to throw a relic out of the run for good</span></div>"
     + "<button class='btn small price' id='shop-banish'"+(G.cult<BANISH_PRICE?" disabled":"")+">"+coin+BANISH_PRICE+"</button></div>";
   if(note) html += "<div class='note good'>"+note+"</div>";
   html += "<div class='row'><button class='btn small' id='shop-leave'>leave</button></div>";
@@ -2293,7 +2293,7 @@ const watchNote = () => !hasRelic("game_watch") ? "" : watchReady() ? "🎮 Game
 function openShrine(){
   let flipping = false;
   let html = "<h2>🎰 DEGEN SHRINE</h2><div class='stat-line'><span>your $CULT</span><b id='shrine-cult'>"+G.cult+"</b></div>"
-    + "<div class='note'>Bet $CULT on a coin flip.<br>Win → double your bet and draft a relic. Lose → the void keeps it.<br>The shrine goes dark once it pays out.</div>"
+    + "<div class='note'>Bet $CULT on a coin flip.<br>Win → double your bet and mint a relic. Lose → the void keeps it.<br>The shrine goes dark once it pays out.</div>"
     + "<div class='note "+(watchReady()?"good":"")+"' id='watch-note'>"+watchNote()+"</div>"
     + "<div class='coinflip' id='coinflip'>🪙</div><div class='bet-row'>"
     + [25,50,100].map(b=>"<button class='btn small' data-b='"+b+"'>"+b+"</button>").join("")
@@ -2398,7 +2398,7 @@ function applyFx(list){
         G.movesLeft = Math.max(0, G.movesLeft+v); out.push("−"+(-v)+" moves");
         if(G.movesLeft<=0 && !G.queue.includes(endPhase)) G.queue.push(endPhase);
         break;
-      case "relic": G.queue.unshift(()=>openDraft("The timeline provides.", null, v||0)); out.push("a relic draft"); break;
+      case "relic": G.queue.unshift(()=>openDraft("The timeline provides.", null, v||0)); out.push("a relic mint"); break;
       case "give": { const r = relicById(v);
         if(hasRelic(v)) out.push("you already hold "+r.name);
         else { G.queue.unshift(()=>acquireRelic(r, old=>{ closeModal(); mlog("Took <b>"+r.name+"</b> — "+r.desc+(old?" <i>(dropped "+old.name+")</i>":""), "good"); renderMap(); }, ()=>closeModal())); out.push(r.name); }
@@ -2499,7 +2499,7 @@ function openBuild(){
   let html = "<h2>YOUR BUILD</h2><div class='build-top'><canvas id='build-ava'></canvas><div class='stat-grid'>"
     + cell("HP", s.hp+" / "+s.maxhp)+cell("ATK", s.atk)+cell("ARM", s.arm)+cell("SPD", s.spd)
     + cell("CRIT", s.crit+"%")+cell("DODGE", s.dodge+"%")+cell("$CULT", "×"+(Math.round(s.cultMult*100)/100))+cell("SLOTS", G.relics.length+" / "+G.maxSlots)
-    + "</div></div><div class='sheet-top'>"+"<span class='chip' title='"+((G.banished||[]).length ? "banished this run: "+esc(G.banished.map(id=>relicById(id).name).join(", ")) : "use one on a draft to throw a relic out of the run")+"'>🚫 "+(G.banishes||0)+" banish"+((G.banishes||0)===1?"":"es")+((G.banished||[]).length ? " · "+G.banished.length+" out" : "")+"</span>"
+    + "</div></div><div class='sheet-top'>"+"<span class='chip' title='"+((G.banished||[]).length ? "banished this run: "+esc(G.banished.map(id=>relicById(id).name).join(", ")) : "use one on a mint to throw a relic out of the run")+"'>🚫 "+(G.banishes||0)+" banish"+((G.banishes||0)===1?"":"es")+((G.banished||[]).length ? " · "+G.banished.length+" out" : "")+"</span>"
     + (tr ? "<span class='chip tribe-chip' title='"+esc(tr.rule+" "+tr.sig+" "+tr.cost)+"'>"+tr.icon+" "+tr.name+" · "+tr.desc+"</span>" : "")
     + (thornsOf(G.stats.arm) ? "<span class='chip' title='every enemy swing that reaches you costs it a quarter of your ARM'>🛡️ thorns "+thornsOf(G.stats.arm)+"</span>" : "")
     + (G.stats.crit>100 ? "<span class='chip' title='crit chance past 100% becomes crit damage'>✨ crits deal +"+Math.round((G.stats.crit-100)*BAL.critOver*100)+"% more</span>" : "")
@@ -2518,7 +2518,7 @@ function openBuild(){
 }
 
 /* ---------- Remilia Jackson: fuses copies of a relic into its next tier ----------
-   He only fuses. Copies have to be found (drafts, shops, drops); he never sells them. */
+   He only fuses. Copies have to be found (mints, shops, drops); he never sells them. */
 function openForge(note){
   let html = "<h2>REMILIA JACKSON</h2><img class='npc-face jackson' src='"+localFile(REMILIA_LOGO)+"' alt=''>"
     + "<div class='note'><i>\"Two of a kind, baby. Hand them over and I'll make them shine.\"</i><br>copies already stack. fusing two puts both in one slot: 🥇 GOLD is worth two, 💎 DIAMOND (two GOLD) is worth four"
@@ -2559,7 +2559,7 @@ function openForge(note){
 
 /* ---------- the fountain: a $CULT sink with a secret ----------
    Donations add up across every fountain in the run. Past a hidden amount (fixed by the map's seed, so a daily's
-   is the same for everyone) it pays out a draft of rare relics, then wants twice as much for the next one. */
+   is the same for everyone) it pays out a mint of rare relics, then wants twice as much for the next one. */
 function wellNeed(){
   const w = G.well = G.well || {given:0, paid:0};
   const base = 180 + Math.abs(seedFrom("fountain|"+(G.daily||G.seedCode||""))) % 341; // 180..520
@@ -2968,7 +2968,7 @@ function runStrip(){
     + "<div class='mrel'>"+G.relics.map((id,i)=>ICONS[id] ? "<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>" : "").join("")
     + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+setIco(r.t)+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>");
 }
-/* During a run on a wide screen, a draft, shop or event opens over the map and leaves the right-hand column in view:
+/* During a run on a wide screen, a mint, shop or event opens over the map and leaves the right-hand column in view:
    your stats, relics and synergies are what the decision is made from. Everywhere else it is centered as before. */
 function placeModal(){
   const m = $("modal"), b = document.querySelector("#screen-map .board");

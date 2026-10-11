@@ -27,8 +27,8 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **The timeline pushes back.** Once the first boss is down, an elite or boss your build would walk through shows up stronger, and pays more for it. A better build still has better odds. It just never gets a free pass.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
 - **Healing has answers.** A ratio'd enemy heals half as well, a burning one can be stopped from healing at all, and too much healing can be turned back on whoever tried it. A few things in the maze mend themselves, and so do some kings.
-- **Rerolls.** Don't like a draft? Pay to roll it again. The price doubles every time, so the third one hurts.
-- **Banishing.** Or throw one of the cards out of the run for good. You get three; shops sell more. It costs you the draft.
+- **Rerolls.** Don't like a mint? Pay to roll it again. The price doubles every time, so the third one hurts.
+- **Banishing.** Or throw one of the cards out of the run for good. You get three; shops sell more. It costs you the mint.
 - **Inflation.** Shops put their prices up 25% for every boss you beat.
 - **Keys and vaults.** Keys are lying around. Vaults cost 100 $CULT to open and are worth it.
 - **Bosses.** Drawn from a pool, so the run doesn't tell you who's coming until it does. At half health every boss stops the fight and makes you choose something.
