@@ -639,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","banished","banishes","journal","candles"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","banished","banishes","journal","candles"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -836,6 +836,7 @@ function setCounts(relics){
   const n = {};
   for(const id of new Set(relics)) for(const k of relicById(id).set) n[k] = (n[k]||0)+1; // a duplicate doesn't count twice
   if(relics.includes("webring")) for(const k in n) n[k]++; // the webring links in to every set you already hold
+  if(G && G.setBoost) for(const k in G.setBoost) n[k] = (n[k]||0)+G.setBoost[k]; // ETH Chan's blessing: that synergy counts one more, for the rest of the run
   if(tribeIs("collector")) for(const k in n) if(n[k]>=2) n[k]++; // COLLECTOR: a synergy you have started counts one more, so its higher tiers come early
   return n;
 }
@@ -942,7 +943,7 @@ function setsHTML(relics, full){
   if(!rows.length) return "<div class='syn none'>hold 2 relics of the same set to switch on a synergy</div>";
   return rows.map(({t,c,on,next})=>
     "<div class='syn"+(on.length?" on":"")+"' style='--sc:"+t.color+"' title='"+t.tiers.map(([k,d])=>k+": "+d).join(" · ")+"'>"
-    + "<b>"+setIco(t)+" "+t.name+(t.id==="night" && on.length && G ? (G.phase==="night" ? " <i class='rstate on'>awake</i>" : " <i class='rstate'>waits for night</i>") : "")+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
+    + "<b>"+setIco(t)+" "+t.name+(G && (G.setBoost||{})[t.id] ? " <i class='rstate eth' title='blessed by ETH Chan: counts "+G.setBoost[t.id]+" more'>◆ +"+G.setBoost[t.id]+"</i>" : "")+(t.id==="night" && on.length && G ? (G.phase==="night" ? " <i class='rstate on'>awake</i>" : " <i class='rstate'>waits for night</i>") : "")+"</b><em>"+c+(next?" / "+next[0]:"")+"</em>"
     + "<span>"+(on.length ? on.map(([k,d])=>d).join(" · ") : "")+(next && (full || !on.length) ? (on.length?" · ":"")+"<i>"+next[0]+": "+next[1]+"</i>" : "")+"</span></div>").join("");
 }
 /* weighted relic roll: rarer is scarcer, luck tilts toward rare, and sets you already hold come up more */
@@ -975,11 +976,11 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20 };
 const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
-const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp" }; // their own profile pictures
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1047,6 +1048,7 @@ function genMap(){
   put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); put(T.ALTAR,4); // placed last, so everything above stays where it always was on a given seed
   G.rivergod = !(G.daily && G.daily < RIVERGOD_FROM); // daily maps from before he arrived keep the layout, and the loot, their players already saw
   if(G.rivergod) put(T.RIVERGOD,4);
+  if(!(G.daily && G.daily < ETHCHAN_FROM)) put(T.ETHCHAN,3);
   spreadOut(rooms);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
@@ -1073,11 +1075,11 @@ function genMap(){
    rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
    of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
    a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
-const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12";
+const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12";
 function spreadOut(rooms){
   if(G.daily && G.daily < SPREAD_FROM) return;
   const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD]){
+  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD, T.ETHCHAN]){
     const kept = [];
     for(const r of rooms.filter(r=>G.map[r.y][r.x]===t)){
       if(kept.every(k=>far(k,r) >= SPREAD)){ kept.push(r); continue; }
@@ -1668,7 +1670,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1695,7 +1697,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
   [T.FANG]:"<b>Charlotte Fang</b> — give two relics of the same tier and one of the two comes back a tier higher. She picks which. One trade.",
   [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. One bargain.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
-  [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns." };
+  [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns.",
+  [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
@@ -1722,7 +1725,7 @@ function pinName(x,y){
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
-const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
   // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
   const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
@@ -1972,6 +1975,7 @@ function enterTile(t){
     case T.FANG: openFang(); break;
     case T.SCEARPO: openScearpo(); break;
     case T.RIVERGOD: openRivergod(); break;
+    case T.ETHCHAN: openEthChan(); break;
     case T.ALTAR: openAltar(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
@@ -2684,6 +2688,44 @@ function openAltar(note){
     }, ()=>openAltar());
   };});
   $("altar-leave").onclick=()=>closeModal();
+}
+/* ---------- ETH Chan: pay her, and one of your synergies counts one more relic for the rest of the run ----------
+   She speaks Ethereum: the infinite garden, ultrasound money, the tribes. One blessing, then she moves on. */
+const ETH_PRICE = 140;
+const ETH_LINES = [
+  "\"welcome to the infinite garden~ it isn't finished. it's never finished. that's why it's a garden.\"",
+  "\"ultrasound money, anon. every block a little less of it. hold still and you get rarer.\"",
+  "\"ethereum is tribes. the cypherpunks, the regens, the degens. you're one of them. i can tell which.\"",
+  "\"i don't sell relics. i make the ones you have agree with each other. that's called social consensus.\"",
+  "\"the merge already happened. you just haven't finalized yet. come here.\"",
+  "\"credible neutrality means i'd do this for anyone. it still costs gas.\"" ];
+function openEthChan(){
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", price = Math.round(ETH_PRICE * (1 + SHOP_INFLATION*G.bossesBeaten));
+  const n = setCounts(G.relics), held = SETS.filter(t=>n[t.id]);
+  // the synergies you have started, nearest to their next tier first; with fewer than three, she suggests some
+  const gap = t => { const next = t.tiers.find(([k])=>n[t.id]<k); return next ? next[0]-n[t.id] : 99; };
+  const extra = SETS.filter(t=>!n[t.id]).sort((a,b)=>seedFrom("eth|"+a.id+G.px+","+G.py)-seedFrom("eth|"+b.id+G.px+","+G.py));
+  const offer = held.sort((a,b)=>gap(a)-gap(b)).slice(0,6).concat(held.length<3 ? extra.slice(0, 3-held.length) : []);
+  let html = "<h2>ETH CHAN</h2><img class='npc-face eth' src='"+localFile(NPC_ART[T.ETHCHAN])+"' alt=''>"
+    + "<div class='note eth-say'><i>"+spotLine(ETH_LINES, "ethchan")+"</i><br>pick a synergy: it counts <b>one more relic</b> for the rest of the run · one blessing, then she's gone</div>"
+    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span><span class='chip price'>"+coin+price+" per blessing</span></div>";
+  offer.forEach((t,i)=>{
+    const c = n[t.id]||0, hit = t.tiers.find(([k])=>k===c+1), next = t.tiers.find(([k])=>c+1<k);
+    html += "<button class='choice eth-pick' data-eth='"+i+"' style='--sc:"+t.color+"'"+(G.cult<price?" disabled":"")+"><b>"+setIco(t)+" "+t.name+" <small>"+c+" → "+(c+1)+"</small></b><span>"
+      + (hit ? "<i class='good'>switches on: "+hit[1]+"</i>" : next ? "one closer: "+(c+1)+" / "+next[0]+" for "+next[1] : "already at its top tier: nothing more to switch on")+"</span></button>";
+  });
+  if(G.cult<price) html += "<div class='note bad'>\"you can't afford the gas. come back with "+price+".\"</div>";
+  html += "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-eth]").forEach(b=>{ b.onclick=()=>{
+    const t = offer[+b.dataset.eth]; if(G.cult<price) return;
+    G.cult -= price; G.setBoost = G.setBoost||{}; G.setBoost[t.id] = (G.setBoost[t.id]||0)+1;
+    recalcStats(); clearTile(); sfx("fanfare"); burst("◆✨💠");
+    const row = setRows(G.relics).find(r=>r.t.id===t.id);
+    mlog("◆ ETH Chan blessed <b>"+t.name+"</b>: it counts one more relic for the rest of the run"+(row && row.on.length ? " — "+row.on[row.on.length-1][1] : "")+". <i>She's already in the next block.</i>", "gold");
+    closeModal(); renderMap();
+  };});
+  $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
 }
 /* ---------- Rivergod: made the Schizoposters, and deals the only guns in the maze ----------
    He talks like a file with half of it blacked out. Each of the four keeps its own stock of three; a sale doesn't close him. */
@@ -4932,7 +4974,7 @@ function openCodex(tab, pick){
     body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
       + EVENTS.map(e=>"<div class='cx-row' style='--sc:#bd93f9'><b>"+(e.icon||"❓")+" "+e.name+"</b><span><i>"+e.text+"</i></span></div>").join("");
   } else {
-    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD];
+    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD,T.ETHCHAN];
     body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
       + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");

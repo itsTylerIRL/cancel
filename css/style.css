@@ -1731,3 +1731,10 @@ body[data-phase="night"] .brand b{color:#b9c1ff;}
 .tile.poi.t19 .npc{width:100%;height:100%;}
 .npc-face.river{border-color:#e0263a;box-shadow:0 0 24px rgba(224,38,58,.55);}
 .river-say i{font-family:var(--mono);letter-spacing:.01em;} .redact{color:#c9d1d4;background:#c9d1d4;border-radius:1px;letter-spacing:-1px;user-select:none;font-style:normal;padding:0 1px;}
+
+/* ETH Chan */
+.tile.poi.t20 span{border-color:#a6b8ff;background:#0a0d1e;box-shadow:0 2px 0 #000,0 0 14px rgba(166,184,255,.7);animation:bob 2.4s ease-in-out infinite;overflow:hidden;}
+.tile.poi.t20 .npc{width:100%;height:100%;}
+.npc-face.eth{border-color:#a6b8ff;box-shadow:0 0 24px rgba(166,184,255,.55);}
+.eth-pick b small{font-family:var(--mono);font-weight:400;color:var(--dim);letter-spacing:0;margin-left:6px;} .eth-pick:not(:disabled):hover{border-color:var(--sc);box-shadow:0 0 16px color-mix(in srgb,var(--sc) 35%,transparent);}
+.eth-pick .good{font-style:normal;color:var(--acid);} .rstate.eth{border-color:#a6b8ff;color:#cdd7ff;background:rgba(166,184,255,.14);}
