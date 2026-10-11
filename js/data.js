@@ -249,9 +249,9 @@ const ENEMIES = [
   picks:{Costume:"Shark", Shirt:"Scarface Suit", Mouth:"Cigar"}, hp:44, atk:7, arm:1, spd:5, lck:10, cult:[80,120]},
  {id:"griefer", name:"Griefer", cfg:"Remilio", picks:{Costume:"Creeper"}, tier:"mon", home:[0,2], trait:"creeper", fx:"blocky", hp:18, atk:6, arm:0, spd:7, lck:5, cult:[20,35]},
  {id:"bomber", name:"Blimp Bomber", cfg:"Remilio", tier:"elite", home:[0], trait:"bomber", fx:"blocky", hp:36, atk:6, arm:1, spd:4, lck:8, cult:[55,85]},
- {id:"loosie", name:"Loosie", cfg:"Milady", nft:"cig", tier:"mon", home:[0,1,2], hp:17, atk:6, arm:0, spd:8, lck:10, cult:[20,35]},
- {id:"softpack", name:"Soft Pack", cfg:"Milady", nft:"cig", tier:"mon", home:[1,2], trait:"smoker", hp:25, atk:5, arm:1, spd:5, lck:5, cult:[25,40]},
- {id:"carton", name:"Carton", cfg:"Milady", nft:"cig", tier:"elite", home:[0,1,2], trait:"smoker", hp:46, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
+ {id:"loosie", name:"Cigawrette", cfg:"Milady", nft:"cig", tier:"mon", home:[0,1,2], hp:17, atk:6, arm:0, spd:8, lck:10, cult:[20,35]},
+ {id:"softpack", name:"Cigawrette Pack", cfg:"Milady", nft:"cig", tier:"mon", home:[1,2], trait:"smoker", hp:25, atk:5, arm:1, spd:5, lck:5, cult:[25,40]},
+ {id:"carton", name:"Cigawrette Carton", cfg:"Milady", nft:"cig", tier:"elite", home:[0,1,2], trait:"smoker", hp:46, atk:8, arm:2, spd:4, lck:8, cult:[60,90]},
  {id:"fud", name:"Schizoposter", cfg:"Milady", nft:"schizo", fx:"schizo", tier:"hunter", home:[], hp:22, atk:5, arm:0, spd:6, lck:10, cult:[40,60]},
 ];
 
