@@ -5,7 +5,7 @@ game's own art and the layer rules exported from the game by make_spec.mjs (card
 composeAvatar() and shareCard() in js/game.js.
 """
 import colorsys, io, json, math, os, random
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.environ.get("CANCEL_ASSETS", os.path.join(HERE, "..", "assets", "img"))
@@ -178,6 +178,66 @@ def fry(src, caption, rng):
     return out
 
 
+# How hard a cancelled run's portrait is cooked depends on how far it got: gone before the first boss is nuked, gone
+# before the second is fried, and anyone who reached the last three days keeps their face. The numbers are the meme
+# maker's own levels (FRY_LEVELS in game.js).
+FRY = {1: dict(sat=2.0, con=1.35, warm=0.10, sharp=90, grain=16, jpeg=((22, 1.0),), crush=0),
+       3: dict(sat=4.2, con=2.3, warm=0.32, sharp=260, grain=42, jpeg=((5, 0.42), (4, 0.6), (5, 1.0)), crush=3)}
+
+
+def loss_fry(run):
+    if run.get("win") or run.get("bosses", 0) >= 2 or run.get("day", 0) >= 7:
+        return 0
+    return 1 if run.get("bosses", 0) >= 1 else 3
+
+
+def fry_level(src, level, rng):
+    L = FRY.get(level)
+    if not L:
+        return src
+    import io
+    a = src.getchannel("A")
+    rgb = Image.new("RGB", src.size, (8, 10, 12))
+    rgb.paste(src, (0, 0), src)
+    rgb = ImageEnhance.Color(rgb).enhance(L["sat"])
+    rgb = ImageEnhance.Contrast(rgb).enhance(L["con"])
+    r, g, b = rgb.split()  # a push toward orange
+    w = L["warm"]
+    rgb = Image.merge("RGB", (r.point(lambda v: min(255, int(v * (1 + w)))), g.point(lambda v: min(255, int(v * (1 + w * 0.35)))),
+                              b.point(lambda v: int(v * (1 - w)))))
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=2, percent=L["sharp"], threshold=0))  # every edge grows a halo
+    noise = Image.effect_noise(src.size, L["grain"] * 2.2).convert("RGB")
+    rgb = ImageChops.add(rgb, noise, 1, -128)
+    if L["crush"]:
+        rgb = ImageOps.posterize(rgb, L["crush"])  # colours crushed into bands
+    for q, scale in L["jpeg"]:  # saved badly, loaded back, as many times as it takes
+        small = rgb.resize((max(64, round(src.width * scale)), max(64, round(src.height * scale))), Image.BILINEAR)
+        buf = io.BytesIO()
+        small.save(buf, "JPEG", quality=max(1, q))
+        buf.seek(0)
+        rgb = Image.open(buf).convert("RGB").resize(src.size, Image.NEAREST if scale < 1 else Image.BILINEAR)
+    out = rgb.convert("RGBA")
+    out.putalpha(a)
+    return out
+
+
+def stamp(img, word="CANCELLED"):
+    """A red rubber stamp, struck diagonally across the picture."""
+    w, h = img.size
+    fs = round(w / 6.4)
+    f = font(fs, "Bold")
+    tw = round(ImageDraw.Draw(img).textlength(word, font=f))
+    pad, bw = round(fs * 0.32), max(3, fs // 9)
+    layer = Image.new("RGBA", (tw + pad * 2 + bw * 2, fs + pad * 2 + bw * 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.rounded_rectangle((bw // 2, bw // 2, layer.width - bw // 2 - 1, layer.height - bw // 2 - 1), fs // 6, fill=(40, 0, 0, 120), outline=(255, 48, 48, 255), width=bw)
+    d.text((layer.width / 2, layer.height / 2), word, font=f, fill=(255, 48, 48, 255), anchor="mm")
+    layer = layer.rotate(20, expand=True, resample=Image.BICUBIC)
+    out = img.copy()
+    out.alpha_composite(layer, ((w - layer.width) // 2, (h - layer.height) // 2))
+    return out
+
+
 def ps1(src):
     """MILADYSTATION treatment: low resolution, ordered dither, hard edges."""
     w = 110
@@ -319,8 +379,11 @@ def render(run, seed="x"):
     if cheese(relic_ids) >= 2:  # CHEESEWORLD builds get deep fried
         who = fry(who, "", rng)
     if not run["win"]:
-        who = fry(who, "CANCELLED", rng)
+        who = fry_level(who, loss_fry(run), rng)
     over(panel, who.resize((400, 500), Image.LANCZOS))
+    if not run["win"]:  # stamped over the whole frame, on top of whatever is left of the face
+        stamped = stamp(panel.convert("RGBA"))
+        panel = stamped.convert("RGB")
     pd = ImageDraw.Draw(panel, "RGBA")
     for y in range(0, 500, 4):
         pd.rectangle((0, y, 400, y + 1), fill=(0, 0, 0, 41))  # scanlines

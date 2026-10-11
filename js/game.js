@@ -3785,7 +3785,7 @@ function endRun(win){
   countUp($("end-drip"), 0, d, 900);
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
-    paint($("end-avatar"), win ? run.avatar : fry(run.avatar, "CANCELLED"));
+    paint($("end-avatar"), win ? run.avatar : (run.lossLook = run.lossLook || cancelledPortrait(run)));
     if($("end-chart")) drawCandles($("end-chart").getContext("2d"), 1, 1, 1038, 298, run.candles, 2);
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
@@ -3885,6 +3885,32 @@ function fryJpeg(cv, q, scale){ // save it badly, load it back
     try{ im.src = t.toDataURL("image/jpeg", q); }catch(e){ res(); }
   });
 }
+/* A cancelled run's portrait, on its cards: how hard it is cooked depends on how far the run got. Gone before the first
+   boss is nuked, gone before the second is fried, and anyone who reached the last three days keeps their face. Every
+   one of them is stamped. (The server's card.py does the same from the same numbers.) */
+const lossFry = run => run.bossesBeaten>=2 || run.day>=7 ? 0 : run.bossesBeaten>=1 ? 1 : 3;
+function cancelledLook(src, level){
+  const cv = document.createElement("canvas"); cv.width = src.width; cv.height = src.height;
+  const cx = cv.getContext("2d", {willReadFrequently:true}); cx.drawImage(src, 0, 0);
+  const L = FRY_LEVELS[level];
+  if(L && L.sat){
+    const alpha = cx.getImageData(0,0,cv.width,cv.height).data.filter((_,i)=>i%4===3); // the fryer flattens transparency: keep the cut-out
+    fryPixels(cv, L); frySharpen(cv, L.sharp*0.5);
+    const im = cx.getImageData(0,0,cv.width,cv.height); for(let i=0;i<alpha.length;i++) im.data[i*4+3] = alpha[i]; cx.putImageData(im,0,0);
+  }
+  return cv;
+}
+function stampCancelled(cx, x, y, w, h){ // a red rubber stamp, struck diagonally across a w×h picture at x,y
+  const fs = Math.round(w/6.4), word = "CANCELLED";
+  cx.save(); cx.translate(x+w/2, y+h/2); cx.rotate(-20*Math.PI/180);
+  cx.font = "bold "+fs+"px 'JetBrains Mono','Fira Mono','Menlo','Consolas',monospace"; cx.textAlign = "center"; cx.textBaseline = "middle";
+  const tw = cx.measureText(word).width, pad = fs*0.32, bw = Math.max(3, fs/9);
+  cx.fillStyle = "rgba(40,0,0,.47)"; cx.strokeStyle = "#ff3030"; cx.lineWidth = bw;
+  cx.beginPath(); cx.roundRect(-tw/2-pad, -fs/2-pad, tw+pad*2, fs+pad*2, fs/6); cx.fill(); cx.stroke();
+  cx.fillStyle = "#ff3030"; cx.fillText(word, 0, fs*0.04);
+  cx.restore();
+}
+function cancelledPortrait(run){ const cv = cancelledLook(run.avatar, lossFry(run)); stampCancelled(cv.getContext("2d"), 0, 0, cv.width, cv.height); return cv; }
 const BULGE_R = 430, BULGE_P = 0.55; // how far the swelling reaches, and how hard it pushes
 async function eyeSpots(run){ // where her eyes are on the 864x1080 portrait as it sits on the meme, or [] if they can't be found
   try{
@@ -4659,8 +4685,9 @@ async function shareCard(run, win, drip){
   cx.fillStyle = "#010506"; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.fill();
   cx.fillStyle = st; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.fill();
   cx.save(); cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.clip();
-  cx.drawImage(win ? run.avatar : fry(run.avatar, "CANCELLED"), 50, 60, 400, 500);
+  cx.drawImage(win ? run.avatar : cancelledLook(run.avatar, lossFry(run)), 50, 60, 400, 500);
   cx.fillStyle = "rgba(0,0,0,.16)"; for(let y=60;y<560;y+=4) cx.fillRect(50,y,400,2); // scanlines
+  if(!win) stampCancelled(cx, 50, 60, 400, 500);
   cx.restore();
   cx.lineWidth = 1.5; cx.strokeStyle = "rgba(139,233,253,.6)"; cx.beginPath(); cx.roundRect(50,60,400,500,12); cx.stroke();
   const text = (t, x, y, px, color, w) => { cx.font = (w||"bold")+" "+px+"px "+MONO; cx.fillStyle = color; cx.fillText(t, x, y); };
