@@ -1,5 +1,5 @@
 :root{
-  /* tylerirl.com: black, one cyan accent, Dracula colours for meaning, monospace everywhere */
+  /* tylerirl.com: black, one cyan accent, Dracula colors for meaning, monospace everywhere */
   --bg:#000000; --panel:rgba(2,6,8,.78); --line:rgba(139,233,253,.22);
   --neon:#8be9fd; --neon2:#eaeaea; --acid:#50fa7b; --gold:#f1fa8c;
   --pink:#ff79c6; --lilac:#bd93f9; --sky:#8be9fd; --red:#ff5555;
@@ -610,7 +610,7 @@ body::after{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0
 /* buttons: the site's bordered, square-ish buttons that fill on hover */
 /* ---------- buttons: one system ----------
    Shared: one corner radius, one border weight, three heights. Every kind has the same four states (hover, pressed,
-   keyboard focus, disabled). Colour means one thing: cyan an ordinary action or the chosen option, green "on" or go,
+   keyboard focus, disabled). Color means one thing: cyan an ordinary action or the chosen option, green "on" or go,
    gold costs or pays, red destroys. Only the big primary buttons fill solid on hover. */
 :root{--r:5px;--btnh-s:32px;--btnh:40px;--btnh-l:50px;--btn-t:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .08s,filter .08s;}
 .btn,.pick,.tog,.choice,.mute,.icon-btn{font-family:var(--mono);border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:var(--btn-t);-webkit-tap-highlight-color:transparent;}
@@ -718,7 +718,7 @@ h1.game-title .is::after{content:"_";animation:tirlblink 1s steps(2) infinite;}
 .syn b{font-family:var(--mono);}
 .share pre{background:rgba(0,0,0,.6);}
 ::selection{background:rgba(139,233,253,.3);color:#fff;}
-/* map floors: a hint of the district colour on near-black, not a wash of it */
+/* map floors: a hint of the district color on near-black, not a wash of it */
 .tile{background:color-mix(in srgb,var(--dc,#555) 9%,#070d10);border:1px solid color-mix(in srgb,var(--dc,#555) 34%,transparent);}
 #map.night .tile{background:color-mix(in srgb,var(--dc,#555) 4%,#04080a);}
 .tile.moveable:hover{background:color-mix(in srgb,var(--dc,#555) 22%,#0c1519);}
@@ -1155,7 +1155,7 @@ body.calm .odds.doom{animation:none;}
 #map .tile.sel{border-radius:14%;}
 #map .tile.pinned{outline:0;}
 #map .tile.dig{box-shadow:none;animation:none;} #map .tile.dig .pico{width:62%;height:62%;animation:bob 1.6s ease-in-out infinite;filter:drop-shadow(0 0 6px rgba(255,85,85,.8));}
-/* things: the drawing stands on the floor with a shadow under it and its own colour around it */
+/* things: the drawing stands on the floor with a shadow under it and its own color around it */
 .pico{display:block;width:100%;height:100%;overflow:visible;}
 #map .tile.poi.ico{background:radial-gradient(ellipse 36% 11% at 50% 87%,rgba(0,0,0,.7),transparent 100%),radial-gradient(circle at 50% 55%,color-mix(in srgb,var(--pc) 26%,transparent),transparent 64%);}
 #map .tile.poi.ico span{width:74%;height:74%;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible;filter:drop-shadow(0 2px 0 rgba(0,0,0,.55)) drop-shadow(0 0 5px color-mix(in srgb,var(--pc) 55%,transparent));}
@@ -1593,7 +1593,7 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .tribe-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 5px;border-radius:4px;border:1px solid var(--tc);color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent);
   font-family:var(--label);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;vertical-align:1px;box-shadow:0 0 10px color-mix(in srgb,var(--tc) 22%,transparent);}
 .tribe-badge i{font-style:normal;font-size:12px;letter-spacing:0;}
-/* your last run: the king's card, in the interface's own colour instead of gold */
+/* your last run: the king's card, in the interface's own color instead of gold */
 .last-box{margin-bottom:8px;}
 .king-card.last-card{border-color:rgba(139,233,253,.4);background:rgba(139,233,253,.04);}
 .king-card.last-card b{color:#e9f6fa;} .king-card.last-card .bpfp.big{border-color:var(--neon);}
@@ -1726,7 +1726,7 @@ body[data-phase="night"] .brand b{color:#b9c1ff;}
 .tico{position:absolute;right:-6px;bottom:-5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:13px;line-height:1;
   background:#05090b;border:1.5px solid var(--tc);box-shadow:0 0 8px color-mix(in srgb,var(--tc) 55%,transparent);}
 
-/* Rivergod: the armoury */
+/* Rivergod: the armory */
 .tile.poi.t19 span{border-color:#e0263a;background:#160305;box-shadow:0 2px 0 #000,0 0 14px rgba(224,38,58,.65);animation:bob 2.4s ease-in-out infinite;overflow:hidden;}
 .tile.poi.t19 .npc{width:100%;height:100%;}
 .npc-face.river{border-color:#e0263a;box-shadow:0 0 24px rgba(224,38,58,.55);}

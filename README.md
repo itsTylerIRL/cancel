@@ -12,7 +12,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 
 ## How it plays
 
-- **The maze.** 41×41, four districts, a boss gate in each. Loot hides in dead ends. Each district bends one rule in your favour.
+- **The maze.** 41×41, four districts, a boss gate in each. Loot hides in dead ends. Each district bends one rule in your favor.
 - **Relics.** About 125 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
 - **Sets.** Every relic belongs to a set or two (ARMED, HYPEBEAST, DEGEN, KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD, FLAMEWAR, BLOODSPORT, ICED OUT, THREE LETTER AGENCY, NIGHT SHIFT, TOUCH GRASS, FAST FOOD, WAR ROOM). Hold enough of one and it switches on.
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
@@ -22,7 +22,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **ETH Chan.** Pay her and one of your synergies counts one more relic for the rest of the run. She'll tell you about the infinite garden while she does it. One blessing each, three of her per maze. Art by Shiro.
 - **Cursed altars.** A legendary relic, lying there, free. Take it and you carry a curse of your choosing for the rest of the run: a sealed slot, blood at every dawn, shops that won't serve you, or a chunk of your health. Stepping up is a commitment: walking away costs 150 $CULT, and if you don't have it you take the relic and the curse.
 - **The fountain.** Throw $CULT in. Give enough and it gives something rare back. It won't tell you how much is enough.
-- **Defence hits back.** Armour bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
+- **Defense hits back.** Armor bites anything that hits you. Every dodge is a free counter. A big health pool puts weight behind your swings. You don't have to stack attack.
 - **No one stat wins.** Enemies are guarded: a single hit takes at most half their health, a quarter of a boss's, so nothing dies in one swing. Crit past 100% turns into crit damage. Burn, bleed, poison and companions grow stronger every day, the way enemies do.
 - **The timeline pushes back.** Once the first boss is down, an elite or boss your build would walk through shows up stronger, and pays more for it. A better build still has better odds. It just never gets a free pass.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
@@ -35,7 +35,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **The last three days.** From day 7 the interface itself starts to give: red at the edges, cracks in the timeline, things said in the feed. By day 9 you know something is arriving.
 - **Nights.** Hunters path toward you. Campfires only work after dark: sleep at one to heal and skip to dawn, and it burns out. Every boss you beat makes the nights worse: the hunters come back tougher, faster, and eventually in greater number.
 - **Done waiting?** Click the next boss on the timeline to fight it now. Win and it never shows up, so the days it would have taken are yours. It isn't free: a boss called out early hits harder for every day you skipped, and every call-out leaves the rest of the timeline tougher. Beat THE CANCEL itself before day 9 and every day you saved is worth points.
-- **Tribes.** Seven classes, and each one is a different way to play: Hypebeast (crit chains), Degen Trader ($CULT is power), Lovebomber (healing and shields), Accelerationist (first strike, shorter days), Wartime Poster (armour that hits back), Schizoposter (lives at night), Collector (more slots, easier sets). Each has a rule, a signature in fights, and a cost.
+- **Tribes.** Seven classes, and each one is a different way to play: Hypebeast (crit chains), Degen Trader ($CULT is power), Lovebomber (healing and shields), Accelerationist (first strike, shorter days), Wartime Poster (armor that hits back), Schizoposter (lives at night), Collector (more slots, easier sets). Each has a rule, a signature in fights, and a cost.
 - **Heat.** Win, and the game offers to get worse for more DRIP.
 
 A few things that keep you from playing blind: every fight ends with a line on what did the damage, and you can pin a tile (right-click, long-press, or `P`) to come back to.

@@ -50,7 +50,7 @@ def gray(im):
 
 
 def tint_eyes(cv, mask, swatch, darken):
-    """Milady eye colour: inside the eye mask keep each pixel's lightness, take the colour's hue and saturation."""
+    """Milady eye color: inside the eye mask keep each pixel's lightness, take the color's hue and saturation."""
     W, Y, H = 600, 180, 320
     r, g, b = swatch.resize((W, 750)).convert("RGB").getpixel((300, 375))
     th, _l, ts = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
@@ -104,7 +104,7 @@ def compose(look, relic_ids):
         slots["shirt"] = [it for it in slots["shirt"] if not it.get("own")]
     eyes = (slots.get("eyes") or [None])[0]
     tint = SPEC["tint"]
-    colour = (look or {}).get("eye") or ""
+    color = (look or {}).get("eye") or ""
     friends = props = 0
     for slot in SPEC["DRAW_ORDER"][body]:
         for it in slots.get(slot, []):
@@ -135,10 +135,10 @@ def compose(look, relic_ids):
                 paste(cv, im, 0, 0)
             else:
                 paste(cv, im.resize((600, 750)), 0, 0)
-            if it is eyes and body == "Milady" and it.get("own") and colour and it["file"][:-5] in tint["values"]:
-                mask, swatch = layer("Milady", tint["mask"], it["file"]), layer("Milady", tint["by"], colour + ".webp")
+            if it is eyes and body == "Milady" and it.get("own") and color and it["file"][:-5] in tint["values"]:
+                mask, swatch = layer("Milady", tint["mask"], it["file"]), layer("Milady", tint["by"], color + ".webp")
                 if mask and swatch:
-                    tint_eyes(cv, mask, swatch, tint["darken"].get(colour, 0))
+                    tint_eyes(cv, mask, swatch, tint["darken"].get(color, 0))
     return cv
 
 
@@ -209,7 +209,7 @@ def fry_level(src, level, rng):
     noise = Image.effect_noise(src.size, L["grain"] * 2.2).convert("RGB")
     rgb = ImageChops.add(rgb, noise, 1, -128)
     if L["crush"]:
-        rgb = ImageOps.posterize(rgb, L["crush"])  # colours crushed into bands
+        rgb = ImageOps.posterize(rgb, L["crush"])  # colors crushed into bands
     for q, scale in L["jpeg"]:  # saved badly, loaded back, as many times as it takes
         small = rgb.resize((max(64, round(src.width * scale)), max(64, round(src.height * scale))), Image.BILINEAR)
         buf = io.BytesIO()
@@ -281,7 +281,7 @@ def icon(rid):
     return out
 
 
-def radial(size, centre, radius, stops):
+def radial(size, center, radius, stops):
     """A radial gradient layer: stops are (position 0..1, (r, g, b, a))."""
     w, h = size
     k = 4
@@ -289,7 +289,7 @@ def radial(size, centre, radius, stops):
     px = small.load()
     for y in range(h // k):
         for x in range(w // k):
-            t = min(1.0, math.hypot(x * k - centre[0], y * k - centre[1]) / radius)
+            t = min(1.0, math.hypot(x * k - center[0], y * k - center[1]) / radius)
             for (p0, c0), (p1, c1) in zip(stops, stops[1:]):
                 if t <= p1:
                     u = 0 if p1 == p0 else (t - p0) / (p1 - p0)

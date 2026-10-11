@@ -225,7 +225,7 @@ function hsl2rgb(h,s,l){
   const k = n => (n+h/30)%12, a = s*Math.min(l,1-l), f = n => l-a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
   return [255*f(0), 255*f(8), 255*f(4)];
 }
-/* Milady eye colour, as the maker does it: inside the eye mask, keep each pixel's lightness and take the colour's hue and saturation */
+/* Milady eye color, as the maker does it: inside the eye mask, keep each pixel's lightness and take the color's hue and saturation */
 function tintEyes(cx, mask, swatch, darken){
   const W=600, Y=180, H=320; // the eyes sit in this band
   const t = document.createElement("canvas"); t.width=W; t.height=750;
@@ -308,11 +308,11 @@ async function composeAvatar(base, relicIds){
   if(body==="Milady" && slots.costume && slots.shirt) slots.shirt = slots.shirt.filter(it=>!it.own); // a costume is the whole outfit: her own shirt doesn't poke out of its collar
   const items = DRAW_ORDER[body].flatMap(slot => (slots[slot]||[]).map(it=>({...it, slot})));
   const ims = await Promise.all(items.map(it=>loadImg(it.url).catch(()=>null)));
-  // eye colour applies to her own eyes, when they are a kind that takes a colour
-  const TINT = TOKEN_MAP.milady.tint, eyes = (slots.eyes||[])[0], colour = tk ? tk.eyeColor : base.eyeColor;
+  // eye color applies to her own eyes, when they are a kind that takes a color
+  const TINT = TOKEN_MAP.milady.tint, eyes = (slots.eyes||[])[0], color = tk ? tk.eyeColor : base.eyeColor;
   let tintWith = null;
-  if(body==="Milady" && !nftIm && eyes && eyes.own && colour && TINT.values.includes(eyes.file.slice(0,-5))){
-    tintWith = await Promise.all([loadImg(assetURL("Milady", TINT.mask, eyes.file)), loadImg(assetURL("Milady", TINT.by, colour+".webp"))]).catch(()=>null);
+  if(body==="Milady" && !nftIm && eyes && eyes.own && color && TINT.values.includes(eyes.file.slice(0,-5))){
+    tintWith = await Promise.all([loadImg(assetURL("Milady", TINT.mask, eyes.file)), loadImg(assetURL("Milady", TINT.by, color+".webp"))]).catch(()=>null);
   }
   const cv = document.createElement("canvas"); cv.width=600; cv.height=750;
   const cx = cv.getContext("2d", {willReadFrequently:true});
@@ -345,7 +345,7 @@ async function composeAvatar(base, relicIds){
       cx.save(); cx.beginPath(); cx.ellipse(330, 300, 225, 255, 0, 0, Math.PI*2); cx.clip();
       cx.drawImage(im, 0, 0, 600, 750); cx.restore();
     } else cx.drawImage(im, 0, 0, 600, 750);
-    if(it===items.find(x=>x.slot==="eyes") && tintWith){ cx.filter = "none"; try{ tintEyes(cx, tintWith[0], tintWith[1], TINT.darken[colour]||0); }catch(e){} }
+    if(it===items.find(x=>x.slot==="eyes") && tintWith){ cx.filter = "none"; try{ tintEyes(cx, tintWith[0], tintWith[1], TINT.darken[color]||0); }catch(e){} }
   });
   cx.filter = "none";
   let out = base.ps1 ? ps1(cv) : cv; // booted up a MiladyStation this run
@@ -455,7 +455,7 @@ function schizo(src){
   cx.globalCompositeOperation = "source-over";
   return cv;
 }
-/* MILADYSTATION treatment: a first-generation console render, low resolution with dithered 15-bit colour */
+/* MILADYSTATION treatment: a first-generation console render, low resolution with dithered 15-bit color */
 function ps1(src){
   const w = 110, h = Math.round(w*src.height/src.width);
   const t = document.createElement("canvas"); t.width=w; t.height=h;
@@ -920,7 +920,7 @@ function rawStats(relics, setsAs){
   if(R("hypebeast")) s.arm+=6;
   if(S("bonkler",2)) s.arm+=3;
   if(R("punisher")) s.atk += Math.floor(Math.max(0, s.arm)/2); // after every source of ARM
-  if(tribeIs("prep")) s.maxhp += Math.max(0, s.arm-10); // WARTIME POSTER: armour past 10 is health too
+  if(tribeIs("prep")) s.maxhp += Math.max(0, s.arm-10); // WARTIME POSTER: armor past 10 is health too
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
     + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0)
@@ -1373,7 +1373,7 @@ function drawGround(){
         c.fillRect(0,th+Math.round(fh/2),ts,lw);
         c.fillRect(Math.round(ts*(x%2 ? .3 : .68)),th,lw,Math.round(fh/2)); c.fillRect(Math.round(ts*(x%2 ? .7 : .22)),th+Math.round(fh/2),lw,fh);
         c.fillStyle = p.rimSoft; c.fillRect(0,th,ts,lw*3);
-        c.fillStyle = p.rim; c.fillRect(0,th-lw,ts,lw*2); // the lip, lit in the district's colour
+        c.fillStyle = p.rim; c.fillRect(0,th-lw,ts,lw*2); // the lip, lit in the district's color
       }
       continue;
     }
@@ -2036,7 +2036,7 @@ function foeInstance(def){ return raised(foeBase(def), adaptLevel(def)); }
 const NIGHT = { power:0.35, names:["Schizoposter","Unhinged Schizoposter","Terminal Schizoposter","Terminal Schizoposter"],
   mood:["the schizoposters are hunting", "they are bolder tonight", "they are everywhere, and they are fast"] };
 const nightTier = () => clamp((G && G.bossesBeaten) || 0, 0, 2);
-const CALL = { boss:0.2, day:0.05, world:0.08 }; // per boss called out early: that boss, per day early, and everything afterwards
+const CALL = { boss:0.2, day:0.05, world:0.08 }; // per boss called out early: that boss, per day early, and everything afterward
 function foeBase(def){
   if(def.tier==="hunter" && nightTier() && !def.night){ // a hunter, raised for the bosses already beaten, then grown by the day like anything else
     const t = nightTier();
@@ -2753,12 +2753,12 @@ function openEthChan(){
    He talks like a file with half of it blacked out. Each of the four keeps its own stock of three; a sale doesn't close him. */
 const BLK = n => "<span class='redact' aria-label='redacted'>"+"█".repeat(n)+"</span>";
 const RIVER_LINES = [
-  ()=>"\"You didn't see me. This "+BLK(7)+" was never here. The Schizoposters were a "+BLK(9)+" programme and I am not at liberty to say whose.\"",
+  ()=>"\"You didn't see me. This "+BLK(7)+" was never here. The Schizoposters were a "+BLK(9)+" program and I am not at liberty to say whose.\"",
   ()=>"\"Asset is in position. I made them to post. What they do at night is "+BLK(11)+". Buy something or keep walking.\"",
   ()=>"\"Per directive "+BLK(4)+"-"+BLK(2)+", sidearms are no longer distributed through "+BLK(6)+". You want one, you see me. That's the whole memo.\"",
   ()=>"\"The posters aren't hunting you. They're "+BLK(8)+". There's a difference, and it's classified.\"",
   ()=>"\"I can neither confirm nor deny that I drew sixteen of them. The other "+BLK(5)+" are still out there. Cash only.\"",
-  ()=>"\"Operation "+BLK(10)+" is ongoing. You are a line item. This is the armoury. Don't touch the "+BLK(6)+".\"" ];
+  ()=>"\"Operation "+BLK(10)+" is ongoing. You are a line item. This is the armory. Don't touch the "+BLK(6)+".\"" ];
 const gunPool = () => RELICS.filter(r=>r.tags.includes("gun") && !(G.banished||[]).includes(r.id)
   && !(r.tags.includes("blackmarket") && !(perk("blackmarket") && !G.daily)) && !(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !G.daily));
 function openRivergod(note){
@@ -2851,7 +2851,7 @@ function openSettings(){
 function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
 /* ---------- the backdrop ----------
    The game's own: one canvas, no libraries, nothing loaded from anywhere. A field of posts drifting on the timeline,
-   threads between the ones near each other, and now and then a signal running down a thread. It takes its colour from
+   threads between the ones near each other, and now and then a signal running down a thread. It takes its color from
    where you are (each district's own, cooler at night), turns red as THE CANCEL closes in, and flinches when a hit
    lands. It never looks at the mouse. */
 const BG = { cv:null, cx:null, nodes:[], pulses:[], w:0, h:0, last:0, raf:0, col:[139,233,253], kick:0, nextPulse:0, frame:0 };
@@ -2885,11 +2885,11 @@ function bgFrame(now){
   if(++BG.frame%2) return; // thirty frames a second is plenty for something this slow
   const dt = Math.min(0.1, (now-BG.last)/1000 || 0.033); BG.last = now;
   const calm = !!META.calm, m = bgMood(), cx = BG.cx, d = BG.d, W = BG.w, H = BG.h, t = now/1000;
-  for(let i=0;i<3;i++) BG.col[i] += (m.c[i]-BG.col[i])*Math.min(1, dt*1.5); // colour eases to wherever you are
+  for(let i=0;i<3;i++) BG.col[i] += (m.c[i]-BG.col[i])*Math.min(1, dt*1.5); // color eases to wherever you are
   BG.kick *= Math.pow(0.02, dt);
   const sp = (calm ? 0.25 : 1)*m.energy, base = BG.col, link = Math.min(170, Math.max(110, W/9));
   cx.setTransform(d,0,0,d,0,0); cx.clearRect(0,0,W,H);
-  // two soft clouds of the place's colour, wandering
+  // two soft clouds of the place's color, wandering
   for(let i=0;i<2;i++){
     const gx = W*(0.5+0.38*Math.sin(t*0.05+i*2.4)), gy = H*(0.5+0.36*Math.cos(t*0.04+i*1.7)), r = Math.max(W,H)*0.42;
     const g = cx.createRadialGradient(gx,gy,0,gx,gy,r);
@@ -2915,7 +2915,7 @@ function bgFrame(now){
     cx.fillStyle = "rgba("+c+","+(0.13*n.z*tw).toFixed(3)+")"; cx.beginPath(); cx.arc(n.x,n.y,r*4.2,0,7); cx.fill();
     cx.fillStyle = "rgba("+c+","+(0.92*n.z*tw).toFixed(3)+")"; cx.beginPath(); cx.arc(n.x,n.y,r,0,7); cx.fill();
   }
-  // a signal runs from one post to a neighbour: something being said, passed on
+  // a signal runs from one post to a neighbor: something being said, passed on
   if(!calm && t>BG.nextPulse){
     BG.nextPulse = t + (0.5+Math.random()*1.1)/m.energy;
     const a = ns[Math.floor(Math.random()*ns.length)], near = ns.filter(b=>b!==a && Math.hypot(a.x-b.x,a.y-b.y)<link);
@@ -2969,7 +2969,7 @@ function runStrip(){
     + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+setIco(r.t)+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>");
 }
 /* During a run on a wide screen, a draft, shop or event opens over the map and leaves the right-hand column in view:
-   your stats, relics and synergies are what the decision is made from. Everywhere else it is centred as before. */
+   your stats, relics and synergies are what the decision is made from. Everywhere else it is centered as before. */
 function placeModal(){
   const m = $("modal"), b = document.querySelector("#screen-map .board");
   const r = b && G && !G.over && $("screen-map").classList.contains("active") && window.innerWidth>=900 ? b.getBoundingClientRect() : null;
@@ -3007,11 +3007,11 @@ function combatBars(you, foe){
     const chip = (ico, label, v, extra, cls) => "<span title='"+label+"'"+(cls ? " class='"+cls+"'" : "")+">"+si(ico)+" <b>"+v+"</b>"+(extra||"")+"</span>";
     const hard = you.hard||0, heft = heftOf(you.maxhp);
     $("you-stats").innerHTML = chip("⚔️","attack"+(heft ? " (plus "+heft+" from heft on every hit)" : ""), Math.round(you.atk)+(hard ? "<i>+"+hard+"</i>" : ""), "", hard ? "up" : "")
-      + chip("🛡️","armour", you.arm) + chip("💨","speed: the faster side strikes first", you.spd, "", you.spd>=foe.spd ? "lead" : "")
+      + chip("🛡️","armor", you.arm) + chip("💨","speed: the faster side strikes first", you.spd, "", you.spd>=foe.spd ? "lead" : "")
       + chip("✨","crit chance", Math.round(you.crit)+"%") + chip("🌀","dodge chance", Math.round(you.dodge||0)+"%")
       + (you.shield>0 ? chip("🕯️","shield", you.shield, "", "up") : "");
     $("foe-stats").innerHTML = chip("⚔️","attack", Math.round(foe.atk), "", foe.chill>0 ? "down" : "")
-      + chip("🛡️","armour", Math.max(0, foe.arm)) + chip("💨","speed: the faster side strikes first", foe.spd, "", foe.spd>you.spd ? "lead" : "")
+      + chip("🛡️","armor", Math.max(0, foe.arm)) + chip("💨","speed: the faster side strikes first", foe.spd, "", foe.spd>you.spd ? "lead" : "")
       + chip("✨","crit chance", Math.round(5+(foe.lck||0)/2)+"%")
       + (foe.adapt ? chip("📈","the timeline pushed back: this one was raised to meet your build", "+"+Math.round(foe.adapt*100)+"%", "", "down") : "");
   }
@@ -3030,7 +3030,7 @@ function combatBars(you, foe){
 /* Every kind of damage has its own look. The fight log already says what happened, so the effect is read from it:
    [which portrait, which effect]. */
 const LOG_FX = [ [/\(guarded\)/, "foe", "guard"], [/^🔥/, "foe", "burn"], [/^🩸 The curse/, "", ""], [/^🩸/, "foe", "bleed"], [/^🐍/, "foe", "poison"], [/^⚡/, "foe", "shock"],
-  [/freezes solid/, "foe", "frost"], [/^🛡️ Your armour/, "foe", "thorns"], [/^🧿/, "foe", "thorns"], [/^💨 You (dodge|slip)/, "you", "dodge"],
+  [/freezes solid/, "foe", "frost"], [/^🛡️ Your armor/, "foe", "thorns"], [/^🧿/, "foe", "thorns"], [/^💨 You (dodge|slip)/, "you", "dodge"],
   [/^🕯️/, "you", "ward"], [/^(🧸|🦊|🦖|📮)/, "foe", "pounce"], [/^💥|^🎈|^📉/, "you", "blast"], [/^📢|^🏦|^🌀|^📵/, "you", "hex"] ];
 function logFx(m){ const t = m.replace(/<[^>]+>/g,""); for(const [rx, side, kind] of LOG_FX) if(rx.test(t)) return side ? [side, kind] : null; return null; }
 function hitFx(side, kind){
@@ -3190,7 +3190,7 @@ function fightEngine(foeDef, opts, io){
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.burn>0 && set("flame",3)) atk *= 0.8; }
     if(!isYou && act("beetleposting")) atk *= 0.8;
     if(!isYou && act("atf_agent") && (opts.elite || hunter)) atk *= 0.85;
-    if(!isYou && att.puppet){ // already past armour and crits on the other side: only what you carry can soften it now
+    if(!isYou && att.puppet){ // already past armor and crits on the other side: only what you carry can soften it now
       let d = Math.min(Math.max(1, Math.round(atk)), Math.ceil(you.maxhp * BAL.guardDuel)); // guarded: a duel is never one round long
       if(def===you && act("fbi_cap")) d = Math.max(1, d-tv("fbi_cap",3));
       if(def===you && you.hp < you.maxhp/2 && act("hodl")) d = Math.max(1, Math.round(d*0.7));
@@ -3198,9 +3198,9 @@ function fightEngine(foeDef, opts, io){
     }
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
-    // your armour stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
-    let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armour has the same limit
-    if(!isYou && def===you && set("war",4)) you.stored += Math.min(you.arm, Math.max(0, Math.round(atk) - dmg)); // WAR ROOM keeps what the armour stopped
+    // your armor stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
+    let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armor has the same limit
+    if(!isYou && def===you && set("war",4)) you.stored += Math.min(you.arm, Math.max(0, Math.round(atk) - dmg)); // WAR ROOM keeps what the armor stopped
     let crit = false;
     if(rnd()*100 < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
       dmg = Math.round(dmg * ((isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0))); crit=true; }
@@ -3237,9 +3237,9 @@ function fightEngine(foeDef, opts, io){
       else { const d = counterDmg(you, foe); foe.hp-=d; credit("💨 counters", d); io.log("💨 You slip it and counter for "+d+".", "good"); io.hit("foe",d,false); } // every dodge answers back
       return;
     }
-    if(!isYou){ // armour bites back: a swing that reaches you costs the attacker a quarter of your ARM
+    if(!isYou){ // armor bites back: a swing that reaches you costs the attacker a quarter of your ARM
       const th = thornsOf(you.arm) * (act("cactus_shirt") ? 2 : 1) * (tribe==="prep" ? 2 : 1);
-      if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armour bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
+      if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armor bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
     if(!isYou && you.shield>0){
@@ -3353,7 +3353,7 @@ function fightEngine(foeDef, opts, io){
     if(act("gnome") && F.tick%4===0){ heal(tv("gnome",6)); io.log("🍄 Gnome patches you up.", "good"); }
     if(act("juicebox") && F.tick%3===0){ heal(tv("juicebox",4)); io.log("🧃 Juicebox.", "good"); }
     if(act("burger_earring") && you.hp>0 && you.hp < you.maxhp*0.3){ io.log("🍔 <b>Burger Earring.</b> Eaten.", "good"); heal(tv("burger_earring",40)); eat("burger_earring"); }
-    if(you.stored>0 && F.tick%5===0){ const d = Math.round(you.stored); you.stored = 0; foe.hp-=d; credit("🪖 War Room", d); io.log("🪖 War Room: everything your armour stopped comes back. <b>"+d+"</b>.", "good"); io.hit("foe",d,false); }
+    if(you.stored>0 && F.tick%5===0){ const d = Math.round(you.stored); you.stored = 0; foe.hp-=d; credit("🪖 War Room", d); io.log("🪖 War Room: everything your armor stopped comes back. <b>"+d+"</b>.", "good"); io.hit("foe",d,false); }
     // companions
     you.compTick++;
     for(let k = act("gold_sonic") ? 2 : 1; k>0 && foe.hp>0; k--){
@@ -3412,7 +3412,7 @@ const BAL = { guardFoe:0.5, guardBoss:0.25, guardDuel:0.35, critOver:0.01, dripE
 const grow = n => Math.round(n * (1 + BAL.growth * Math.max(0, ((G && G.day) || 1) - 1)));
 const TIPS = {
   guard:   ["🛡️", "Guarded", "One hit can take at most half an enemy's health, a quarter of a boss's. Past that, more attack is wasted: fights have to be survived."],
-  thorns:  ["🛡️", "Thorns", "Your armour just hurt the thing that hit you. Every enemy swing that lands costs it a quarter of your ARM."],
+  thorns:  ["🛡️", "Thorns", "Your armor just hurt the thing that hit you. Every enemy swing that lands costs it a quarter of your ARM."],
   counter: ["💨", "Counter", "A dodge isn't just a miss. Every one hits back for half your ATK."],
   heft:    ["💪", "Heft", "A big health pool puts weight behind your hits: +1 damage for every 12 max HP above 50."],
   crit:    ["✨", "Crit overflow", "Crit chance past 100% isn't wasted. Every extra point makes your crits hit 1% harder."],
@@ -3443,9 +3443,9 @@ function fightTips(F, foeDef){
   if(F.dealt["💨 counters"]) tip("counter");
   if(G.day>1 && Object.keys(F.dealt).some(k=>/^(🔥|🩸|🐍|⚡|🧸|🦊|🦖)/u.test(k))) tip("growth");
 }
-/* Defence that fights back, so armour, dodge and health are builds of their own and not just a slower death:
+/* Defense that fights back, so armor, dodge and health are builds of their own and not just a slower death:
    thorns: every enemy swing that reaches you costs it a quarter of your ARM. counter: every dodge hits back for half your ATK.
-   heft: every 12 max HP above 50 adds 1 to your hits. Armour never stops more than about two thirds of a hit. */
+   heft: every 12 max HP above 50 adds 1 to your hits. Armor never stops more than about two thirds of a hit. */
 const heftOf = maxhp => Math.max(0, Math.floor(((maxhp||0)-50)/12));
 const DODGE_CAP = 65;
 const thornsOf = arm => Math.max(0, Math.floor((arm||0)/4));
@@ -3484,7 +3484,7 @@ function deathRecap(d){
     : top && !/its (hits|crits)/.test(top[0]) ? "Most of the damage wasn't its attacks, it was "+top[0].replace(/^\S+ /,"")+". Plan around the mechanic, not the stat line."
     : d.guarded>=2 ? d.guarded+" of your hits were cut short by its guard. Past that point more attack does nothing: it had to be outlasted."
     : pct>=60 ? "It wasn't close. It kept "+pct+"% of its health; this build wasn't ready for it."
-    : d.arm<=2 && d.foeAtk>=d.hp/5 ? "With "+d.arm+" armour, every one of its hits landed in full. You fell in "+d.rounds+" rounds."
+    : d.arm<=2 && d.foeAtk>=d.hp/5 ? "With "+d.arm+" armor, every one of its hits landed in full. You fell in "+d.rounds+" rounds."
     : "It had "+pct+"% left after "+d.rounds+" rounds. A little more of anything would have turned it.";
   return "<div class='recap'><div class='box-h'>HOW IT ENDED</div>"
     + "<div class='stat-line'><span>"+esc(d.foe)+(d.adapt ? " <small class='adapt'>📈 pushed back +"+Math.round(d.adapt*100)+"%</small>" : "")+"</span><b>"+d.left+" / "+d.max+" left</b></div>"
@@ -3878,7 +3878,7 @@ function saveImage(cv, name, text){
 }
 /* ---------- meme maker: top text, bottom text, deep fry ---------- */
 /* ---------- the meme maker's deep fryer ----------
-   A proper fry is a stack of abuse: the colours pushed past what the picture can hold, sharpened until edges ring,
+   A proper fry is a stack of abuse: the colors pushed past what the picture can hold, sharpened until edges ring,
    grain, then saved as a terrible JPEG several times over so it breaks into blocks. On top: glowing eyes, a bulge,
    and the emoji. Captions go on before the last pass so they come out crunchy too. */
 const FRY_LEVELS = [
@@ -3887,7 +3887,7 @@ const FRY_LEVELS = [
   { name:"deep fried", sat:3.0, con:1.75, warm:0.20, sharp:1.7, grain:28, jpeg:[[0.10,0.62],[0.10,1]] },
   { name:"nuked",      sat:4.2, con:2.3,  warm:0.32, sharp:2.6, grain:42, jpeg:[[0.05,0.42],[0.04,0.6],[0.05,1]], crush:40 },
 ];
-function fryPixels(cv, L){ // colour, contrast, a push toward orange, grain, and at the top level the colours crushed into bands
+function fryPixels(cv, L){ // color, contrast, a push toward orange, grain, and at the top level the colors crushed into bands
   const cx = cv.getContext("2d", {willReadFrequently:true}), im = cx.getImageData(0,0,cv.width,cv.height), d = im.data;
   for(let i=0;i<d.length;i+=4){
     let r=d[i], g=d[i+1], b=d[i+2]; const y = 0.299*r+0.587*g+0.114*b, n = (Math.random()-0.5)*2*L.grain;
@@ -4121,7 +4121,7 @@ async function kingReport(run, won, k, back){
   if(res==="claimed" || res==="took"){ achieve("king"); sfx("fanfare"); burst("👑✨🌸"); }
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
-const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armour)
+const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armor)
 const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
 /* ---------- what makes a fight worth watching ----------
    Shared by every fight on the stage (ordinary ones and the hill). None of it changes a number.
@@ -4131,9 +4131,9 @@ const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[
    - when either side is nearly gone the stage tightens and slows down */
 const TRAIT_REGEN = "mends itself every tick";
 const HEALERS = ["cult_robe","lollipop","cookie","strawberry","maid","birthday_hat","cat_ears","trucker","vampire","gnome","juicebox","plaster","flower_clip","burger_earring","mcdonalds","heart_tattoo"];
-const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/Love bomb/i, harajuku:/first hit lands twice/i, prep:/Dug in|armour bites back/i, schizoposter:/You dodge|slip it and counter/i, collector:null };
+const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/Love bomb/i, harajuku:/first hit lands twice/i, prep:/Dug in|armor bites back/i, schizoposter:/You dodge|slip it and counter/i, collector:null };
 const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
-  [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armour bites back/i, ["cactus_shirt"]],
+  [/shield/i, ["network_spirituality","jesus_tank"]], [/is stunned!/i, ["golden_axe","balenciaga_bat"]], [/freezes solid/i, ["chain_earrings","square_diamond"]], [/armor bites back/i, ["cactus_shirt"]],
   [/strike again/i, ["bonkler"]], [/shocks/i, ["pikachu"]], [/hits itself/i, ["bonkler"]], [/takes the hit for you/i, ["hobbes"]], [/patches you up/i, ["gnome"]], [/caught (off guard|flat)/i, ["vibe_shift","airtag"]] ];
 const STAGE = { combo:0, best:0,
   reset(tribe){ this.tribe = tribe || ""; $("you-tribe").innerHTML = tribe ? tribeBadge(tribe) : ""; this.combo = 0; this.best = 0; const sc = $("screen-combat"); sc.classList.remove("peril-you","peril-foe","finisher","hitstop"); const c = $("combo"); if(c){ c.className = ""; c.textContent = ""; } const f = $("finish-word"); if(f) f.remove(); },
@@ -4260,7 +4260,7 @@ function renderInstall(){
   if($("install-go")) $("install-go").onclick = async ()=>{ sfx("click"); const p = installAsk; installAsk = null; try{ p.prompt(); await p.userChoice; }catch(e){} renderInstall(); };
   $("install-no").onclick = ()=>{ sfx("click"); META.installHide = true; saveMeta(); renderInstall(); };
 }
-/* A tribe is a class now, so it is shown like one: its own colour, its icon and its name, wherever a player's card appears. */
+/* A tribe is a class now, so it is shown like one: its own color, its icon and its name, wherever a player's card appears. */
 const TRIBE_COLOR = { hypebeast:"#ffd75e", gyaru:"#a6ff5e", lolita:"#ff9ecb", harajuku:"#8be9fd", prep:"#b7a57a", schizoposter:"#b9a4ff", collector:"#ffb86c" };
 const tribeBadge = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<span class='tribe-badge' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.rule+" "+t.sig+" "+t.cost)+"'><i>"+t.icon+"</i>"+t.name+"</span>" : ""; };
 const tribeIco = id => { const t = TRIBES.find(x=>x.id===id); return t ? "<i class='tico' style='--tc:"+(TRIBE_COLOR[id]||"#8be9fd")+"' title='"+esc(t.name.toLowerCase())+"'>"+t.icon+"</i>" : ""; };
@@ -4272,7 +4272,7 @@ async function loadRank(){
   myRank = res.you ? { rank:res.you.rank, score:res.you.score, total:res.total, pid:playerId() } : { rank:0, total:res.total, pid:playerId() };
   if($("screen-title").classList.contains("active")) renderLast();
 }
-function renderLast(){ // your card, above the king's: the same shape, in the interface's colour instead of gold, and about you
+function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
   const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
   if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
@@ -4664,14 +4664,14 @@ async function openBoard(tab, back, seed, page){
     const items = !h ? [] : h.days.map(e=>({...e, at:e.date}))
       .concat((h.kings||[]).map(k=>({...k, king:true, at:new Date(Date.parse(k.week+"T12:00:00Z")+6*86400e3).toISOString().slice(0,10)+"~"})))
       .sort((x,y)=> x.at<y.at ? 1 : -1);
-    // a verified player is shown by their account, in its colour, with the character's name on hover; anyone else by the name they played under
+    // a verified player is shown by their account, in its color, with the character's name on hover; anyone else by the name they played under
     const who = e => !e.handle ? "<b>"+esc(e.name)+"</b>"
       : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"</b>";
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
       : "<div class='hall'>"+items.map((e,i)=> e.king
           ? "<div class='hcard king' title='held the hill when the week ended'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>week of "+esc(mon(e.week))+"</u>"+who(e)+"<em>👑 king of the hill</em><span>"
-            + (e.defences ? e.defences+" defence"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
+            + (e.defences ? e.defences+" defense"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
           : "<div class='hcard"+(e.date===h.today?" live":"")+"'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>"+esc(e.date)+"</u>"+who(e)+"<em>"+e.score+(e.win?" 👑":"")+"</em><span>"
             + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
         + "<div class='note'>the best run on each day's map"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
@@ -4782,7 +4782,7 @@ const DAILY_TZ = "America/New_York";
 const today = () => { try{ return new Intl.DateTimeFormat("en-CA", {timeZone:DAILY_TZ, year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()); }
   catch(e){ return new Date(Date.now()-5*3600e3).toISOString().slice(0,10); } }; // no time zone data: fixed UTC-5
 function renderPicks(){ // the character screen is only about the character: tribe and heat are chosen once the run has loaded
-  if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favourite yet: don't always hand out the first one
+  if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favorite yet: don't always hand out the first one
   PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
   const played = PICK.daily && META.dailyAt && META.dailyAt.date===PICK.daily;
   $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
@@ -4806,7 +4806,7 @@ function beginSetup(){
     if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
     mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
-    mlog("<i>Rumour on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
+    mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     startDay();
     startDaily(G);
     sfx("relic"); saveRun();
@@ -5102,7 +5102,7 @@ function openTutorial(full){
     + row("🎁", "Loot relics, wear them", "Fights are automatic. Your build does the fighting, and the odds are shown before you commit. Hold enough relics of one set and its synergy switches on.")
     + row(night, "Night brings Schizoposters", "Find a campfire after dark: sleeping there heals you and skips to dawn. They don't work by day.")
     + row("⛩️", "Days 3, 6 and 9: a boss", "Fight it at the gate when you're ready, or it finds you when that night ends. Click the next boss on the timeline to call it out early.")
-    + row("🛡️", "Defence hits back", "Armour bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.")
+    + row("🛡️", "Defence hits back", "Armor bites back at anything that hits you, every dodge is a free counter, and a big health pool adds weight to your hits. You don't have to stack attack.")
     + row("⚖️", "No one stat wins", "Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day.")
     + row("📈", "The timeline pushes back", "Once the first boss is down, an elite or boss your build would walk through comes at you stronger, and pays more.")
     + row("📅", "The daily", "One map a day, the same for everyone, and only your first run counts. Beat THE CANCEL and you can challenge the king of the hill.")
@@ -5378,7 +5378,7 @@ async function init(){
   });
   navRefresh();
   initSwipe();
-  if(TOUCH) document.querySelector("#screen-map .hint").textContent = "swipe or tap a neighbouring tile to move · tap any explored tile to walk there · tap a foe once to scout it · tap the minimap to enlarge";
+  if(TOUCH) document.querySelector("#screen-map .hint").textContent = "swipe or tap a neighboring tile to move · tap any explored tile to walk there · tap a foe once to scout it · tap the minimap to enlarge";
   window.addEventListener("resize", ()=>{ if(G && !G.over && $("screen-map").classList.contains("active")){ camSnap = true; renderMap(); } });
 }
 document.addEventListener("DOMContentLoaded", init);

@@ -1214,7 +1214,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             boards, row = parse_run(json.loads(self.rfile.read(length)))
         except Bad as e:
-            print("score refused: %s" % e, flush=True)  # so a run that didn't post can be explained afterwards
+            print("score refused: %s" % e, flush=True)  # so a run that didn't post can be explained afterward
             return self.send(400, {"error": str(e)})
         except (ValueError, UnicodeDecodeError):
             return self.send(400, {"error": "bad json"})

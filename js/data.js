@@ -12,7 +12,7 @@ const DISTRICTS = [
 /* How a token's metadata traits map onto trait layers, taken from maker.remilia.org's own configuration.
    names: metadata trait -> layer folder. values: metadata value -> file name where title-casing isn't enough.
    exclusions: a trait value that hides other layers. layerExclusions: a layer that hides others whenever present.
-   tint: Milady eye colour recolours the iris of the listed eye styles through a mask. */
+   tint: Milady eye color recolors the iris of the listed eye styles through a mask. */
 const TOKEN_MAP = {
  milady: { cfg:"Milady", body:"Skin", transform:"titlecase",
    names:{"Race":"Skin", "Necklace":"Necklaces", "Eyebrows":"Brows", "Earring":"Earrings"},
@@ -39,8 +39,8 @@ const TRIBES = [
   rule:"+15 max HP. All healing is 50% stronger, and in a fight healing past full becomes shield.", sig:"Every 4th round you heal 8% of your max HP.", cost:"−2 ATK."},
  {id:"harajuku", name:"ACCELERATIONIST", icon:"⚡", relic:"cobain_glasses", stat:{spd:1}, desc:"first strike, and no time",
   rule:"+1 SPD. Calling a boss out early costs half the usual penalty. Nights are 4 moves shorter.", sig:"You always strike first, and your first hit of every fight lands twice.", cost:"Days are 6 moves shorter."},
- {id:"prep", name:"WARTIME POSTER", icon:"🪖", relic:"knife", stat:{atk:1, arm:2, spd:-2}, desc:"armour that hits back",
-  rule:"+1 ATK, +2 ARM. Every point of ARM past 10 is also +1 max HP. Elites always drop a relic.", sig:"Your armour bites back twice as hard, and the first hit of every fight is blocked.", cost:"−2 SPD: you rarely strike first."},
+ {id:"prep", name:"WARTIME POSTER", icon:"🪖", relic:"knife", stat:{atk:1, arm:2, spd:-2}, desc:"armor that hits back",
+  rule:"+1 ATK, +2 ARM. Every point of ARM past 10 is also +1 max HP. Elites always drop a relic.", sig:"Your armor bites back twice as hard, and the first hit of every fight is blocked.", cost:"−2 SPD: you rarely strike first."},
  {id:"schizoposter", name:"SCHIZOPOSTER", icon:"📡", relic:"goth_headband", stat:{dodge:5}, desc:"lives at night",
   rule:"+5% dodge. At night: +4 ATK and +15% more dodge, and hunters pay double $CULT.", sig:"Every dodge makes your next hit a sure crit.", cost:"By day: −1 ATK. Campfires skip the night but don't heal you."},
  {id:"collector", name:"COLLECTOR", icon:"🗃️", relic:"swag_score", desc:"more slots, easier sets",
@@ -170,7 +170,7 @@ const RELICS = [
  // TOUCH GRASS
  {id:"mushroom", name:"Mushroom", rar:"rare", set:["grass"], desc:"Grows as you explore: +1 max HP for every 12 tiles you uncover, up to 30.", icon:["Remilio", "Hat", "Mushroom"], tags:[]},
  {id:"gnome", name:"Gnome", rar:"common", set:["grass", "squad"], desc:"Companion: heals you 6 every 4th tick.", icon:["Remilio", "Friend", "Gnome"], tags:[]},
- {id:"cactus_shirt", name:"Cactus Shirt", rar:"rare", set:["grass", "war"], desc:"Your armour bites back twice as hard.", icon:["Milady", "Shirt", "Cactus Shirt"], tags:[]},
+ {id:"cactus_shirt", name:"Cactus Shirt", rar:"rare", set:["grass", "war"], desc:"Your armor bites back twice as hard.", icon:["Milady", "Shirt", "Cactus Shirt"], tags:[]},
  {id:"flower_clip", name:"Flower Clip", rar:"common", set:["grass", "kawaii"], desc:"+10 max HP. Heal 5 HP after every victory.", icon:["Milady", "Hat", "Flower Clip"], tags:[]},
  {id:"straw_hat", name:"Straw Hat", rar:"common", set:["grass"], desc:"+2 SPD, +8 max HP.", icon:["Remilio", "Hat", "Straw Hat"], tags:[]},
  {id:"sheep_pullover", name:"Sheep Pullover", rar:"common", set:["grass", "kawaii"], desc:"+16 max HP.", icon:["Milady", "Shirt", "Sheep Pullover"], tags:[]},
@@ -184,7 +184,7 @@ const RELICS = [
  // WAR ROOM
  {id:"bike_helmet", name:"Bike Helmet", rar:"common", set:["war"], desc:"+2 ARM. The first hit of every fight deals 1.", icon:["Remilio", "Hat", "Bike Helmet"], tags:[]},
  {id:"firefighter", name:"Firefighter", rar:"rare", set:["war", "flame"], desc:"+5 ARM. No single hit takes more than a quarter of your max HP.", icon:["Remilio", "Shirt", "Firefighter"], tags:[]},
- {id:"punisher", name:"Punisher", rar:"rare", set:["war", "armed"], desc:"Armour is a weapon: +1 ATK for every 2 ARM you have.", icon:["Remilio", "Shirt", "Punisher"], tags:[]},
+ {id:"punisher", name:"Punisher", rar:"rare", set:["war", "armed"], desc:"Armor is a weapon: +1 ATK for every 2 ARM you have.", icon:["Remilio", "Shirt", "Punisher"], tags:[]},
  {id:"safety_glasses", name:"Safety Glasses", rar:"common", set:["war"], desc:"+3 ARM, +5% dodge chance.", icon:["Remilio", "Glasses", "Safety Glasses"], tags:[]},
  {id:"plaster", name:"Plaster", rar:"common", set:["war"], desc:"Heal 2 HP every time you are hit.", icon:["Remilio", "Weapon", "Plaster"], tags:[]},
  {id:"pickaxe", name:"Minecraft Pickaxe", rar:"rare", set:["war", "armed"], desc:"+5 ATK, +2 ARM.", icon:["Remilio", "Weapon", "Minecraft Pickaxe"], tags:[]},
@@ -208,7 +208,7 @@ const SETS = [
  {id:"night",   name:"NIGHT SHIFT",  icon:"🌙", color:"#7f8cff", tiers:[[2,"at night: +3 ATK, +10% dodge"],[4,"hunters you beat always drop a relic"]]},
  {id:"grass",   name:"TOUCH GRASS",  icon:"🌿", color:"#8ad66b", tiers:[[2,"+10 max HP · heal 4 HP when you cross into another district"],[3,"in a fight, healing past full becomes shield"]]},
  {id:"food",    name:"FAST FOOD",    icon:"🍔", color:"#ff7a45", tiers:[[2,"well fed: +15 max HP"],[3,"a meal that would be used up has a 40% chance to stay"]]},
- {id:"war",     name:"WAR ROOM",     icon:"🪖", color:"#b7a57a", tiers:[[2,"+4 ARM"],[4,"what your armour stops is stored, and thrown back every 5th tick"]]},
+ {id:"war",     name:"WAR ROOM",     icon:"🪖", color:"#b7a57a", tiers:[[2,"+4 ARM"],[4,"what your armor stops is stored, and thrown back every 5th tick"]]},
  {id:"cheese",  name:"CHEESEWORLD", icon:"🧀", color:"#ffb52e", tiers:[[2,"they go hard: +1 ATK every 3rd tick · deep fried"],[3,"cheese is money: +3 $CULT per hit you land"]]},
 ];
 /* draft odds per rarity, and what a shop charges for one */
@@ -363,7 +363,7 @@ const EVENTS = [
  { id:"hotpot", name:"HOT POT", icon:"🍲", text:"A groupchat where everyone throws something into the broth. Nobody remembers who added what. It all tastes of the same mind.",
    choices:[ {label:"add something to the pot", need:"relic", hint:"lose a random relic, draft a better one", fx:[["burn",0],["relic",2]]},
              {label:"just eat", hint:"heal 15 HP", fx:[["hp",15]]},
-             {label:"lurk", hint:"the chat knows the neighbourhood: reveal the maze around you", fx:[["scout",9]]} ] },
+             {label:"lurk", hint:"the chat knows the neighborhood: reveal the maze around you", fx:[["scout",9]]} ] },
  { id:"factory", name:"WARHOLIAN GROUPCHAT", icon:"🎞️", text:"A factory of posters. Someone is filming. Everyone here is a superstar for fifteen minutes.",
    choices:[ {label:"perform", hint:"+1 ATK, and +1 more for every boss you've beaten", fx:[["atkboss"]]},
              {label:"produce", hint:"+50 $CULT", fx:[["cult",50]]},
@@ -384,11 +384,11 @@ const EVENTS = [
    choices:[ {label:"mint anyway", cost:50, hint:"pay 50 $CULT. 40%: a relic draft · 60%: rugged", odds:0.4, fx:[["relic"]], bad:[]},
              {label:"loot the treasury", hint:"+70 $CULT. 30%: a Whale notices", odds:0.7, fx:[["cult",70]], bad:[["cult",70],["fight","bonk"]]},
              {label:"appreciate the aesthetic", hint:"+1 ATK", fx:[["atk",1]]} ] },
- { id:"seppuku", name:"SOURCE SEPPUKU LICENSE", icon:"🗡️", text:"Open source, with terms. The author pledges to fall on a sword if the source is ever withheld. It is a real licence.",
+ { id:"seppuku", name:"SOURCE SEPPUKU LICENSE", icon:"🗡️", text:"Open source, with terms. The author pledges to fall on a sword if the source is ever withheld. It is a real license.",
    choices:[ {label:"accept the terms", hint:"+3 ATK, −10 max HP", fx:[["atk",3],["maxhp",-10]]},
              {label:"fork it", hint:"a relic draft, and it costs you 12 HP", fx:[["hp",-12],["relic"]]},
-             {label:"read the licence and leave", hint:"nothing happens. that was the safe one", fx:[]} ] },
- { id:"vpl", name:"VIRAL PUBLIC LICENSE", icon:"🦠", text:"It's free. Whatever it touches becomes free too. That is the whole licence.",
+             {label:"read the license and leave", hint:"nothing happens. that was the safe one", fx:[]} ] },
+ { id:"vpl", name:"VIRAL PUBLIC LICENSE", icon:"🦠", text:"It's free. Whatever it touches becomes free too. That is the whole license.",
    choices:[ {label:"copy", need:"relic", hint:"a copy of one of your common relics", fx:[["dupe","common"]]},
              {label:"release your own", need:"relic", hint:"give a random relic to the commons for 80 $CULT", fx:[["burn",80]]},
              {label:"walk on", hint:"+20 $CULT, found on the ground", fx:[["cult",20]]} ] },
