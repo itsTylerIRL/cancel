@@ -1793,6 +1793,7 @@ function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   $(id).classList.add("active");
   if(id==="screen-title" || id==="screen-avatar") delete document.body.dataset.phase; // the day and night grade belongs to a run
+  if(id!=="screen-combat") document.body.classList.remove("bossfight"); // and comes back once a boss fight is left
   document.body.classList.toggle("on-title", id==="screen-title");
   setTimeout(setDoom, 0);
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
@@ -3850,6 +3851,7 @@ function startCombat(foeDef, opts={}){
   $("combat-title").textContent = opts.label || (boss ? boss.name : (opts.elite ? "ELITE " : "WILD ")+foeDef.name.toUpperCase());
   $("screen-combat").classList.toggle("night", G.phase==="night" && !boss); // a boss brings its own weather
   bossAmbient(boss ? boss.id : null);
+  document.body.classList.toggle("bossfight", !!boss); // no night grade over a boss either: the whole screen is the boss's
   if(foeDef.adapt) tip("adapt");
   $("foe-name").textContent = foeDef.name.toUpperCase()+(foeDef.adapt ? "  📈+"+Math.round(foeDef.adapt*100)+"%" : "");
   $("you-name").textContent = G.name.toUpperCase(); $("foe-relics").innerHTML = "";
@@ -4557,7 +4559,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   navSet($("btn-skip"));
   $("combat-log").innerHTML = ""; $("combat-title").textContent = "KING OF THE HILL";
   $("you-name").textContent = run.name.toUpperCase(); $("foe-name").textContent = "👑 "+k.name.toUpperCase();
-  $("port-foe").classList.add("boss"); $("port-foe").classList.remove("elite"); $("screen-combat").classList.remove("night"); bossAmbient("king"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
+  $("port-foe").classList.add("boss"); $("port-foe").classList.remove("elite"); $("screen-combat").classList.remove("night"); bossAmbient("king"); document.body.classList.add("bossfight"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), run.avatar); delete $("chp-you").parentElement.dataset.hp;
   const fc = $("combat-foe"); fc.width = 4; fc.height = 5;
   lookCanvas(k.look, k.relics).then(cv=>{ // the defender is drawn mirrored, so the two of them face each other

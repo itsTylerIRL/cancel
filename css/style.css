@@ -2040,3 +2040,6 @@ body.calm #boss-amb::before,body.calm #boss-amb::after{animation:none;}
 
 /* the token looks the way it last stepped. `scale` is its own property, so the hop, the idle moves and sleeping (all transforms) still play on top of it */
 #you-tok.left img{scale:-1 1;}
+
+/* a boss fight (and the hill) is never under the night grade: the interface's blue wash is lifted for as long as it lasts */
+body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
