@@ -1640,3 +1640,9 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .bname .bend .early{display:inline;overflow:visible;} .bname .btribe,.bname .bend{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* how a run ended is never cut short: it takes a second line if it has to */
 .bname .bend{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;}
+
+/* a cancelled run's portrait is stamped */
+.bface{position:relative;display:block;width:100%;aspect-ratio:1;} .bface .bpfp{display:block;width:100%;height:100%;}
+.bface.lost .bpfp{filter:grayscale(.75) brightness(.7);}
+.bface s{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-24deg);text-decoration:none;font-family:var(--label);font-weight:800;font-size:7.5px;letter-spacing:.06em;line-height:1;
+  color:#ff3b3b;border:1.5px solid #ff3b3b;border-radius:2px;padding:2px 3px;background:rgba(20,0,0,.55);white-space:nowrap;text-shadow:0 0 6px rgba(255,40,40,.7);box-shadow:0 0 8px rgba(255,40,40,.35);pointer-events:none;}
