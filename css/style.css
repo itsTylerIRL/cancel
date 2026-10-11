@@ -1843,3 +1843,13 @@ body.calm .eframe{animation:none;}
 
 /* badges under a fighter stay inside that fighter's column: they wrap onto more rows, and a long one wraps inside itself */
 .statuses{max-width:100%;row-gap:5px;} .statuses span{max-width:100%;box-sizing:border-box;} .statuses .trait{white-space:normal;text-align:center;line-height:1.25;}
+
+/* 10x */
+.npc-face.tenx{border-color:#39ff9c;box-shadow:0 0 24px rgba(57,255,156,.55);}
+.tenx-rates{display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:6px 0;} .tenx-rates span{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:54px;padding:4px 6px;border:1px solid rgba(57,255,156,.35);border-radius:5px;background:rgba(57,255,156,.05);}
+.tenx-rates u{text-decoration:none;font-family:var(--label);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);} .tenx-rates b{color:#39ff9c;font-family:var(--mono);font-size:14px;}
+.tenx-deps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0;} .tenx-deps .choice{text-align:center;align-items:center;} .tenx-deps .choice b{font-size:15px;} .tenx-deps .choice span{font-size:11px;}
+.tenx-ask{display:flex;flex-direction:column;align-items:center;gap:2px;margin:8px auto;padding:10px 18px;max-width:320px;border:1px solid #39ff9c;border-radius:8px;background:rgba(57,255,156,.07);box-shadow:0 0 26px rgba(57,255,156,.25);}
+.tenx-ask u{text-decoration:none;font-family:var(--label);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);} .tenx-ask b{font-family:var(--mono);font-size:56px;line-height:1;color:#39ff9c;text-shadow:0 0 22px rgba(57,255,156,.7);} .tenx-ask span{font-size:12px;color:var(--txt);text-align:center;}
+.chip.tenx{border-color:rgba(57,255,156,.6);color:#39ff9c;}
+@media (max-width:520px){ .tenx-deps{grid-template-columns:1fr;} }

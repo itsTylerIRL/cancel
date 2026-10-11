@@ -639,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","banished","banishes","journal","candles"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -980,11 +980,11 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20, TENX:21 };
 const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
-const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp" }; // their own profile pictures
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp", [T.TENX]:"assets/img/npc/tenx.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan", [T.TENX]:"10x" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1053,6 +1053,7 @@ function genMap(){
   G.rivergod = !(G.daily && G.daily < RIVERGOD_FROM); // daily maps from before he arrived keep the layout, and the loot, their players already saw
   if(G.rivergod) put(T.RIVERGOD,4);
   if(!(G.daily && G.daily < ETHCHAN_FROM)) put(T.ETHCHAN,3);
+  if(!(G.daily && G.daily < TENX_FROM)) put(T.TENX,3);
   spreadOut(rooms);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
@@ -1079,11 +1080,11 @@ function genMap(){
    rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
    of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
    a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
-const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12";
+const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12", TENX_FROM = "2026-10-12";
 function spreadOut(rooms){
   if(G.daily && G.daily < SPREAD_FROM) return;
   const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD, T.ETHCHAN]){
+  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD, T.ETHCHAN, T.TENX]){
     const kept = [];
     for(const r of rooms.filter(r=>G.map[r.y][r.x]===t)){
       if(kept.every(k=>far(k,r) >= SPREAD)){ kept.push(r); continue; }
@@ -1237,6 +1238,7 @@ function renderHUD(){
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
+      + (G.tenx ? "<span class='chip res tenx' title='10x holds "+G.tenx.dep+" $CULT of yours. kill "+G.tenx.goal+" Schizoposters before your next boss fight and it comes back as "+tenxPay(G.tenx)+". miss and it is gone'>10x "+G.tenx.got+"/"+G.tenx.goal+"</span>" : "")
       + "<span class='chip res' title='keys: each one opens a vault'>"+KEY_ICO+" "+(G.keys||0)+"</span>"
       + "<span class='chip res' title='banishes: use one on a mint to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
       + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a mint will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
@@ -1674,7 +1676,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff", [T.TENX]:"#39ff9c" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1702,7 +1704,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b
   [T.ALTAR]:"<b>Cursed altar</b> — a legendary relic, free, if you accept a curse of your choosing. <b class='bad'>Walking away costs "+150+" $CULT</b>: step up without it and you take the curse.",
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
   [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns.",
-  [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone." };
+  [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone.",
+  [T.TENX]:"<b>10x</b> — dev for the Radbros and the Schizoposters. Deposit $CULT and he names a number of Schizoposters to kill before your next boss fight. Do it and you're paid back with interest. Miss and he rugs you." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
@@ -1730,7 +1733,7 @@ function pinName(x,y){
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
-const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
   // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
   const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
@@ -1934,6 +1937,7 @@ function showBanner(){
   bb.classList.toggle("hidden", !b);
   if(b) bb.innerHTML = "⚠️ "+b.name+" IS COMING<small>"+b.mechanic+"<br>face it at the ⛩️ gate — or it finds you at dawn</small>";
 }
+const huntersOn = day => Math.max(1, (day<2 ? 1 : day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0) - ((G.perks||{}).night||0)); // how many Schizoposters a night sends
 function startNight(){
   G.phase="night"; G.movesLeft=nightMoves();
   recalcStats();
@@ -1944,7 +1948,7 @@ function startNight(){
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
   const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
-  for(const k of spots.slice(0, Math.max(1, (G.day<2 ? 1 : G.day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0) - ((G.perks||{}).night||0)))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
+  for(const k of spots.slice(0, huntersOn(G.day))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
 function clearTile(){ // what was here leaves a mark on the ground
@@ -1981,6 +1985,7 @@ function enterTile(t){
     case T.SCEARPO: openScearpo(); break;
     case T.RIVERGOD: openRivergod(); break;
     case T.ETHCHAN: openEthChan(); break;
+    case T.TENX: openTenx(); break;
     case T.ALTAR: openAltar(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
@@ -2746,6 +2751,80 @@ function openEthChan(){
     const row = setRows(G.relics).find(r=>r.t.id===t.id);
     mlog("◆ ETH Chan blessed <b>"+t.name+"</b>: it counts one more relic for the rest of the run"+(row && row.on.length ? " — "+row.on[row.on.length-1][1] : "")+". <i>She's already in the next block.</i>", "gold");
     closeModal(); renderMap();
+  };});
+  $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
+}
+/* ---------- 10x: dev for the Radbros and the Schizoposters, and he has a liquidity experiment ----------
+   Deposit 50, 100 or 500 $CULT and he names how many Schizoposters (3 to 7) you have to kill before your next boss
+   fight. Hit the number and the experiment works: the deposit comes back with interest, and a bigger ask pays more.
+   Walk into the boss short of it and he is gone with the money. One position at a time. */
+const TENX_DEPOSITS = [50, 100, 500], TENX_RATE = { 3:1.3, 4:1.5, 5:1.8, 6:2.2, 7:2.75 };
+const tenxPay = c => Math.round(c.dep * TENX_RATE[c.goal]);
+function tenxLeft(){ // how many Schizoposters can still be met before the next boss: the ones out now, and every night still to come
+  const end = BOSS_DAYS[clamp(G.bossesBeaten, 0, 2)]; let n = (G.hunters||[]).length;
+  for(let d = G.phase==="day" ? G.day : G.day+1; d<=end; d++) n += huntersOn(d);
+  return n;
+}
+const TENX_LINES = [
+  "\"ser. ser. i'm running a liquidity experiment. it's not a ponzi, it's a flywheel. the posters are the flywheel.\"",
+  "\"i shipped the radbros. i shipped the schizoposters. i have never once shipped a roadmap. deposit below.\"",
+  "\"funds are safu. funds are, at this moment, safu. that's all anyone can say about funds.\"",
+  "\"it's a simple arb. you remove posters from circulation, floor goes up, i pay you out of the floor. 10x. minimum.\"",
+  "\"dev is here. dev is based. dev needs you to thin the supply before the next unlock. don't ask what unlocks.\"",
+  "\"this is not financial advice. this is a number, and a deadline, and my wallet address.\"" ];
+function tenxKill(log){ // a Schizoposter died with a position open
+  const c = G.tenx; if(!c) return;
+  c.got++;
+  if(c.got < c.goal){ log("🧪 10x: <b>"+c.got+" / "+c.goal+"</b> Schizoposters. \"keep thinning the supply, ser.\"", "gold"); return; }
+  const pay = tenxPay(c); G.cult += pay; G.tenx = null; G.tenxWon = (G.tenxWon||0)+1;
+  log("🧪 <b>The liquidity experiment worked.</b> 10x pays out <b>"+pay+" $CULT</b> on your "+c.dep+" (+"+(pay-c.dep)+"). \"told you. flywheel.\"", "crit");
+  if(log!==mlog) mlog("🧪 10x paid out <b>"+pay+" $CULT</b> on a "+c.dep+" deposit: "+c.goal+" Schizoposters, done before the boss.", "gold");
+  sfx("fanfare"); burst("🧪💸📈");
+}
+function tenxRug(){ // the boss fight is starting and the number wasn't hit
+  const c = G.tenx; if(!c) return;
+  G.tenx = null; G.tenxRugged = (G.tenxRugged||0)+1;
+  mlog("🧪 <b>RUGGED.</b> "+c.got+" / "+c.goal+" Schizoposters wasn't the number. 10x has pulled the liquidity and left with your <b>"+c.dep+" $CULT</b>. <i>The site is a parked domain now.</i>", "bad");
+  sfx("bad");
+}
+function openTenx(){
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", c = G.tenx;
+  const nextBoss = runBoss(clamp(G.bossesBeaten, 0, 2)), bn = nextBoss ? nextBoss.name : "the next boss";
+  let html = "<h2>10X</h2><img class='npc-face tenx' src='"+localFile(NPC_ART[T.TENX])+"' alt=''>"
+    + "<div class='note tenx-say'><i>"+spotLine(TENX_LINES, "tenx")+"</i></div>";
+  if(c){ // one position at a time: every 10x knows about the one you have open
+    html += "<div class='note'>\"you're already in, ser. <b>"+c.got+" / "+c.goal+"</b> Schizoposters. "+c.dep+" $CULT locked, <b class='good'>"+tenxPay(c)+"</b> if you hit the number before "+esc(bn)+". i'm not taking a second deposit while the first one is live.\"</div>"
+      + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+    openModal(html); $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); }; return;
+  }
+  const left = tenxLeft();
+  if(left<3){ // he never asks for more than can be found, and there aren't three left to find
+    html += "<div class='note'>\"window's closed, ser. "+esc(bn)+" is almost here and there aren't enough posters left out there to run the experiment."+(G.bossesBeaten<2 ? " find me after." : " it was a good run, ser.")+"\"</div>"
+      + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+    openModal(html); $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); }; return;
+  }
+  const top = Math.min(7, left);
+  html += "<div class='note'>deposit $CULT in his liquidity experiment. he then names a number of <b>Schizoposters</b>, from 3 to "+top+", to kill before your fight with <b>"+esc(bn)+"</b>. "
+    + "hit it and the deposit comes back with interest; a bigger ask pays more. <b class='bad'>miss it and he rugs you.</b> they hunt at night: about <b>"+left+"</b> more will come before then.</div>"
+    + "<div class='tenx-rates'>"+Object.keys(TENX_RATE).filter(g=>+g<=top).map(g=>"<span><u>kill "+g+"</u><b>+"+Math.round((TENX_RATE[g]-1)*100)+"%</b></span>").join("")+"</div>"
+    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div><div class='tenx-deps'>";
+  for(const d of TENX_DEPOSITS) html += "<button class='choice tenx-dep' data-dep='"+d+"'"+(G.cult<d?" disabled":"")+"><b>deposit "+d+"</b><span>back as "+Math.round(d*TENX_RATE[3])+(top>3 ? " to "+Math.round(d*TENX_RATE[top]) : "")+"</span></button>";
+  html += "</div>"+(G.cult<TENX_DEPOSITS[0] ? "<div class='note bad'>\"minimum buy-in is "+TENX_DEPOSITS[0]+", ser. this is a serious experiment.\"</div>" : "")
+    + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+  openModal(html);
+  $("modal-panel").querySelectorAll("[data-dep]").forEach(b=>{ b.onclick=()=>{
+    const dep = +b.dataset.dep; if(G.cult<dep || G.tenx) return;
+    const goal = Math.min(top, 3 + Math.abs(seedFrom("tenx|"+G.px+","+G.py+"|"+dep+"|"+(G.daily||G.seedCode||""))) % 5); // the same ask for everyone who deposits this much here, and never more than are left to find
+    G.cult -= dep; G.tenx = { dep, goal, got:0 };
+    clearTile(); sfx("coin");
+    mlog("🧪 Deposited <b>"+dep+" $CULT</b> with 10x. The ask: kill <b>"+goal+" Schizoposters</b> before "+esc(bn)+". Pays <b>"+tenxPay(G.tenx)+"</b>, or nothing.", "gold");
+    openModal("<h2>10X</h2><img class='npc-face tenx' src='"+localFile(NPC_ART[T.TENX])+"' alt=''>"
+      + "<div class='note tenx-say'><i>\"deposit confirmed. here's the number.\"</i></div>"
+      + "<div class='tenx-ask'><u>the ask</u><b>"+goal+"</b><span>Schizoposters, before "+esc(bn)+"</span></div>"
+      + "<div class='note'>hit it: <b class='good'>"+tenxPay(G.tenx)+" $CULT</b> back on your "+dep+" (+"+Math.round((TENX_RATE[goal]-1)*100)+"%). miss it: <b class='bad'>nothing</b>. they come out at night, and your count is under your health.</div>"
+      + "<div class='row'><button class='btn' id='npc-leave'>wagmi</button></div>");
+    $("npc-leave").onclick = ()=>{ closeModal(); renderMap(); }; navSet($("npc-leave"));
+    renderMap();
   };});
   $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
 }
@@ -3571,7 +3650,7 @@ function settleWin(F, opts, log){
   achieve("first");
   if(foe.id==="kumicho") achieve("shark");
   if(F.dodges>=5) achieve("dodge");
-  if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); }
+  if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); tenxKill(log); }
   if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
   let c = randi(foe.cult[0], foe.cult[1]);
   const dbl = G.flags.payDouble>0; if(dbl) G.flags.payDouble--; // ABUNDANCE MINDSET: what you gave comes back
@@ -3622,6 +3701,7 @@ const BOSS_ENTRANCE = { // title: what the big line says, when it isn't the boss
 };
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
+  if(opts.boss) tenxRug();
   if(trivial(foeDef, opts) && quickFight(foeDef, opts)) return;
   const boss = opts.boss || null, tok = ++combatTok;
   show("screen-combat");
@@ -5240,7 +5320,7 @@ function openCodex(tab, pick){
     body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
       + EVENTS.map(e=>"<div class='cx-row' style='--sc:#bd93f9'><b>"+(e.icon||"❓")+" "+e.name+"</b><span><i>"+e.text+"</i></span></div>").join("");
   } else {
-    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD,T.ETHCHAN];
+    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD,T.ETHCHAN,T.TENX];
     body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
       + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");
