@@ -4775,7 +4775,8 @@ async function renderRn(msg){
   if(!u && !(rnOn.rn || rnOn.ur)){ el.innerHTML = ""; return; }
   setTimeout(renderLast, 0); // the card's sign-in pitch depends on which sign-ins are on offer
   const back = encodeURIComponent(location.origin+location.pathname+location.search);
-  el.innerHTML = u ? "<span class='rn-on'>✓ signed in as "+(isShip(u.handle) ? "<b class='ur'>"+esc(u.handle)+"</b>"
+  el.innerHTML = u ? "<span class='rn-on'>"+(isShip(u.handle) ? "<i class='rn-mark ur' title='signed in with Urbit ID'>"+URBIT_MARK+"</i>" : "<i class='rn-mark rm' title='signed in with Remilia SSO'><img src='"+localFile(REMILIA_LOGO)+"' alt=''></i>")
+        + "✓ signed in as "+(isShip(u.handle) ? "<b class='ur'>"+esc(u.handle)+"</b>"
         : "<a href='https://remilia.net/~"+encodeURIComponent(u.handle)+"' target='_blank' rel='noopener'>~"+esc(u.handle)+"</a>")+"</span><button class='btn small' id='rn-out'>sign out</button>"
     : "<div class='sso'>"+(rnOn.rn ? "<button class='btn sso-btn' id='rn-in'><img src='"+localFile(REMILIA_LOGO)+"' alt=''>Remilia SSO</button>" : "")
         + (rnOn.rn && rnOn.ur ? "<i>or</i>" : "")
