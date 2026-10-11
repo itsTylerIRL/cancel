@@ -13,7 +13,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 ## How it plays
 
 - **The maze.** 41×41, four districts, a boss gate in each. Loot hides in dead ends. Each district bends one rule in your favour.
-- **Relics.** About 120 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
+- **Relics.** About 125 of them, in four rarities. Your character wears what she loots, so by day 6 you look like a problem.
 - **Sets.** Every relic belongs to a set or two (ARMED, HYPEBEAST, DEGEN, KAWAII, CULT, SCHIZO, SQUAD, BONKLER, CHEESEWORLD, FLAMEWAR, BLOODSPORT, ICED OUT, THREE LETTER AGENCY, NIGHT SHIFT, TOUCH GRASS, FAST FOOD, WAR ROOM). Hold enough of one and it switches on.
 - **Copies stack.** Two of the same relic count twice. Find Remilia Jackson and he'll fuse the pair into one GOLD item, freeing a slot. Two golds make a DIAMOND. He doesn't sell copies. You have to find them.
 - **onno and Charlotte Fang.** They're in the maze too. onno takes one relic and hands back a random one of the same grade. Charlotte takes any two of the same grade and hands one of them back a grade higher. She decides which. One trade each, and neither lets you pick.
@@ -26,6 +26,7 @@ Fights play themselves. Your job is everything before the fight: what you pick u
 - **No one stat wins.** Enemies are guarded: a single hit takes at most half their health, a quarter of a boss's, so nothing dies in one swing. Crit past 100% turns into crit damage. Burn, bleed, poison and companions grow stronger every day, the way enemies do.
 - **The timeline pushes back.** Once the first boss is down, an elite or boss your build would walk through shows up stronger, and pays more for it. A better build still has better odds. It just never gets a free pass.
 - **Burn, bleed, chill.** Three status effects, each with its own relics.
+- **Healing has answers.** A ratio'd enemy heals half as well, a burning one can be stopped from healing at all, and too much healing can be turned back on whoever tried it. A few things in the maze mend themselves, and so do some kings.
 - **Rerolls.** Don't like a draft? Pay to roll it again. The price doubles every time, so the third one hurts.
 - **Banishing.** Or throw one of the cards out of the run for good. You get three; shops sell more. It costs you the draft.
 - **Inflation.** Shops put their prices up 25% for every boss you beat.

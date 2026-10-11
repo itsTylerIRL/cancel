@@ -872,6 +872,7 @@ function rawStats(relics, setsAs){
   if(R("cancelversary")) s.atk += 4*G.bossesBeaten;
   if(R("atf_cap")){ s.atk+=2; s.arm+=3; }
   if(R("pistol")){ s.atk+=5; s.spd+=1; }
+  if(R("newports")) s.atk+=2;
   if(R("super_soaker")) s.atk+=2;
   if(R("shooting_glasses")) s.atk+=3;
   if(R("goth_headband")) s.atk+=2;
@@ -895,6 +896,9 @@ function rawStats(relics, setsAs){
   if(R("custom")){ s.atk+=3; s.arm+=2; s.spd+=1; s.maxhp+=10; }
   if(S("kawaii",2)) s.maxhp+=12;
   if(R("un_helmet")){ s.arm+=4; s.maxhp+=8; }
+  if(R("lab_coat")) s.maxhp+=8;
+  if(R("prison_uniform")) s.maxhp+=10;
+  if(R("face_mask")) s.arm+=2;
   if(R("skull_sweater")){ s.maxhp+=12; s.arm+=2; }
   if(R("straw_hat")){ s.spd+=2; s.maxhp+=8; }
   if(R("sheep_pullover")) s.maxhp+=16;
@@ -920,7 +924,7 @@ function rawStats(relics, setsAs){
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
   s.crit = 5 + s.lck/2 + (R("gucci_cone")?20:0) + (R("katana")?10:0) + (R("swag_score")?3*relics.length:0)
     + (R("chrome_hearts")?8:0) + (R("mape_hoodie")?5:0) + (S("hype",2)?10:0) + (tb.crit||0)
-    + (R("bluetooth")?5:0) + (R("shooting_glasses")?15:0) + (R("cherry")?6:0)
+    + (R("bluetooth")?5:0) + (R("shooting_glasses")?15:0) + (R("cherry")?6:0) + (R("tyson_tattoo")?5:0) + (R("vr_goggles")?10:0)
     + (tribeIs("hypebeast") ? 5*(relics.length - new Set(relics).size) : 0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
   s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0) + (tb.dodge||0)
@@ -1702,6 +1706,7 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — draft 1 of 3 relics.", [T.GRAVE]:"<
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
+    + (def.regen ? " · <span class='bad' title='it heals "+Math.round(def.regen*100)+"% of its health every tick. relics that cut healing stop it'>✨ mends itself</span>" : "")
     + (f.adapt ? " · <span class='adapt' title='your build would walk through this, so the timeline raised it. it pays more'>📈 pushed back +"+Math.round(f.adapt*100)+"%</span>" : "");
 }
 /* Pins: a mark on a tile you mean to come back to. Right-click (or long-press, or P while pointing at it) to
@@ -3019,7 +3024,7 @@ function combatBars(you, foe){
   const pf = $("port-foe"), py = $("port-you");
   for(const [c,on] of [["burning",foe.burn>0],["bleeding",foe.bleed>0],["chilled",foe.chill>0],["poisoned",foe.poison>0],["stunned",foe.stun>0]]) pf.classList.toggle(c, !!on);
   py.classList.toggle("hurt", you.hp>0 && you.hp<=you.maxhp*0.3); py.classList.toggle("shielded", you.shield>0); py.classList.toggle("stunned", (you.stun||0)>0);
-  $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["💫",foe.stun,"stunned"]]
+  $("foe-status").innerHTML = [["🔥",foe.burn,"burning"],["🩸",foe.bleed,"bleeding"],["🧊",foe.chill,"chilled"],["🐍",foe.poison,"poisoned"],["🚬",foe.ratio,"ratio'd: heals half as well"],["💫",foe.stun,"stunned"]]
     .filter(x=>x[1]>0).map(x=>"<span title='"+x[2]+"'>"+x[0]+x[1]+"</span>").join("");
 }
 /* Every kind of damage has its own look. The fight log already says what happened, so the effect is read from it:
@@ -3085,7 +3090,9 @@ function fightEngine(foeDef, opts, io){
   const set = (id,n) => (you.sets[id]||0) >= n;
   const done = win => {
     if(win && foe.trait==="revive" && !foe.revived){ // Death Knights get up once
-      foe.revived = true; foe.hp = Math.round(foe.maxhp*0.5); foe.poison = 0;
+      foe.revived = true; foe.hp = 0;
+      if(!mend(foe.maxhp*0.5) || foe.hp<=0){ io.log("💀 "+foe.name+" tries to get back up, and can't.", "good"); F.over = true; F.win = true; return; } // nothing left to stand up with
+      foe.poison = 0;
       io.log("💀 "+foe.name+" was burned once already. It gets back up.", "bad"); io.float("foe","revived","psn");
       return;
     }
@@ -3095,13 +3102,49 @@ function fightEngine(foeDef, opts, io){
     }
     F.over=true; F.win=win;
   };
-  const heal = n => {
+  /* What the other side is doing to this fighter's healing. In an ordinary fight nothing sets it (enemies don't carry
+     relics); in a duel the other build's anti-heal is handed across each round: {mult, noProc, reflect, block, noDodge}. */
+  you.hx = {};
+  const heal = (n, proc) => { // proc: healing that comes off the enemy (a hit, a dodge, being hit)
+    const hx = you.hx || {};
+    if(proc && hx.noProc) return;
+    if(hx.block){ hx.block = false; io.float("you","heal denied","psn"); return; }
+    if(hx.mult!=null){ n *= hx.mult; if(n<=0){ io.float("you","can't heal","psn"); return; } }
     if(tribe==="lolita") n *= 1.5; // LOVEBOMBER
     n = grow(n); // healing keeps pace with the days, like burn and companions do: a heal sized for day 1 was a rounding error by day 6
-    const before = you.hp, want = you.hp + n*(act("heart_tattoo")?2:1);
+    let amt = n*(act("heart_tattoo")?2:1);
+    if(foe.puppet){ // on the hill a round's healing is limited, like a round's damage: half of what one round can take
+      const room = Math.ceil(you.maxhp*BAL.guardDuel*0.5) - (you.healedTick||0);
+      if(room<=0) return;
+      amt = Math.min(amt, room); you.healedTick = (you.healedTick||0)+amt;
+    }
+    const before = you.hp, want = you.hp + amt;
+    if(hx.reflect && want>you.maxhp){ const back = Math.round(want-you.maxhp); you.hp = Math.min(you.maxhp, want); you.hp -= back; hurtBy("⛓️ healing turned back", back); io.log("⛓️ Too much. "+back+" of that healing comes back as damage.", "bad"); io.float("you","-"+back,"psn"); return; }
     you.hp = Math.min(you.maxhp, want);
     if(you.hp>before) io.float("you", "+"+(you.hp-before), "heal");
     if(want>you.maxhp && (set("grass",3) || tribe==="lolita")){ const over = Math.round(want-you.maxhp); you.shield += over; io.float("you","+"+over+" shield","heal"); } // TOUCH GRASS: nothing healed is wasted
+  };
+  const foeHeal = () => { // how much of its healing the enemy keeps, given what you carry and what is on it
+    let m = 1;
+    if(foe.ratio>0) m *= 0.5;
+    if(act("lab_coat") && foe.poison>0) m *= 0.25;
+    if(act("cigar") && foe.burn>0) m = 0;
+    return m;
+  };
+  F.hexOut = () => { // handed to the other side of a duel
+    const o = { mult:foeHeal(), noProc:act("face_mask"), reflect:act("prison_uniform"), noDodge:act("vr_goggles"), block:!!foe.denied, strip:!!foe.stripped };
+    foe.denied = false; foe.stripped = false;
+    return o;
+  };
+  const mend = (amt, why) => { // an enemy healing itself, in an ordinary fight
+    if(foe.denied){ foe.denied = false; io.log("🥊 "+foe.name+" tries to recover. Not this time.", "good"); return 0; }
+    amt = Math.round(amt*foeHeal());
+    if(amt<=0){ io.log("🚬 "+foe.name+" can't heal.", "good"); return 0; }
+    const want = foe.hp+amt, back = act("prison_uniform") && want>foe.maxhp ? Math.round(want-foe.maxhp) : 0;
+    foe.hp = Math.min(foe.maxhp, want) - back;
+    if(back){ credit("⛓️ Prison Uniform", back); io.log("⛓️ Prison Uniform: "+back+" of its healing turns on it.", "good"); io.hit("foe", back, false); }
+    else io.float("foe", "+"+amt, "heal");
+    return amt;
   };
   const eat = id => { // a meal is used up when it is eaten, unless FAST FOOD keeps it on the plate
     if(set("food",3) && rnd()<0.4){ io.log("🍔 Still some left. <b>"+relicById(id).name+"</b> stays.", "good"); return; }
@@ -3110,7 +3153,7 @@ function fightEngine(foeDef, opts, io){
   const companion = (dmg, msg) => { // every companion hit goes through here so SQUAD applies to all of them
     dmg += set("squad",2) ? 3 : 0;
     foe.hp-=dmg; credit(msg.replace(/ (strikes|spins in|bites)$/, ""), dmg); io.log(msg+" for "+dmg+".", "good"); io.hit("foe",dmg,false);
-    if(set("squad",3)) heal(3);
+    if(set("squad",3)) heal(3, true);
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
   you.guard = tribe==="prep" ? 1 : 0; you.opener = tribe==="harajuku"; you.bail = tribe==="gyaru";
@@ -3185,15 +3228,15 @@ function fightEngine(foeDef, opts, io){
     }
     if(!isYou && foe.bleed>0){ // a bleeding enemy pays for every swing
       const d = grow(2*foe.bleed); foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
-      if(act("vampire")) heal(2);
+      if(act("vampire")) heal(2, true);
       if(foe.hp<=0) return;
     }
     if(!isYou && you.guard){ you.guard=0; io.log("🪖 Dug in. The first one doesn't land.", "good"); io.float("you","blocked","heal"); return; }
     if(!isYou && you.block){ you.block=0; io.log("🐯 Hobbes takes the hit for you.", "good"); io.float("you","blocked","heal"); return; }
     // dodge
-    if(!isYou && rnd()*100 < (you.dodge||0)){
+    if(!isYou && !(you.hx||{}).noDodge && rnd()*100 < (you.dodge||0)){
       io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
-      if(act("cat_ears")) heal(tv("cat_ears",5));
+      if(act("cat_ears")) heal(tv("cat_ears",5), true);
       if(act("matrix") || tribe==="schizoposter") you.sure = true;
       if(set("schizo",4)){ const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
       else { const d = counterDmg(you, foe); foe.hp-=d; credit("💨 counters", d); io.log("💨 You slip it and counter for "+d+".", "good"); io.hit("foe",d,false); } // every dodge answers back
@@ -3221,7 +3264,7 @@ function fightEngine(foeDef, opts, io){
     if(guarded) F.guarded++;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : ""), crit?"crit":(isYou?"good":"bad"));
     io.hit(isYou?"foe":"you", dmg, crit);
-    if(!isYou && act("plaster") && you.hp>0) heal(2);
+    if(!isYou && act("plaster") && you.hp>0) heal(2, true);
     if(isYou && set("cheese",3)){ st.cult+=3; }
     if(isYou){
       const extra = act("juul") ? 2 : 0;
@@ -3234,14 +3277,16 @@ function fightEngine(foeDef, opts, io){
         if(set("ice",3) && foe.chill>=chillMax() && !foe.stun){ foe.stun = 1; foe.chill = 0; io.log("🧊 "+foe.name+" freezes solid.", "good"); io.float("foe","frozen","psn"); }
       }
     }
-    if(isYou && crit && act("trucker")) heal(tv("trucker",7));
+    if(isYou && crit && act("trucker")) heal(tv("trucker",7), true);
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
     if(!isYou && act("evil_eye")){ const e = tv("evil_eye",3); foe.hp-=e; credit("🧿 Evil Eye", e); io.log("🧿 Evil Eye reflects "+e+".", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
     // stun
     if(isYou && act("balenciaga_bat") && rnd()<0.12){ def.stun=1; io.log("🦇 "+dn+" is stunned!", "good"); }
     // poison
-    if(isYou && act("snakebites")){ def.poison=3; }
+    if(isYou && act("snakebites")){ def.poison = 3 + (act("lab_coat") ? 2 : 0); }
+    if(isYou && act("newports")){ if(!(foe.ratio>0)) io.log("🚬 Newports. "+dn+" is ratio'd: it heals half as well.", "good"); foe.ratio = 2; }
+    if(isYou && crit && act("tyson_tattoo")){ foe.denied = true; foe.stripped = true; if(foe.shield>0){ foe.shield = 0; } io.log("🥊 Tyson Tribal: "+dn+"'s guard is down and its next heal won't come.", "good"); }
   }
   function lethalCheck(){
     if(you.hp>0) return false;
@@ -3271,7 +3316,9 @@ function fightEngine(foeDef, opts, io){
   }
   F.step = function(){
     if(F.over) return;
-    F.tick++; F.fxDelay=0;
+    F.tick++; F.fxDelay=0; you.healedTick = 0;
+    if(foe.ratio>0) foe.ratio--;
+    if(foe.regen && !foe.puppet && foe.hp>0 && foe.hp<foe.maxhp && F.tick>1){ if(mend(Math.max(1, foe.maxhp*foe.regen)) > 0 && F.tick===2) io.log("✨ "+foe.name+" mends itself every tick. Something that stops healing would help.", "bad"); }
     // boss: allegations suppression (a suppressed relic gives nothing this tick, stats included)
     if(boss && boss.id==="allegations"){
       you.suppressed.clear();
@@ -3305,7 +3352,7 @@ function fightEngine(foeDef, opts, io){
     if(tribe==="lolita" && F.tick%4===0 && you.hp>0){ // LOVEBOMBER: 8% of max HP, whatever the day (undoing the multipliers every other heal gets)
       heal(Math.max(1, you.maxhp*0.08/1.5/(1+BAL.growth*Math.max(0,((G&&G.day)||1)-1)))); io.log("💌 Love bomb. You feel held.", "good"); }
     // poison ticks
-    if(foe.burn>0){ const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.burn>0){ const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0) + (act("cigar")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
     if(act("pikachu") && F.tick%4===0){ const z = grow(tv("pikachu",8)); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     if(act("gnome") && F.tick%4===0){ heal(tv("gnome",6)); io.log("🍄 Gnome patches you up.", "good"); }
@@ -4033,8 +4080,9 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
     if(round - (stunAt.has(to) ? stunAt.get(to) : -9) > 1){ to.you.stun = 1; stunAt.set(to, round); }
   };
   carryStun(A, B); carryStun(B, A); // anything that stuns as the fight opens
-  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); fromYou += Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; carryStun(A, B); };
-  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); fromKing += Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; carryStun(B, A); };
+  const hand = (from, to) => { const h = from.hexOut(); to.you.hx = h; if(h.strip && to.you.shield>0){ to.you.shield = 0; } }; // what one build does to the other's healing, shield and dodging
+  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); hand(A, B); fromYou += Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; carryStun(A, B); };
+  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); hand(B, A); fromKing += Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; carryStun(B, A); };
   const D = { A, B, you:A.you, king:B.you, kg, rounds:0, over:false, win:false, youFirst,
     step(){
       if(D.over) return;
@@ -4086,6 +4134,7 @@ const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[
    - a relic's icon lights up when it does its thing
    - hits landed in a row without being hit back are counted
    - when either side is nearly gone the stage tightens and slows down */
+const TRAIT_REGEN = "mends itself every tick";
 const HEALERS = ["cult_robe","lollipop","cookie","strawberry","maid","birthday_hat","cat_ears","trucker","vampire","gnome","juicebox","plaster","flower_clip","burger_earring","mcdonalds","heart_tattoo"];
 const TRIBE_SIG = { hypebeast:/crit chains/i, gyaru:/Bought the dip/i, lolita:/Love bomb/i, harajuku:/first hit lands twice/i, prep:/Dug in|armour bites back/i, schizoposter:/You dodge|slip it and counter/i, collector:null };
 const PROC_WORDS = [ [/burns? for/i, ["fire_glasses","laser_eyes"]], [/bleeds? for|already bleeding/i, ["claw","vampire","desert_eagle","spider_tattoo","teardrops"]], [/poison/i, ["snakebites"]],
@@ -4160,7 +4209,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   STAGE.reset(run.tribe);
   const D = makeDuel(run, k, (m,c)=>{ clog(m,c); if(!quiet) STAGE.proc(m, run.relics); }, V), you = D.you, king = D.king;
   // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
-  const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, stun:king.stun||0 });
+  const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, ratio:D.A.foe.ratio, stun:king.stun||0 });
   const bars = ()=>combatBars(you, view());
   const finish = ()=>{
     if(ended) return; ended = true; clearTimeout(timer); SEED = keep; bars(); STAGE.peril({hp:0,maxhp:1}, {hp:0,maxhp:1});
@@ -5016,7 +5065,7 @@ function openCodex(tab, pick){
     body = tiers.map(([t,name,note])=>"<div class='kicker cx-h'>"+name+" <small>"+note+"</small></div>"+ENEMIES.filter(e=>e.tier===t).map(e=>
       "<div class='cx-row'><b>"+e.name+"</b><span>"+si("❤️ "+e.hp+" · ⚔️ "+e.atk+" · 🛡️ "+e.arm+" · 💨 "+e.spd)+(e.nft && NFT[e.nft] ? " · "+NFT[e.nft].name : "")
       + (e.home && e.home.length ? " · "+e.home.map(i=>DISTRICTS[i].name.toLowerCase()).join(", ") : "")+"</span>"
-      + (e.trait ? "<span class='dim'>"+TRAIT_TEXT[e.trait]+"</span>" : "")+"</div>").join("")).join("")
+      + (e.trait ? "<span class='dim'>"+TRAIT_TEXT[e.trait]+"</span>" : "")+(e.regen ? "<span class='dim'>"+TRAIT_REGEN+": "+Math.round(e.regen*100)+"% of its health</span>" : "")+"</div>").join("")).join("")
       + "<div class='note'>numbers are for day 1. everything grows by the day, and elites and bosses push back against a strong build</div>";
   } else if(tab==="bosses"){
     body = [0,1,2].map(slot=>"<div class='kicker cx-h'>day "+BOSS_DAYS[slot]+"</div>"+BOSSES.filter(b=>b.slot===slot).map(b=>
