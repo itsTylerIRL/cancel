@@ -249,6 +249,39 @@ def set_line(relic_ids):
     return "  ".join("%s %d" % (name, c) for name, c in sorted(on, key=lambda x: -x[1])).lower()
 
 
+def candles(d, x, y, w, h, cs, k=1.0):
+    """$CULT over the run as a candlestick chart, the same drawing as the game's (drawCandles in game.js)."""
+    GREEN, RED = (80, 250, 123), (255, 85, 85)
+    d.rounded_rectangle((x, y, x + w, y + h), round(6 * k), fill=(2, 7, 10, 184), outline=CYAN + (71,), width=1)
+    first, last = cs[0][0], cs[-1][3]
+    pct = round(100 * (last - first) / first) if first > 0 else 0
+    up = last >= first
+    pad, head = 8 * k, 22 * k
+    d.text((x + pad, y + 15 * k), "$CULT", font=font(round(12 * k)), fill="#f1fa8c", anchor="ls")
+    d.text((x + pad + d.textlength("$CULT ", font=font(round(12 * k))) * 1.05, y + 15 * k), "/ 9D", font=font(round(10 * k), "Regular"), fill="#6b7a80", anchor="ls")
+    d.text((x + w - pad, y + 15 * k), "%s  %s%d%%" % (format(last, ","), "+" if pct >= 0 else "", pct), font=font(round(12 * k)), fill=GREEN if up else RED, anchor="rs")
+    lo, hi = min(c[2] for c in cs), max(c[1] for c in cs)
+    span = max(1, hi - lo)
+    top, bot = y + head + 4 * k, y + h - pad
+    Y = lambda v: bot - (v - lo) / span * (bot - top)
+    slot = (w - 2 * pad) / 9
+    bw = max(3 * k, slot * 0.52)
+    for g in range(4):
+        gy = round(top + (bot - top) * g / 3)
+        d.line([(x + pad, gy), (x + w - pad, gy)], fill=CYAN + (23,), width=1)
+    for i, c in enumerate(cs[:9]):
+        mx = x + pad + slot * (i + 0.5)
+        col = GREEN if c[3] >= c[0] else RED
+        d.line([(mx, Y(c[1])), (mx, Y(c[2]))], fill=col + (255,), width=max(1, round(1.4 * k)))
+        a, b = Y(max(c[0], c[3])), Y(min(c[0], c[3]))
+        d.rectangle((mx - bw / 2, a, mx + bw / 2, max(a + 2 * k, b)), fill=col + (255,))
+    ly, dash = Y(last), 3 * k
+    px = x + pad
+    while px < x + w - pad:  # where it closed
+        d.line([(px, ly), (min(px + dash, x + w - pad), ly)], fill=(GREEN if up else RED) + (128,), width=1)
+        px += dash * 2
+
+
 def render(run, seed="x"):
     """run: name, score, day, win, bosses, kills, cult, heat, tribe, relics [[id, tier]], look, daily, seed, handle."""
     rng = random.Random(seed)
@@ -310,8 +343,14 @@ def render(run, seed="x"):
     text("DRIP", 500, 366, 18, "#666")
     text(str(run["score"]), 500, 438, 76, "#f1fa8c")
     sets = set_line(relic_ids)
+    cs = run.get("candles") or []
     if sets:
-        text(sets, 720, 420, 20, "#bd93f9", "Regular")
+        if cs:
+            text(sets, 500, 326, 18, "#bd93f9", "Regular")  # the chart takes the space beside the score
+        else:
+            text(sets, 720, 420, 20, "#bd93f9", "Regular")
+    if cs:
+        candles(d, 730, 326, 420, 126, cs, 1.15)
 
     n = len(relic_ids)
     step = 92 if n <= 7 else (1150 - 500 - 82) / (n - 1)

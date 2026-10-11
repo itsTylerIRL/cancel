@@ -473,6 +473,12 @@ def parse_run(d):
 
     cult = d.get("cult")  # an older copy of the game doesn't send it: leave it off the card rather than print 0
     cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
+    candles = None  # $CULT by day, [open, high, low, close] for up to nine days: drawn as a chart on the card
+    cs = d.get("candles")
+    if isinstance(cs, list) and 1 <= len(cs) <= 9 and all(
+            isinstance(c, list) and len(c) == 4 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 99999 for v in c)
+            and c[2] <= min(c[0], c[3]) and c[1] >= max(c[0], c[3]) for c in cs):
+        candles = cs
     # The score is the game's own sum, so the most it can honestly be follows from the run: every objective done,
     # and $CULT counted the capped way. Anything above that (an old copy of the game still counting $CULT in full,
     # or a made-up number) is brought down to it.
@@ -485,7 +491,7 @@ def parse_run(d):
     if isinstance(st, dict):
         stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
                  and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
-    row = dict(run=run, stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
+    row = dict(candles=candles, run=run, stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
                player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
@@ -1251,7 +1257,7 @@ class Handler(BaseHTTPRequestHandler):
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
                 "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"],
                 "collection": row["collection"], "token": row["token"],
-                "killedBy": row["killed_by"],
+                "killedBy": row["killed_by"], "candles": row["candles"],
                 "player": row["player"], "stats": json.loads(row["stats"]) if row["stats"] else None},  # for king of the hill; never sent out
                 separators=(",", ":"))))
             if secrets.randbelow(50) == 0:

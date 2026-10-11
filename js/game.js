@@ -639,7 +639,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes","journal"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","banished","banishes","journal","candles"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1141,7 +1141,40 @@ function mlog(msg, cls){
   el.scrollTop=el.scrollHeight;
 }
 let shownCult = 0, shownStats = null, shownHp = null;
+/* $CULT, charted. Every day of a run is a candle: what you held when it began, the most and least you held during it,
+   and what you ended it with. The summary screen and the share card draw it like a memecoin chart. */
+function trackCult(){
+  if(!G || G.setup || !G.stats || typeof G.cult!=="number") return;
+  const cs = G.candles = G.candles || [], i = clamp(G.day, 1, 9)-1;
+  while(cs.length<=i){ const p = cs.length ? cs[cs.length-1][3] : G.cult; cs.push([p,p,p,p]); }
+  const c = cs[i]; c[3] = G.cult; if(G.cult>c[1]) c[1] = G.cult; if(G.cult<c[2]) c[2] = G.cult;
+}
+function drawCandles(cx, x, y, w, h, cs, k){ // k: text scale. Nine slots across; days never reached stay empty.
+  k = k || 1;
+  cx.save();
+  cx.fillStyle = "rgba(2,7,10,.72)"; cx.strokeStyle = "rgba(139,233,253,.28)"; cx.lineWidth = 1;
+  cx.beginPath(); cx.roundRect(x, y, w, h, 6*k); cx.fill(); cx.stroke();
+  const first = cs[0][0], last = cs[cs.length-1][3], pct = first>0 ? Math.round(100*(last-first)/first) : 0, up = last>=first;
+  const MONO = "'JetBrains Mono','Fira Mono','Menlo','Consolas',monospace", head = 22*k, pad = 8*k;
+  cx.textBaseline = "alphabetic"; cx.font = "700 "+Math.round(12*k)+"px "+MONO; cx.fillStyle = "#f1fa8c"; cx.textAlign = "left"; cx.fillText("$CULT", x+pad, y+15*k);
+  cx.font = "400 "+Math.round(10*k)+"px "+MONO; cx.fillStyle = "#6b7a80"; cx.fillText("/ 9D", x+pad+cx.measureText("$CULT ").width*1.25, y+15*k);
+  cx.textAlign = "right"; cx.font = "700 "+Math.round(12*k)+"px "+MONO; cx.fillStyle = up ? "#50fa7b" : "#ff5555";
+  cx.fillText(last.toLocaleString("en-US")+"  "+(pct>=0 ? "+" : "")+pct+"%", x+w-pad, y+15*k);
+  const lo = Math.min(...cs.map(c=>c[2])), hi = Math.max(...cs.map(c=>c[1])), span = Math.max(1, hi-lo);
+  const top = y+head+4*k, bot = y+h-pad, Y = v => bot-(v-lo)/span*(bot-top), slot = (w-2*pad)/9, bw = Math.max(3*k, slot*0.52);
+  cx.strokeStyle = "rgba(139,233,253,.09)"; cx.lineWidth = 1; // faint grid
+  for(let g=0; g<=3; g++){ const gy = Math.round(top+(bot-top)*g/3)+0.5; cx.beginPath(); cx.moveTo(x+pad, gy); cx.lineTo(x+w-pad, gy); cx.stroke(); }
+  cs.slice(0,9).forEach((c,i)=>{
+    const mx = x+pad+slot*(i+0.5), green = c[3]>=c[0], col = green ? "#50fa7b" : "#ff5555";
+    cx.strokeStyle = col; cx.lineWidth = Math.max(1, 1.4*k); cx.beginPath(); cx.moveTo(mx, Y(c[1])); cx.lineTo(mx, Y(c[2])); cx.stroke();
+    const a = Y(Math.max(c[0],c[3])), b = Y(Math.min(c[0],c[3]));
+    cx.fillStyle = col; cx.fillRect(mx-bw/2, a, bw, Math.max(2*k, b-a));
+  });
+  cx.setLineDash([3*k, 3*k]); cx.strokeStyle = up ? "rgba(80,250,123,.5)" : "rgba(255,85,85,.5)"; cx.beginPath(); cx.moveTo(x+pad, Y(last)); cx.lineTo(x+w-pad, Y(last)); cx.stroke(); // where it closed
+  cx.restore();
+}
 function renderHUD(){
+  trackCult();
   const s = G.stats;
   $("hp-fill").style.width = clamp(100*s.hp/s.maxhp,0,100)+"%";
   $("hp-fill").classList.toggle("low", s.hp <= s.maxhp*0.3);
@@ -3576,6 +3609,7 @@ function runStripHTML(run, win){ // nine days in a row: what you picked up, who 
       + (gone ? "" : !d.boss && !rel.length && !d.kills && !last ? "<span class='rs-quiet'>quiet</span>" : "")+"</div>"; }).join("")+"</div>";
 }
 function endRun(win){
+  trackCult();
   if(win && !G.celebrated && !META.calm){ G.celebrated = true; G.over = true; clearRun(); return winSequence(()=>endRun(true)); }
   G.over=true; clearRun();
   if(win){ achieve("win"); if(G.day<9) achieve("early"); if(!G.flags.rested) achieve("norest"); if(G.heat>=3) achieve("heat3"); }
@@ -3613,6 +3647,7 @@ function endRun(win){
     + (G.newAch ? "<div class='note good'>🏆 "+G.newAch+" achievement"+(G.newAch>1?"s":"")+" unlocked</div>" : "")
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
     + runStripHTML(G, win)
+    + ((G.candles||[]).length ? "<canvas id='end-chart' class='end-chart' width='1040' height='300'></canvas>" : "")
     + parts.map(p=>"<div class='stat-line'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
     + "<div class='drip-total'>DRIP EARNED <b id='end-drip'>0</b></div>";
   const signed = !!rnUser();
@@ -3632,6 +3667,7 @@ function endRun(win){
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
     paint($("end-avatar"), win ? run.avatar : fry(run.avatar, "CANCELLED"));
+    if($("end-chart")) drawCandles($("end-chart").getContext("2d"), 1, 1, 1038, 298, run.candles, 2);
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
     $("end-rank").innerHTML = rankHtml;
@@ -4362,6 +4398,7 @@ function submitRun(run, win, drip){
     tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
     daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
+    candles: (run.candles||[]).slice(0,9).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
     stats: run.stats ? { hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm, spd:run.stats.spd, crit:Math.round(run.stats.crit), dodge:Math.round(run.stats.dodge||0),
       batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
     session: rnUser() ? rnUser().token : undefined,
@@ -4501,7 +4538,9 @@ async function shareCard(run, win, drip){
   text(run.bossesBeaten+" / 3 bosses  ·  "+run.kills+" kills  ·  "+run.cult+" $CULT", 500, 288, 24, "#eaeaea", "normal");
   text("DRIP", 500, 366, 18, "#666"); text(String(drip), 500, 438, 76, "#f1fa8c");
   const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.name+" "+r.c).join("  ").toLowerCase();
-  if(sets) text(sets, 720, 420, 20, "#bd93f9", "normal");
+  const charted = (run.candles||[]).length>0;
+  if(sets) charted ? text(sets, 500, 326, 18, "#bd93f9", "normal") : text(sets, 720, 420, 20, "#bd93f9", "normal");
+  if(charted){ drawCandles(cx, 730, 326, 420, 126, run.candles, 1.15); cx.textAlign = "left"; }
   // relics
   const ims = await Promise.all(run.relics.map(id=>loadImg(ICONS[id]).catch(()=>null)));
   ims.forEach((im,i)=>{
