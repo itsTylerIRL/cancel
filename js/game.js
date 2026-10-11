@@ -980,11 +980,11 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20, TENX:21 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20, TENX:21, DRBABY:22 };
 const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
-const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp", [T.TENX]:"assets/img/npc/tenx.webp" }; // their own profile pictures
+const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp", [T.TENX]:"assets/img/npc/tenx.webp", [T.DRBABY]:"assets/img/npc/drbaby.webp" }; // their own profile pictures
 const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan", [T.TENX]:"10x" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan", [T.TENX]:"10x", [T.DRBABY]:"Dr. Remilio Baby" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1054,6 +1054,7 @@ function genMap(){
   if(G.rivergod) put(T.RIVERGOD,4);
   if(!(G.daily && G.daily < ETHCHAN_FROM)) put(T.ETHCHAN,3);
   if(!(G.daily && G.daily < TENX_FROM)) put(T.TENX,3);
+  if(!(G.daily && G.daily < DRBABY_FROM)) put(T.DRBABY,3);
   spreadOut(rooms);
   for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
@@ -1080,11 +1081,11 @@ function genMap(){
    rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
    of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
    a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
-const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12", TENX_FROM = "2026-10-12";
+const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12", TENX_FROM = "2026-10-12", DRBABY_FROM = "2026-10-12";
 function spreadOut(rooms){
   if(G.daily && G.daily < SPREAD_FROM) return;
   const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD, T.ETHCHAN, T.TENX]){
+  for(const t of [T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.FOUNTAIN, T.ALTAR, T.RIVERGOD, T.ETHCHAN, T.TENX, T.DRBABY]){
     const kept = [];
     for(const r of rooms.filter(r=>G.map[r.y][r.x]===t)){
       if(kept.every(k=>far(k,r) >= SPREAD)){ kept.push(r); continue; }
@@ -1677,7 +1678,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff", [T.TENX]:"#39ff9c" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff", [T.TENX]:"#39ff9c", [T.DRBABY]:"#7fd4ff" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1706,7 +1707,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b
   [T.SCEARPO]:"<b>Scearpo</b> — scorched earth policy. Hand him a relic: a coin flip doubles it to the next tier or burns it. One flip.",
   [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns. <b>At night only.</b>",
   [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone.",
-  [T.TENX]:"<b>10x</b> — dev for the Radbros and the Schizoposters. Deposit $CULT and he names a number of Schizoposters to kill before your next boss fight. Do it and you're paid back with interest. Miss and he rugs you." };
+  [T.TENX]:"<b>10x</b> — dev for the Radbros and the Schizoposters. Deposit $CULT and he names a number of Schizoposters to kill before your next boss fight. Do it and you're paid back with interest. Miss and he rugs you.",
+  [T.DRBABY]:"<b>Dr. Remilio Baby</b> — a full restore, or one curse lifted, for 250 $CULT or a relic of your choosing. One treatment, then it's his nap time." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
@@ -1734,7 +1736,7 @@ function pinName(x,y){
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
-const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.DRBABY, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
   // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
   const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
@@ -1987,6 +1989,7 @@ function enterTile(t){
     case T.RIVERGOD: openRivergod(); break;
     case T.ETHCHAN: openEthChan(); break;
     case T.TENX: openTenx(); break;
+    case T.DRBABY: openDrBaby(); break;
     case T.ALTAR: openAltar(); break;
     case T.KEY: clearTile(); G.keys = (G.keys||0)+1; sfx("coin"); mapFloat("🗝️ +1", "loot"); mlog("🗝️ You pocket a <b>key</b>. Somewhere in the maze a vault is waiting.", "gold"); break;
     case T.VAULT:
@@ -2754,6 +2757,64 @@ function openEthChan(){
     closeModal(); renderMap();
   };});
   $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
+}
+/* ---------- Dr. Remilio Baby: a doctor, and also a baby ----------
+   One treatment each: a full restore, or one curse lifted. The fee is DOC_FEE $CULT or any relic you choose to hand
+   over. Then it is his nap time and he is gone. */
+const DOC_FEE = 250;
+const DOC_LINES = [
+  "\"hi im doctor. i am literally a baby. this is a stethoscope i think. sit down\"",
+  "\"ok so ur cooked. like medically. but its fine i watched a video about this one time\"",
+  "\"no cap u look so dead rn. thats my professional opinion. i have a coat\"",
+  "\"i went to med school for like one nap. trust. open ur mouth and say skibidi\"",
+  "\"its giving sepsis. its giving plague. slay tho. 250 or a toy pls\"",
+  "\"i cant read yet but ur chart is NOT bussin. fr fr. on god. goo goo\"" ];
+const DOC_CURSE = { // what lifting each curse gives back
+  sealed:  { icon:"🔒", name:"sealed slot", text:n=>"your "+n+" sealed relic slot"+(n===1?"":"s")+" open again", lift:n=>{ G.maxSlots += n; } },
+  dawn:    { icon:"🩸", name:"dawn bleed",  text:n=>"no more losing "+n+" HP every morning", lift:()=>{} },
+  shunned: { icon:"🚫", name:"shunned",     text:()=>"the shops will serve you again", lift:()=>{} },
+  frail:   { icon:"💔", name:"frailty",     text:n=>"your "+n+" max HP come back", lift:n=>{ G.bonus.maxhp += n; } } };
+function openDrBaby(pick){
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", face = "<h2>DR. REMILIO BABY</h2><img class='npc-face baby' src='"+localFile(NPC_ART[T.DRBABY])+"' alt=''>";
+  const leave = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); };
+  const curses = Object.keys(DOC_CURSE).filter(id=>G.curses && G.curses[id]), hurt = G.stats.hp < G.stats.maxhp;
+  if(!pick){ // first: what is wrong with you
+    let html = face + "<div class='note doc-say'><i>"+spotLine(DOC_LINES, "drbaby")+"</i><br>a full restore, or one curse lifted · the fee is <b>"+DOC_FEE+" $CULT or a relic</b> · one treatment, then it's his nap time</div>"
+      + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span><span class='chip'>❤️ "+Math.round(G.stats.hp)+" / "+G.stats.maxhp+"</span></div>";
+    html += "<button class='choice doc-pick' data-doc='heal'"+(hurt?"":" disabled")+"><b>💊 full restore</b><span>"+(hurt ? "heal to full: +"+Math.round(G.stats.maxhp-G.stats.hp)+" HP" : "you're at full health")+"</span></button>";
+    for(const id of curses){ const c = DOC_CURSE[id]; html += "<button class='choice doc-pick' data-doc='"+id+"'><b>"+c.icon+" lift the curse: "+c.name+"</b><span>"+c.text(G.curses[id])+"</span></button>"; }
+    if(!curses.length) html += "<div class='note dim'>you carry no curses for him to lift</div>";
+    if(!hurt && !curses.length) html += "<div class='note'>\"ur literally fine?? stop wasting my screen time\"</div>";
+    else if(G.cult<DOC_FEE && !G.relics.length) html += "<div class='note bad'>\"u got no money AND no toys?? broke behavior. get well soon i guess\"</div>";
+    html += "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
+    openModal(si(html));
+    $("modal-panel").querySelectorAll("[data-doc]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openDrBaby(b.dataset.doc); }; });
+    $("npc-leave").onclick = leave; return;
+  }
+  // then: how you are paying
+  const heal = pick==="heal", c = heal ? null : DOC_CURSE[pick], what = heal ? "a full restore" : "lifting "+c.name;
+  const treat = paid => {
+    if(heal){ const n = Math.round(G.stats.maxhp-G.stats.hp); G.stats.hp = G.stats.maxhp; mlog("💊 Dr. Remilio Baby restored you to full (+"+n+" HP) for "+paid+". <i>\"ok ur fixed. i did a surgery on u while u blinked. nap time now bye\"</i>", "gold"); }
+    else { const n = G.curses[pick]; c.lift(n); delete G.curses[pick]; recalcStats(); mlog("💊 Dr. Remilio Baby lifted your curse ("+c.name+") for "+paid+": "+c.text(n)+". <i>\"i ate the curse. it tasted like pennies. dont tell my mom\"</i>", "gold"); }
+    clearTile(); sfx("heal"); burst("💊🍼✨"); closeModal(); renderMap();
+  };
+  let html = face + "<div class='note doc-say'><i>\"ok "+(heal ? "full restore" : "curse removal")+". thats "+DOC_FEE+" or a toy. i take both kinds of insurance\"</i><br>paying for <b>"+what+"</b></div>"
+    + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div>"
+    + "<button class='choice doc-pay' id='doc-cult'"+(G.cult<DOC_FEE?" disabled":"")+"><b>pay "+DOC_FEE+" $CULT</b><span>"+(G.cult<DOC_FEE ? "you have "+G.cult : "keep your relics")+"</span></button>"
+    + (G.relics.length ? "<div class='note'>or hand him a relic. he keeps it</div>" : "");
+  G.relics.forEach((id,i)=>{ const r = relicById(id), t = tierAt(i);
+    html += relicRow(r, "", "<button class='btn small' data-give='"+i+"'>hand over</button>", t, G.relics.indexOf(id)!==i); });
+  html += "<div class='row'><button class='btn small' id='doc-back'>← back</button></div>";
+  openModal(html);
+  $("doc-cult").onclick = ()=>{ if(G.cult<DOC_FEE) return; G.cult -= DOC_FEE; treat(DOC_FEE+" $CULT"); };
+  $("modal-panel").querySelectorAll("[data-give]").forEach(b=>{ b.onclick=()=>{
+    if(!b.dataset.sure){ b.dataset.sure = 1; b.textContent = "sure?"; b.classList.add("danger"); sfx("click"); return; } // it can't be undone
+    const i = +b.dataset.give, r = relicById(G.relics[i]);
+    dropRelicAt(i); recalcStats();
+    if(heal) G.stats.hp = Math.min(G.stats.hp, G.stats.maxhp);
+    treat("your <b>"+r.name+"</b> <i>(\"ooh shiny. mine now. thats called a copay\")</i>");
+  };});
+  $("doc-back").onclick = ()=>{ sfx("click"); openDrBaby(); };
 }
 /* ---------- 10x: dev for the Radbros and the Schizoposters, and he has a liquidity experiment ----------
    Deposit 50, 100 or 500 $CULT and he names how many Schizoposters (3 to 7) you have to kill before your next boss
@@ -5325,7 +5386,7 @@ function openCodex(tab, pick){
     body = "<div class='note'>things that happen in the timeline. walk into a ❓ to find one</div>"
       + EVENTS.map(e=>"<div class='cx-row' style='--sc:#bd93f9'><b>"+(e.icon||"❓")+" "+e.name+"</b><span><i>"+e.text+"</i></span></div>").join("");
   } else {
-    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD,T.ETHCHAN,T.TENX];
+    const places = [T.CHEST,T.GRAVE,T.SHOP,T.SHRINE,T.FIRE,T.EVENT,T.KEY,T.VAULT,T.FOUNTAIN,T.ALTAR,T.FORGE,T.ONNO,T.FANG,T.SCEARPO,T.RIVERGOD,T.ETHCHAN,T.TENX,T.DRBABY];
     body = "<div class='kicker cx-h'>districts</div>"+DISTRICTS.map(d=>"<div class='cx-row' style='--sc:"+d.color+"'><b>"+d.name+"</b><span>"+d.rule+"</span></div>").join("")
       + "<div class='kicker cx-h'>places and people</div>"+places.map(t=>"<div class='cx-row'><span>"+(T_EMOJI[t] ? T_EMOJI[t]+" " : t===T.FORGE ? "🙂 " : "👤 ")+T_DESC[t]+"</span></div>").join("")
       + "<div class='kicker cx-h'>tribes</div>"+TRIBES.map(t=>"<div class='cx-row'><b>"+t.icon+" "+t.name+"</b><span>"+si(t.rule)+"</span><span class='tsig'>"+si(t.sig)+"</span><span class='tcost'>"+si(t.cost)+"</span><span class='dim'>starts with "+relicById(t.relic).name+"</span></div>").join("");

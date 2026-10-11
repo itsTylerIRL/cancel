@@ -1856,3 +1856,6 @@ body.calm .eframe{animation:none;}
 
 /* Rivergod by day: there, but not dealing */
 #map .tile.shut span{opacity:.5;filter:grayscale(1) brightness(.8);}
+
+/* Dr. Remilio Baby */
+.npc-face.baby{border-color:#7fd4ff;box-shadow:0 0 24px rgba(127,212,255,.55);}
