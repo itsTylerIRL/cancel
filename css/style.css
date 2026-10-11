@@ -1638,3 +1638,5 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .brow .tribe-badge{font-size:9px;padding:0 6px 0 4px;} .brow .tribe-badge i{font-size:11px;}
 .bname .tribe-badge{display:inline-flex;color:var(--tc);font-size:9px;overflow:visible;} .bname .tribe-badge i{color:inherit;}
 .bname .bend .early{display:inline;overflow:visible;} .bname .btribe,.bname .bend{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* how a run ended is never cut short: it takes a second line if it has to */
+.bname .bend{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;}
