@@ -4995,14 +4995,18 @@ async function openBoard(tab, back, seed, page){
     // a verified player is shown by their account, in its color, with the character's name on hover; anyone else by the name they played under
     const who = e => !e.handle ? "<b>"+esc(e.name)+"</b>"
       : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"</b>";
+    // a date a person would say: today, yesterday, then "Sat Oct 10". the full date is on hover
+    const dayLabel = d => !h ? d : d===h.today ? "today" : d===dayBefore(h.today) ? "yesterday" : new Date(d+"T12:00:00Z").toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric", timeZone:"UTC"});
+    const face = (e, i) => "<span class='hface bface"+(e.king || e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.king || e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>";
     openModal(shell(!h ? "<div class='note bad'>the leaderboard can't be reached right now</div>"
       : !items.length ? "<div class='note'>no daily map has a champion yet. today's is open.</div>"
       : "<div class='hall'>"+items.map((e,i)=> e.king
-          ? "<div class='hcard king' title='held the hill when the week ended'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>week of "+esc(mon(e.week))+"</u>"+who(e)+"<em>👑 king of the hill</em><span>"
+          ? "<div class='hcard king' title='held the hill when the week ended'>"+face(e, i)+"<u>week of "+esc(mon(e.week))+"</u>"+who(e)+tribeBadge(e.tribe)+"<em>👑 king of the hill</em><span>"
             + (e.defences ? e.defences+" defense"+(e.defences===1?"":"s") : "unchallenged")+"</span></div>"
-          : "<div class='hcard"+(e.date===h.today?" live":"")+"'><span class='hface'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+tribeIco(e.tribe)+"</span><u>"+esc(e.date)+"</u>"+who(e)+"<em>"+e.score+(e.win?" 👑":"")+"</em><span>"
+          : "<div class='hcard"+(e.date===h.today?" live":"")+(e.win ? "" : " fell")+"'>"+face(e, i)+"<u title='"+esc(e.date)+"'>"+esc(dayLabel(e.date))+"</u>"+who(e)+tribeBadge(e.tribe)+"<em>"+e.score+"</em>"
+            + "<span class='hres "+(e.win ? "good" : "bad")+"'>"+(e.win ? "saved on day "+e.day : "cancelled on day "+e.day)+"</span><span>"
             + (e.date===h.today ? "still open · " : "")+e.players+" player"+(e.players===1?"":"s")+"</span></div>").join("")+"</div>"
-        + "<div class='note'>the best run on each day's map"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
+        + "<div class='note'>the best run on each day's map: a win if anyone had one, the furthest anyone got if nobody did"+((h.kings||[]).length ? ", and in gold the king who held the hill as each week ended" : "")+". today's spot is still up for grabs until midnight Eastern.</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll(".bpfp")]){
       if(!cv.isConnected) return;
       try{ await drawLook(cv, items[+cv.dataset.n].look, items[+cv.dataset.n].relics); }catch(err){}

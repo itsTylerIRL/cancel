@@ -1859,3 +1859,11 @@ body.calm .eframe{animation:none;}
 
 /* Dr. Remilio Baby */
 .npc-face.baby{border-color:#7fd4ff;box-shadow:0 0 24px rgba(127,212,255,.55);}
+
+/* hall of fame: a labelled tribe, a result line, and the stamp on a day nobody survived */
+.hall{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));}
+.hcard .hface.bface{width:84px;height:84px;aspect-ratio:auto;} .hcard .hface.bface .bpfp{width:84px;height:84px;}
+.hcard .hface.bface s{font-size:9.5px;border-width:2px;padding:3px 4px;}
+.hcard .tribe-badge{font-size:8.5px;padding:0 5px 0 3px;max-width:100%;margin:2px 0;color:var(--tc);} .hcard .tribe-badge i{font-size:10px;}
+.hcard .hres{font-size:10px;} .hcard .hres.good{color:var(--acid);} .hcard .hres.bad{color:#ff8b8b;}
+.hcard.fell{border-color:rgba(255,85,85,.4);background:rgba(255,40,40,.04);} .hcard.fell em{color:#ffb0b0;}
