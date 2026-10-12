@@ -3955,6 +3955,17 @@ function bossAmbient(id){
   };
   requestAnimationFrame(frame);
 }
+/* How each boss addresses you as it arrives: its own paperwork, with your name on it. One is picked each time. */
+const BOSS_TO = {
+  lawsuit:     n=>["in the matter of "+n, "the people v. "+n, "attn: "+n+", defendant", "served to: "+n, n+", you are hereby notified", "exhibit a: "+n],
+  allegations: n=>["re: "+n, "cc: "+n, "a thread about "+n+" 🧵", "i need to talk about "+n, n+", care to comment?", "not naming names. it's "+n, "people are asking about "+n],
+  drain:       n=>["account holder: "+n, "payable by "+n, "withdrawal authorized by "+n+" (it wasn't)", "pay to the order of: not "+n, "final notice: "+n, n+", your balance is being reviewed"],
+  shift:       n=>[n+" is out", "we're past "+n+" now", n+" was last season", "nobody told "+n, "the room has moved on from "+n, "replacing: "+n],
+  bonkler911:  n=>[n+" was there", "last seen: "+n, "ask "+n+" where they were", n+" knows what happened", "never forget what "+n+" did", "the reserve remembers "+n],
+  cancel:      n=>["everyone, re: "+n, "it's about "+n, n+" is over", "this is the end of "+n, "we need to talk about "+n, "has anyone checked on "+n+"? don't", "unfollow "+n],
+  default:     n=>["re: "+n, "attn: "+n, "for "+n],
+};
+const bossTo = (id, n) => { const l = (BOSS_TO[id] || BOSS_TO.default)(n); return l[Math.floor(Math.random()*l.length)]; };
 let combatTok = 0;
 function startCombat(foeDef, opts={}){
   if(opts.boss) tenxRug();
@@ -4094,7 +4105,7 @@ function startCombat(foeDef, opts={}){
   const entrance = boss && !META.calm ? (BOSS_ENTRANCE[boss.id] || BOSS_ENTRANCE.default) : null;
   if(entrance){ // every boss arrives its own way, before the first blow
     const rain = Array.from({length:entrance.rain ? 22 : 0}, (_,i)=>"<i style='left:"+Math.round(Math.random()*96)+"%;animation-delay:"+(Math.random()*0.9).toFixed(2)+"s;font-size:"+(18+Math.round(Math.random()*20))+"px'>"+entrance.rain[i%entrance.rain.length]+"</i>").join("");
-    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div>"+(callName() ? "<div class='bi-to'>re: "+esc(callName())+"</div>" : "")+"<div class='bi-name'>"+(entrance.title || boss.name)+"</div>"
+    intro.innerHTML = "<div class='bi-rain'>"+rain+"</div><div class='bi-warn'>"+entrance.warn+"</div>"+(callName() ? "<div class='bi-to'>"+bossTo(boss.id, esc(callName()))+"</div>" : "")+"<div class='bi-name'>"+(entrance.title || boss.name)+"</div>"
       + (entrance.line ? "<div class='bi-line'>"+entrance.line+"</div>" : "")+"<div class='bi-mech'>"+boss.mechanic+"</div>";
     intro.className = "show bi-"+entrance.cls;
     intro.style.animationDuration = entrance.ms+"ms";
