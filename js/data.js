@@ -499,7 +499,6 @@ const UNLOCKS = [
  {id:"reroll2", name:"Inside Man", cost:10000, desc:"The first reroll of every run is free.", req:"reroll1"},
  {id:"secondchance", name:"Second Chance", cost:4000, desc:"Begin every run holding Wartime PFP."},
  {id:"slot1", name:"Extra Pocket", cost:5000, desc:"+1 relic slot from the start."},
- {id:"slot2", name:"Deep Pockets", cost:40000, desc:"Another relic slot from the start.", req:"slot1"},
  {id:"shop1", name:"Loyalty Card", cost:6000, desc:"Every shop is 10% cheaper."},
  {id:"shop2", name:"Black Card", cost:15000, desc:"Every shop is 20% cheaper in all.", req:"shop1"},
  {id:"night1", name:"Night Light", cost:6000, desc:"One fewer Schizoposter comes out each night (never fewer than one)."},

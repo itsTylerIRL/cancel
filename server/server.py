@@ -771,11 +771,27 @@ def merge_profile(old, new, base):
     return out
 
 
+# An unlock that has been taken out of the game, and what it cost. An account that bought one has it removed and the
+# DRIP put back, once, the next time it syncs; a browser that still lists it can't bring it back.
+RETIRED_UNLOCKS = {"slot2": 40000}  # Deep Pockets: a second extra relic slot from the start
+
+
+def retire(p, refund):
+    if p is None:
+        return p
+    for uid, cost in RETIRED_UNLOCKS.items():
+        if uid in p["unlocks"]:
+            p["unlocks"] = [u for u in p["unlocks"] if u != uid]
+            if refund:
+                p["drip"] = min(PROFILE_COUNTS["drip"], p["drip"] + cost)
+    return p
+
+
 def profile_sync(player, data, base, now):
-    new = clean_profile(data)
+    new = retire(clean_profile(data), False)
     with db() as con:
         row = con.execute("SELECT data FROM profiles WHERE player=?", (player,)).fetchone()
-        old = clean_profile(json.loads(row[0])) if row else None
+        old = retire(clean_profile(json.loads(row[0])), True) if row else None
         merged = merge_profile(old, new, clean_profile(base) if isinstance(base, dict) and old is not None else None)
         con.execute("INSERT OR REPLACE INTO profiles (player, data, at) VALUES (?,?,?)",
                     (player, json.dumps(merged, separators=(",", ":")), now))

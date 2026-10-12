@@ -619,7 +619,7 @@ function newRun(ava, opt){
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
-    maxSlots: 4 + (pk("slot1")?1:0) + (pk("slot2")?1:0) + (tribe.id==="collector"?1:0) - (heat>=5?1:0),
+    maxSlots: 4 + (pk("slot1")?1:0) + (tribe.id==="collector"?1:0) - (heat>=5?1:0),
     day: 1, phase: "day", movesLeft: DAY_MOVES - (tribe.id==="harajuku" ? 6 : 0),
     px: SX, py: SY,
     map: [], fog: [],
@@ -4922,6 +4922,10 @@ async function api(path, body){ // null on any failure: the game never depends o
    cards never stay on screen after its owner has signed out. */
 const PROFILE_BLANK = () => ({ drip:0, wins:0, runs:0, best:0, heat:0, unlocks:{}, seen:{}, ach:{}, streak:null, lastRun:null, history:[], dailyAt:null, frame:null });
 function stashProfile(key){ const p = {}; for(const k in PROFILE_BLANK()) p[k] = META[k]===undefined ? null : META[k]; (META.profiles = META.profiles||{})[key] = JSON.parse(JSON.stringify(p)); }
+function pruneUnlocks(){ // an unlock that has been retired (Deep Pockets) is dropped wherever it was kept; the service refunds what it cost
+  const live = new Set(UNLOCKS.map(u=>u.id)), cut = o => { if(o) for(const k of Object.keys(o)) if(!live.has(k)) delete o[k]; };
+  cut(META.unlocks); for(const k in (META.profiles||{})) cut(META.profiles[k].unlocks);
+}
 function loadProfile(key){
   const p = { ...PROFILE_BLANK(), ...((META.profiles||{})[key]||{}) };
   for(const k in p){ if(p[k]===null && (k==="streak" || k==="lastRun" || k==="dailyAt" || k==="frame")) delete META[k]; else META[k] = p[k]; }
@@ -5050,6 +5054,7 @@ async function syncProfile(force){
     for(const k of ["runs","wins","drip"]) META[k] = Math.max(0, d[k] + ((META[k]||0) - sent[k])); // anything earned while the request was out is kept
     META.best = Math.max(META.best||0, d.best||0); META.heat = Math.max(META.heat||0, d.heat||0);
     for(const k of ["unlocks","seen","ach","tips"]) META[k] = {...(META[k]||{}), ...keys(d[k])};
+    pruneUnlocks();
     META.tut = META.tut || !!d.tut;
     const a = META.streak || {n:0, last:"", best:0}, b = d.streak || a;
     META.streak = (b.last > a.last || (b.last===a.last && b.n > a.n)) ? {n:b.n, last:b.last, best:Math.max(a.best||0, b.best||0)} : {...a, best:Math.max(a.best||0, b.best||0)};
@@ -5892,6 +5897,7 @@ async function init(){
   else if(!META.rn && !META.profiles && META.sync && META.sync.p){ // signed out before progress was kept per player: what is here is that account's
     stashProfile(META.sync.p); loadProfile("anon"); saveMeta();
   }
+  pruneUnlocks();
   if(!META.anonMoved){ // before progress was moved at a first sign-in it was copied, and the copy was still waiting to be handed to the next account
     if(META.rn && META.profiles && Object.keys(META.profiles).some(k=>k!=="anon")) META.profiles.anon = PROFILE_BLANK();
     else if(META.rn && META.profiles && META.profiles.anon) META.profiles.anon = PROFILE_BLANK(); // signed in now: what this browser had is already this account's
