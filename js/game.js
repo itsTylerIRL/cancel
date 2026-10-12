@@ -5174,8 +5174,9 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
       + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
     el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
       + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)+"</div>"
-      + "<div class='pfeed' id='pulse-feed' aria-live='off'></div>";
+      + "<div class='pfeed' id='pulse-feed' aria-live='off' role='button' tabindex='0' title='see every recent run'></div>";
     el.classList.remove("hidden"); PULSE.built = true;
+    const pf = $("pulse-feed"); pf.onclick = ()=>{ sfx("click"); openBoard("recent"); }; pf.onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); pf.click(); } };
     if(!META.calm){ el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
   }
   const set = (k, v) => pulseRoll(el.querySelector("[data-n='"+k+"']"), v, first);
@@ -5207,9 +5208,10 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
 let boardGot = null; // the board last fetched, so turning a page doesn't ask again
 const BOARD_PAGE = 10;
+let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
-  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["hall","🏛 hall of fame"],["me","👤 you"]]);
+  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
   const wire = ()=>{
@@ -5228,7 +5230,7 @@ async function openBoard(tab, back, seed, page){
     if(!rk) loadRank().then(()=>{ if($("modal-panel").querySelector(".me-head") && myRank) openBoard("me", back, seed); });
     return;
   }
-  const q = tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
+  const q = tab==="recent" ? "recent" : tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
   const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
   if(!turning){ // the shape of what is on its way, instead of the word "loading"
     openModal(shell(tab==="hall" ? "<div class='cal-wrap skel-wrap' aria-busy='true'><div class='cal'>"+"<i class='cal-cell skel'></i>".repeat(40)+"</div><div class='cal-detail'></div></div>"
@@ -5296,6 +5298,32 @@ async function openBoard(tab, back, seed, page){
       (async ()=>{ for(const cv of [...P.querySelectorAll(".cal canvas")]){ if(!cv.isConnected) return; const e = cv.dataset.day ? days[cv.dataset.day] : kings[cv.dataset.king]; try{ await drawLook(cv, e.look, e.relics); }catch(err){} } })();
     };
     draw();
+    return;
+  }
+  if(tab==="recent"){ // every run as it is posted, newest first: not a ranking, a feed
+    const got = turning ? boardGot.res : await api("/api/recent?limit=60");
+    boardGot = got ? {q, res:got} : null;
+    if($("modal").classList.contains("hidden") || !$("board-close")) return;
+    const all = got ? got.runs : [], pages = Math.max(1, Math.ceil(all.length/BOARD_PAGE)), pg = clamp(page||0, 0, pages-1), rows = all.slice(pg*BOARD_PAGE, (pg+1)*BOARD_PAGE);
+    const ago = at => { const m = Math.max(0, Math.round((Date.now()/1000-at)/60)); return m<1 ? "now" : m<60 ? m+"m" : m<1440 ? Math.round(m/60)+"h" : Math.round(m/1440)+"d"; };
+    openModal(shell(!got ? "<div class='note bad'>the feed can't be reached right now</div>" : !all.length ? "<div class='note'>nobody has finished a run yet.</div>"
+      : "<div class='board recent'>"+rows.map((e,i)=>{
+          const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
+          return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
+            + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
+            + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
+            + (e.cult!=null ? "<span>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span>"+(e.kills||0)+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>"; }).join("")+"</div>"
+        + (pages>1 ? "<div class='pager'><button class='btn small' id='pg-prev'"+(pg ? "" : " disabled")+" aria-label='newer'>◀</button><span>"+(pg*BOARD_PAGE+1)+"–"+(pg*BOARD_PAGE+rows.length)+" <small>of "+all.length+"</small></span>"
+            + "<button class='btn small' id='pg-next'"+(pg<pages-1 ? "" : " disabled")+" aria-label='older'>▶</button></div>" : "")
+        + "<div class='note'>every run as it finishes, newest first"+(pg===0 ? " · this page keeps itself up to date" : "")+"</div>")); wire();
+    if($("pg-prev")){ $("pg-prev").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg-1); }; $("pg-next").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg+1); }; }
+    const mark = $("modal-panel").querySelector(".board.recent");
+    if(mark && pg===0){ // the first page watches for new runs while it is open, and only redraws when one arrives
+      const watch = async ()=>{ if(!mark.isConnected) return; const n = document.hidden ? null : await api("/api/recent?limit=60"); if(!mark.isConnected) return;
+        if(n && n.runs.length && all.length && n.runs[0].id!==all[0].id){ boardGot = {q, res:n}; openBoard(tab, back, seed, 0); } else recentT = setTimeout(watch, 20000); };
+      clearTimeout(recentT); recentT = setTimeout(watch, 20000); }
+    for(const cv of [...$("modal-panel").querySelectorAll(".board.recent .bpfp")]){ if(!cv.isConnected) return; const e = rows[+cv.dataset.n]; try{ await drawLook(cv, e.look, e.relics||[]); }catch(err){} }
     return;
   }
   const res = turning ? boardGot.res : await api("/api/board?"+q+"&limit=100&player="+playerId());

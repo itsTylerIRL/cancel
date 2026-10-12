@@ -2019,3 +2019,10 @@ body.calm .pbar s{transition:none;}
 
 /* a boss fight (and the hill) is never under the night grade: the interface's blue wash is lifted for as long as it lasts */
 body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
+
+/* the latest-runs strip is a way in to the whole feed */
+.pfeed{cursor:pointer;transition:border-color .2s,box-shadow .2s;} .pfeed:hover,.pfeed:focus-visible{border-color:var(--neon);box-shadow:0 0 14px rgba(139,233,253,.25);outline:none;}
+.pfeed::after{content:"▸";position:absolute;right:0;top:0;bottom:0;display:flex;align-items:center;padding:0 8px;color:var(--neon);background:linear-gradient(90deg,transparent,rgba(2,6,8,.92) 45%);z-index:2;font-size:12px;} .pfeed-row{right:18px;}
+.pfeed:hover::before{color:var(--neon);}
+.board.recent .brow>i.ago{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:26px;text-align:center;}
+.bdaily{text-decoration:none;font-size:9px;letter-spacing:.06em;color:var(--acid);border:1px solid rgba(80,250,123,.4);border-radius:3px;padding:0 4px;margin-left:4px;white-space:nowrap;}
