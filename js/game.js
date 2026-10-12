@@ -3133,7 +3133,7 @@ function openModal(html){
 function runStrip(){
   const s = G.stats;
   return si("<div class='mstats'><div class='mnum'><span>❤️ "+Math.round(s.hp)+"/"+s.maxhp+"</span><span>⚔️ "+s.atk+"</span><span>🛡️ "+s.arm+"</span><span>💨 "+s.spd+"</span><span>✨ "+Math.round(s.crit)+"%</span><span>🌀 "+Math.round(s.dodge)+"%</span></div>"
-    + "<div class='mrel'>"+G.relics.map((id,i)=>ICONS[id] ? "<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>" : "").join("")
+    + "<div class='mrel'>"+G.relics.map((id,i)=>ICONS[id] ? "<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' data-rid='"+id+"' data-tier='"+tierAt(i)+"'>" : "").join("")
     + setRows(G.relics).map(r=>"<i class='"+(r.on.length?"on":"")+"' style='--sc:"+r.t.color+"' title='"+esc(r.t.name)+"'>"+setIco(r.t)+" "+r.c+(r.next ? "/"+r.next[0] : "")+"</i>").join("")+"</div></div>");
 }
 /* During a run on a wide screen, a mint, shop or event opens over the map and leaves the right-hand column in view:
@@ -4141,7 +4141,7 @@ function onBossDown(boss, forced, called){
   if(forced) G.queue.push(()=>{ G.day++; startDay(); });
 }
 function buildRow(){
-  return G.relics.length ? "<div class='build-row'>"+G.relics.map(id=>"<img class='relic-ico' src='"+ICONS[id]+"' alt='' title='"+relicById(id).name+"'>").join("")+"</div>" : "";
+  return G.relics.length ? "<div class='build-row'>"+G.relics.map((id,i)=>"<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' data-rid='"+id+"' data-tier='"+tierAt(i)+"'>").join("")+"</div>" : "";
 }
 function countUp(el, from, to, ms){
   const t0 = performance.now(), tok = el._count = (el._count||0)+1; // a newer count on the same element takes over
@@ -4176,7 +4176,7 @@ function runStripHTML(run, win){ // nine days in a row: what you picked up, who 
     const rel = (d.relics||[]).filter(id=>ICONS[id]);
     return "<div class='rs-day"+(gone?" gone":"")+(last?" died":"")+(d.boss?" boss":"")+(win && day===run.day ? " won" : "")+"'><u>day "+day+"</u>"
       + (d.boss ? "<b class='rs-boss' title='beat "+esc(d.boss)+"'>☠ "+esc(d.boss)+"</b>" : "")
-      + (rel.length ? "<span class='rs-rel'>"+rel.slice(0,4).map(id=>"<img class='relic-ico "+relicById(id).rar+"' src='"+ICONS[id]+"' alt='' title='"+esc(relicById(id).name)+"'>").join("")+(rel.length>4 ? "<small>+"+(rel.length-4)+"</small>" : "")+"</span>" : "")
+      + (rel.length ? "<span class='rs-rel'>"+rel.slice(0,4).map(id=>"<img class='relic-ico "+relicById(id).rar+"' src='"+ICONS[id]+"' alt='' data-rid='"+id+"' data-tier='1'>").join("")+(rel.length>4 ? "<small>+"+(rel.length-4)+"</small>" : "")+"</span>" : "")
       + (d.kills ? "<span class='rs-k'>"+d.kills+" kill"+(d.kills===1?"":"s")+(d.elite ? " · "+d.elite+" elite" : "")+"</span>" : "")
       + (d.close ? "<span class='rs-close' title='a fight ended with a fifth of your health or less'>⚠ close call</span>" : "")
       + (last ? "<span class='rs-end'>💀 "+esc(run.killedBy||"cancelled")+"</span>" : "")
@@ -4539,7 +4539,7 @@ async function kingReport(run, won, k, back){
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armor)
-const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("")+"</div>";
+const relicStrip = relics => "<div class='duel-relics'>"+relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+tierCls(r[1])+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("")+"</div>"; // hover (or press and hold) one for what it does at each tier
 /* ---------- what makes a fight worth watching ----------
    Shared by every fight on the stage (ordinary ones and the hill). None of it changes a number.
    - a crit stops everything for a moment, and the killing blow gets a beat of its own
@@ -5308,7 +5308,7 @@ async function openBoard(tab, back, seed, page){
     const ago = at => { const m = Math.max(0, Math.round((Date.now()/1000-at)/60)); return m<1 ? "now" : m<60 ? m+"m" : m<1440 ? Math.round(m/60)+"h" : Math.round(m/1440)+"d"; };
     openModal(shell(!got ? "<div class='note bad'>the feed can't be reached right now</div>" : !all.length ? "<div class='note'>nobody has finished a run yet.</div>"
       : "<div class='board recent'>"+rows.map((e,i)=>{
-          const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
+          const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
           return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
             + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
@@ -5335,7 +5335,7 @@ async function openBoard(tab, back, seed, page){
   else if(!res.top.length) body = "<div class='note'>nobody is on this board yet. be the first.</div>";
   else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
-      const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' title='"+esc(relicById(r[0]).name)+"'>").join("");
+      const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
         + "<span class='btribe'>"+tribeBadge(e.tribe)+"</span>"
         + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
