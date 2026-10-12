@@ -4948,7 +4948,8 @@ function rnReturn(){ // back from signing in: keep the session, tidy the address
     if(META.rn && META.rn.player!==String(d.p)) signOut(); // switching accounts: the old one's progress goes back in its box
     if(!META.rn) stashProfile("anon");
     META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
-    if((META.profiles||{})[META.rn.player]) loadProfile(META.rn.player); // been here before: pick up where the account left off (a first sign-in keeps what this browser had, and it joins the account)
+    if((META.profiles||{})[META.rn.player]) loadProfile(META.rn.player); // been here before: pick up where the account left off
+    else { META.profiles.anon = PROFILE_BLANK(); META.anonMoved = 1; } // a first sign-in keeps what this browser had, and it joins the account. It is moved, not copied: the next account to sign in here must not be handed the same DRIP, streak and record
     if(!META.name && !isShip(META.rn.handle)) META.name = cleanName(META.rn.name);
     META.prefsSig = JSON.stringify(prefsOf()); // signing in isn't a change of settings: the account's own are about to arrive
     saveMeta();
@@ -5890,6 +5891,12 @@ async function init(){
   if(META.rn && !(META.rn.exp*1000 > Date.now())) signOut(); // a session that ran out is a sign-out
   else if(!META.rn && !META.profiles && META.sync && META.sync.p){ // signed out before progress was kept per player: what is here is that account's
     stashProfile(META.sync.p); loadProfile("anon"); saveMeta();
+  }
+  if(!META.anonMoved){ // before progress was moved at a first sign-in it was copied, and the copy was still waiting to be handed to the next account
+    if(META.rn && META.profiles && Object.keys(META.profiles).some(k=>k!=="anon")) META.profiles.anon = PROFILE_BLANK();
+    else if(META.rn && META.profiles && META.profiles.anon) META.profiles.anon = PROFILE_BLANK(); // signed in now: what this browser had is already this account's
+    if(META.rn) META.anonMoved = 1;
+    saveMeta();
   }
   if(!META.streak && META.dailyAt) META.streak = {n:1, last:META.dailyAt.date, best:1}; // dailies played before streaks were kept
   renderLegend();
