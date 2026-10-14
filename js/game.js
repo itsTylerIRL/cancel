@@ -4537,6 +4537,7 @@ async function kingReport(run, won, k, back){
     : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
   if(res==="claimed" || res==="took"){ achieve("king"); sfx("fanfare"); burst("👑✨🌸"); }
   if(res==="took" && mySlain && mySlain.pid===playerId()) mySlain.n++; // a king just fell to you
+  if((res==="took" || res==="claimed") && mySlain && mySlain.pid===playerId()) loadSlain(); // and the crown count may have moved
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armor)
@@ -4805,7 +4806,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
            + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
     + "<div class='king-relics you-mid'><span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
-        + (mySlain && mySlain.pid===playerId() && mySlain.n ? "<i>·</i><b class='slain' title='kings slain: times you took the hill from a sitting king'>👑 "+mySlain.n+"</b>" : "")+"</span>"
+        + (mySlain && mySlain.pid===playerId() && mySlain.crowns ? "<i>·</i><b class='slain' title='weeks as king: every week you show as king of the hill on the leaderboard'>👑 "+mySlain.crowns+"</b>" : "")
+        + (mySlain && mySlain.pid===playerId() && mySlain.n ? "<i>·</i><b class='slain sword' title='kings slain: times you took the hill from a sitting king'>⚔️ "+mySlain.n+"</b>" : "")+"</span>"
       + (r ? "<u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0]))) : "")+"</div>"
     + "<div class='king-clock you-nums'><u>all-time</u><b class='rank'>"+(rk ? (rk.rank ? "#"+rk.rank : "—") : "…")+"</b><span>"+(rk ? (rk.rank ? "of "+rk.total+" · best "+rk.score : "not on the board yet") : "&nbsp;")+"</span>"
       + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>"+(u ? "to spend on unlocks" : "waiting for you")+"</span></div></div>"
@@ -4829,7 +4831,7 @@ async function loadDaily(){
   if($("screen-title").classList.contains("active")) renderDailyButton();
 }
 let mySlain = null; // how many sitting kings you have taken the hill from, once the service has said
-async function loadSlain(){ const r = await api("/api/king?player="+playerId()); if(r) mySlain = { pid:playerId(), n:r.slain||0 }; return r; }
+async function loadSlain(){ const r = await api("/api/king?player="+playerId()); if(r) mySlain = { pid:playerId(), n:r.slain||0, crowns:r.crowns||0 }; return r; }
 async function loadKing(){
   const el = $("king-box"); if(!el || !online()) return;
   if(!el.innerHTML.trim()){ // first load: hold the space with the panel's outline, so the menu below doesn't jump when it arrives
@@ -4838,7 +4840,7 @@ async function loadKing(){
   }
   const r = await api("/api/king?player="+playerId());
   if(!r){ if(!el.querySelector(".king-card:not(.skel-wrap)")) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
-  { const was = mySlain && mySlain.pid===playerId() ? mySlain.n : -1; mySlain = { pid:playerId(), n:r.slain||0 }; if(was!==mySlain.n && $("screen-title").classList.contains("active")) renderLast(); } // the card shows it too
+  { const was = mySlain && mySlain.pid===playerId() ? mySlain.n+"/"+mySlain.crowns : ""; mySlain = { pid:playerId(), n:r.slain||0, crowns:r.crowns||0 }; if(was!==mySlain.n+"/"+mySlain.crowns && $("screen-title").classList.contains("active")) renderLast(); } // the card shows both
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"
@@ -5646,7 +5648,8 @@ function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
     + line("relics discovered", pool.filter(r=>META.seen[r.id]).length+" / "+pool.length)
     + line("achievements", ACHIEVEMENTS.filter(a=>META.ach[a.id]).length+" / "+ACHIEVEMENTS.length)
     + line("DRIP to spend", (META.drip||0).toLocaleString("en-US"))
-    + line("kings slain", mySlain && mySlain.pid===playerId() ? (mySlain.n ? "👑 "+mySlain.n : "none yet") : online() ? "…" : "—")
+    + line("weeks as king", mySlain && mySlain.pid===playerId() ? (mySlain.crowns ? "👑 "+mySlain.crowns : "none yet") : online() ? "…" : "—")
+    + line("kings slain", mySlain && mySlain.pid===playerId() ? (mySlain.n ? "⚔️ "+mySlain.n : "none yet") : online() ? "…" : "—")
     + line("daily streak", streakNow() ? streakTag(streakNow()).replace(" streak","s").replace("1 days","1 day") : "—")
     + line("longest daily streak", (META.streak||{}).best ? META.streak.best+" day"+(META.streak.best===1?"":"s") : "—")
     + "</div>";

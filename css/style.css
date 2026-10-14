@@ -2029,3 +2029,4 @@ body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
 
 /* kings slain, on the player card beside the record */
 .king-card .wl .slain{color:var(--gold);white-space:nowrap;}
+.king-card .wl .slain.sword{color:#ff8b8b;}

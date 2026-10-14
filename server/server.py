@@ -1075,8 +1075,10 @@ class Handler(BaseHTTPRequestHandler):
                 changes = hill_changes(con)
                 # how many times this player has taken the hill from a sitting king, in any week (claiming an empty hill isn't a kill)
                 slain = con.execute("SELECT COUNT(*) FROM hill_log WHERE player=? AND kind='took'", (player,)).fetchone()[0] if player else 0
+                # and how many weeks this player shows as king: each week they held the hill when it ended, and this one if they hold it now
+                crowns = con.execute("SELECT COUNT(*) FROM hill WHERE player=?", (player,)).fetchone()[0] if player else 0
             return self.send(200, {"week": hill_week(), "resets": hill_reset(), "dailyResets": next_reset(), "king": king, "changes": changes,
-                                   "you": bool(player and king_player == player), "slain": slain})
+                                   "you": bool(player and king_player == player), "slain": slain, "crowns": crowns})
         if u.path == "/api/pulse":
             return self.send(200, dict(pulse(), now=here(one("here"), self.client_key())))
         if u.path == "/api/hall":
