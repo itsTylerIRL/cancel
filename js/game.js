@@ -172,6 +172,17 @@ const TOKEN_SLOTS = {
   Remilio: { Race:"skin", Brows:"brows", Eyes:"eyes", Hair:"hair", Face:"face", Shirt:"shirt", Mouth:"mouth", Costume:"costume",
              Earrings:"ear", Glasses:"glasses", Hat:"hat", Weapon:"weapon", Friend:"friend" },
 };
+function genRemilio(){ // a Remilio made from the trait files, the way a token would be laid out, with no number
+  const M = TOKEN_MAP.remilio, keep = SEED; SEED = null; // a look is cosmetic: it doesn't spend the run's luck
+  try{
+    for(let i=0;i<8;i++){
+      const p = randomPicks("Remilio"), layers = {};
+      for(const l in p) if(TOKEN_SLOTS.Remilio[l]) layers[l] = p[l];
+      if(layers[M.body]) return { cfg:"Remilio", layers, eyeColor:"" };
+    }
+  } finally { SEED = keep; }
+  return null;
+}
 function basePicks(){
   const picks = {};
   for(const layer of BASE_LAYERS) picks[layer] = choice(ASSETS.Milady[layer]);
@@ -502,7 +513,7 @@ function frost(src){ // the Death Knight tint on its own, for art that is alread
 }
 const PORTRAIT_FX = { fried:(cv,def)=>fry(cv, def.caption), blocky, schizo, ps1, pixel, undead, frost };
 /* You never fight your own collection: a Milady meets no Miladys, a Radbro no Radbros. */
-function playerCollection(){ return G && G.base && G.base.nft ? G.base.nft.kind : "milady"; }
+function playerCollection(){ return G && G.base ? (G.base.nft ? G.base.nft.kind : G.base.token ? G.base.token.cfg.toLowerCase() : "milady") : "milady"; }
 function collectionOf(def){ return def.nft || def.cfg.toLowerCase(); }
 function clashes(def){ return collectionOf(def)===playerCollection(); }
 const CIG_FROM = "2026-10-12";
@@ -5137,7 +5148,7 @@ function submitRun(run, win, drip){
   return postScore({
     run: run.runId,
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
-    tribe: run.tribe, collection: nft ? nft.kind : "milady", token: nft ? nft.id : null,
+    tribe: run.tribe, collection: nft ? nft.kind : run.base && run.base.token ? run.base.token.cfg.toLowerCase() : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
     daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
     candles: (run.candles||[]).slice(0,9).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
@@ -5500,10 +5511,12 @@ function beginSetup(){
 }
 const RADBRO_TOKEN = { kind:"remilio", id:2305 }; // "Radbro" on the character screen is this one Remilio, and nothing to choose
 const isRadbro = n => !!n && n.kind===RADBRO_TOKEN.kind && +n.id===RADBRO_TOKEN.id;
-async function genAvatar(nft, last){ // last: the character from the previous run, to start from instead of a new roll
+async function genAvatar(nft, last, kind){ // kind: with no token, which collection to make one from ("remilio", or a Milady) // last: the character from the previous run, to start from instead of a new roll
   const tok = ++avaTok;
   const keep = last && last.picks && BASE_LAYERS.every(l=>(ASSETS.Milady[l]||[]).includes(last.picks[l])) ? last : null; // only if its layers still exist
-  const ava = keep ? { picks:{...keep.picks}, name:"milady" } : { picks: basePicks(), name:"milady" }; // a character is named for what it is: nobody types a name
+  const lastRem = last && last.picks && last.picks.token && last.picks.token.cfg==="Remilio" ? last : null; // a generated Remilio from last time
+  let ava = keep ? { picks:{...keep.picks}, name:"milady" } : lastRem ? { picks:{...lastRem.picks}, name:"remilio" } : { picks: basePicks(), name:"milady" }; // a character is named for what it is: nobody types a name
+  if(!nft && kind==="remilio"){ const tk = genRemilio(); if(tk) ava = { picks:{ ...basePicks(), token:tk }, name:"remilio" }; }
   if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
     const rad = isRadbro(nft), label = rad ? "Radbro" : NFT[nft.kind].name+" #"+nft.id;
@@ -5528,7 +5541,7 @@ async function genAvatar(nft, last){ // last: the character from the previous ru
   paint(cv, ava.canvas); paint($("hud-avatar"), ava.canvas);
   cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
   $("ava-name").textContent = ava.name;
-  document.querySelector("#screen-avatar h2").textContent = isRadbro(ava.picks.nft) ? "that's radbro" : "your "+(ava.picks.nft && ava.picks.nft.kind==="remilio" ? "remilio" : "milady");
+  document.querySelector("#screen-avatar h2").textContent = isRadbro(ava.picks.nft) ? "that's radbro" : "your "+((ava.picks.nft && ava.picks.nft.kind==="remilio") || (ava.picks.token && ava.picks.token.cfg==="Remilio") ? "remilio" : "milady");
   renderPicks();
   $("btn-begin").disabled = false;
   if(navBegin){ navBegin = false; navSet($("btn-begin")); } // arriving here, Enter should start the run
@@ -6023,10 +6036,14 @@ async function init(){
   };
   $("nft-id").oninput = ()=>{ clearTimeout(nftT); nftT = setTimeout(useNft, 380); }; // a beat after the last keystroke
   $("nft-id").onchange = useNft;
-  $("nft-kind").onchange = ()=>{ nftRow(); useNft(); };
-  $("btn-reroll").onclick = ()=>{ // a random token from whichever collection the dropdown shows now, not the one last loaded
-    const sel = $("nft-kind").value; if(sel==="radbro" || !NFT[sel]) return;
-    sfx("click"); $("nft-id").value = Math.floor(Math.random()*(NFT[sel].max+1)); useNft();
+  $("nft-kind").onchange = ()=>{ nftRow(); // a number in the box loads that token; with no number, switching collection makes one of the new kind
+    const sel = $("nft-kind").value;
+    if(sel!=="radbro" && !$("nft-id").value.trim()){ const cur = AVA && AVA.picks, curKind = cur && (cur.nft ? cur.nft.kind : cur.token ? cur.token.cfg.toLowerCase() : "milady");
+      if(curKind!==sel || (cur && cur.nft)){ $("btn-begin").disabled = true; genAvatar(null, null, sel); } return; }
+    useNft(); };
+  $("btn-reroll").onclick = ()=>{ // a new character made from the trait files, of whichever collection the dropdown shows now. A number loads a real token; a reroll never does
+    const sel = $("nft-kind").value; if(sel==="radbro") return;
+    sfx("click"); clearTimeout(nftT); $("nft-id").value = ""; META.nft = null; saveMeta(); $("btn-begin").disabled = true; genAvatar(null, null, sel);
   };
   nftRow();
 
