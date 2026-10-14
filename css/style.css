@@ -2033,3 +2033,13 @@ body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
 
 /* the character screen names the character for what it is: nobody types a name */
 .ava-name{font-family:var(--mono);font-size:18px;letter-spacing:.14em;text-transform:lowercase;color:var(--neon);margin:10px 0 6px;min-height:1.3em;}
+
+/* on a card, the verified handle sits under the portrait with its sign-in's mark */
+.king-card .pcol{display:flex;flex-direction:column;align-items:center;gap:5px;flex:none;max-width:104px;min-width:0;}
+.vtag{display:inline-flex;align-items:center;gap:4px;max-width:100%;font-size:10.5px;line-height:1.2;text-decoration:none;white-space:nowrap;}
+.vtag b{font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.vtag.rm{color:var(--gold);} .vtag.rm img{width:15px;height:15px;border-radius:50%;flex:none;box-shadow:0 0 0 1px var(--gold),0 0 8px rgba(241,250,140,.4);}
+.vtag.ur{color:var(--urbit);} .vtag.ur svg{width:15px;height:15px;flex:none;filter:drop-shadow(0 0 4px rgba(95,168,255,.5));}
+a.vtag:hover b{text-decoration:underline;}
+.king-card .pcol{max-width:92px;} .king-card .vtag b,.king-card.last-card .vtag b{font-size:10.5px;font-weight:600;color:inherit;text-shadow:none;}
+.king-card>div>b:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

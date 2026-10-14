@@ -4798,8 +4798,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
   const wl = { w:META.wins||0, l:Math.max(0, (META.runs||0)-(META.wins||0)) };
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
-    + (r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
-    + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
+    + (r && r.look || u ? "<span class='pcol'>"+(r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")+(u ? provTag(u.handle) : "")+"</span>" : "")
+    + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+"</b>"
       + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
@@ -4843,7 +4843,7 @@ async function loadKing(){
   { const was = mySlain && mySlain.pid===playerId() ? mySlain.n+"/"+mySlain.crowns : ""; mySlain = { pid:playerId(), n:r.slain||0, crowns:r.crowns||0 }; if(was!==mySlain.n+"/"+mySlain.crowns && $("screen-title").classList.contains("active")) renderLast(); } // the card shows both
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
-    + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"
+    + (k ? "<span class='pcol'><canvas class='bpfp big' width='4' height='4'></canvas>"+provTag(k.handle)+"</span><div><b>👑 "+esc(k.name)+(r.you ? " <span class='good'>(you)</span>" : "")+"</b><span class='badge-row'>"+tribeBadge(k.tribe)+"</span>"
            + "<span>"+si("❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm)+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
            + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
@@ -4949,6 +4949,10 @@ function rnUser(){ return META.rn && META.rn.exp*1000 > Date.now() ? META.rn : n
 const isShip = h => typeof h==="string" && h[0]==="~";
 const whoTag = h => isShip(h) ? "<span class='rn-tag ur' title='verified Urbit ship'>✓ "+esc(h)+"</span>"
   : "<a class='rn-tag' href='https://remilia.net/~"+encodeURIComponent(h)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'>✓ ~"+esc(h)+"</a>";
+/* The same verified name, as it sits under a portrait on a card: the mark of whichever sign-in it is (Remilia's in gold,
+   Urbit's in blue) and the handle, on a line of its own so the name beside the portrait stays short. */
+const provTag = h => !h ? "" : isShip(h) ? "<span class='vtag ur' title='verified Urbit ship'>"+URBIT_MARK+"<b>"+esc(h)+"</b></span>"
+  : "<a class='vtag rm' href='https://remilia.net/~"+encodeURIComponent(h)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'><img src='"+localFile(REMILIA_LOGO)+"' alt=''><b>~"+esc(h)+"</b></a>";
 function rnReturn(){ // back from signing in: keep the session, tidy the address bar
   const m = /[#&]rn(_error)?=([^&]*)/.exec(location.hash); if(!m) return "";
   try{ history.replaceState(null, "", location.pathname+location.search); }catch(e){}
