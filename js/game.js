@@ -5230,6 +5230,46 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
 let boardGot = null; // the board last fetched, so turning a page doesn't ask again
 const BOARD_PAGE = 10;
+/* The hall of fame's month, on the home page under the latest runs: each day's champion and each week's king, in the
+   same grid as the leaderboard's calendar. A day opens the full hall on that day. */
+let homeHall = { month:"", data:null, at:0 };
+async function loadHomeHall(){
+  const el = $("home-hall"); if(!el || !online()) return;
+  if(!homeHall.data || Date.now()-homeHall.at > 60000){
+    const [h, kg] = await Promise.all([api("/api/hall"), api("/api/king?player="+playerId())]);
+    if(!h){ if(!homeHall.data) el.classList.add("hidden"); return; }
+    homeHall.data = { h, kg }; homeHall.at = Date.now();
+  }
+  drawHomeHall();
+}
+function drawHomeHall(){
+  const el = $("home-hall"), { h, kg } = homeHall.data || {}; if(!el || !h) return;
+  const D = s => new Date(s+"T12:00:00Z"), iso = d => d.toISOString().slice(0,10), addDays = (s, n) => iso(new Date(D(s).getTime()+n*86400e3));
+  const mondayOf = s => addDays(s, -((D(s).getUTCDay()+6)%7));
+  const days = {}, kings = {}; for(const e of h.days) days[e.date] = e; for(const k of (h.kings||[])) kings[k.week] = k;
+  if(kg && kg.king) kings[mondayOf(h.today)] = {...kg.king, week:mondayOf(h.today), live:true};
+  const first = h.days.length ? h.days[h.days.length-1].date.slice(0,7) : h.today.slice(0,7), last = h.today.slice(0,7);
+  const month = homeHall.month = homeHall.month && homeHall.month>=first && homeHall.month<=last ? homeHall.month : last;
+  const [Y, M] = month.split("-").map(Number), one = month+"-01", end = iso(new Date(Date.UTC(Y, M, 0, 12)));
+  const who = e => e.handle ? (isShip(e.handle) ? e.handle : "~"+e.handle) : e.name;
+  let html = "<div class='phead hh-head'><button class='hh-nav' id='hh-prev'"+(month<=first ? " disabled" : "")+" aria-label='earlier month'>‹</button><span>hall of fame · "
+    + D(one).toLocaleDateString("en-US", {month:"long", year:"numeric", timeZone:"UTC"}).toLowerCase()+"</span><button class='hh-nav' id='hh-next'"+(month>=last ? " disabled" : "")+" aria-label='later month'>›</button></div>"
+    + "<div class='cal hh-cal'>"+["m","t","w","t","f","s","s"].map(d=>"<u>"+d+"</u>").join("")+"<u class='kcol'>👑</u>";
+  for(let w = mondayOf(one); w<=end && w<=h.today; w = addDays(w, 7)){ // weeks that haven't started yet aren't drawn: the month grows down as it goes
+    for(let i=0;i<7;i++){ const d = addDays(w, i), e = days[d];
+      html += d.slice(0,7)!==month ? "<i class='cal-cell out'></i>"
+        : "<button class='cal-cell"+(e ? (e.win ? " won" : " fell") : " empty")+(d===h.today ? " live" : "")+(d>h.today ? " future" : "")+"' data-day='"+d+"' title='"+esc(d+(e ? " · "+who(e)+" · "+e.score+(e.win ? " · saved on day "+e.day : " · cancelled on day "+e.day) : ""))+"'>"
+          + (e ? "<canvas class='bpfp' data-hd='"+d+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>✕</s>") : "")+"<em>"+(+d.slice(8))+"</em></button>"; }
+    const k = kings[w];
+    html += k ? "<button class='cal-cell kcell"+(k.live ? " live" : "")+"' data-king='"+w+"' title='"+esc("king, week of "+w+" · "+who(k))+"'><canvas class='bpfp' data-hk='"+w+"' width='4' height='4'></canvas><em>👑</em></button>" : "<i class='cal-cell kcell empty'></i>";
+  }
+  el.innerHTML = html+"</div>"; el.classList.remove("hidden");
+  $("hh-prev").onclick = ()=>{ sfx("click"); homeHall.month = iso(new Date(Date.UTC(Y, M-2, 1, 12))).slice(0,7); drawHomeHall(); };
+  $("hh-next").onclick = ()=>{ sfx("click"); homeHall.month = iso(new Date(Date.UTC(Y, M, 1, 12))).slice(0,7); drawHomeHall(); };
+  el.querySelectorAll("[data-day],[data-king]").forEach(b=>{ b.onclick = ()=>{ if(b.classList.contains("future")) return; sfx("click");
+    hallState = { today:h.today, month, sel:b.dataset.day || "k"+b.dataset.king, filter:"" }; openBoard("hall"); }; });
+  (async ()=>{ for(const cv of [...el.querySelectorAll("canvas")]){ if(!cv.isConnected) return; const e = cv.dataset.hd ? days[cv.dataset.hd] : kings[cv.dataset.hk]; try{ await drawLook(cv, e.look, e.relics); }catch(err){} } })();
+}
 let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
@@ -5599,7 +5639,7 @@ function renderDailyButton(){
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank(); renderInstall();
+  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank(); renderInstall(); loadHomeHall();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);

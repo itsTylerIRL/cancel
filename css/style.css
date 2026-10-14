@@ -2043,3 +2043,11 @@ body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
 a.vtag:hover b{text-decoration:underline;}
 .king-card .pcol{max-width:92px;} .king-card .vtag b,.king-card.last-card .vtag b{font-size:10.5px;font-weight:600;color:inherit;text-shadow:none;}
 .king-card>div>b:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* the hall of fame's month on the home page */
+.home-hall{max-width:560px;margin:14px auto 0;}
+.hh-head{display:flex;align-items:center;justify-content:center;gap:10px;}
+.hh-nav{background:none;border:1px solid var(--line);border-radius:4px;color:var(--neon);font:inherit;font-size:13px;line-height:1;padding:2px 8px;cursor:pointer;}
+.hh-nav:disabled{opacity:.25;cursor:default;} .hh-nav:not(:disabled):hover{border-color:var(--neon);}
+.hh-cal{gap:4px;} .hh-cal>u{font-size:8.5px;}
+.hh-cal .cal-cell{border-radius:5px;} .hh-cal .cal-cell em{font-size:8.5px;} .hh-cal .cal-cell.kcell{margin-left:3px;} .hh-cal .cal-cell s{font-size:10px;}
