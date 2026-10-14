@@ -4804,7 +4804,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
            + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
-    + "<div class='king-relics you-mid'><span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b></span>"
+    + "<div class='king-relics you-mid'><span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
+        + (mySlain && mySlain.pid===playerId() && mySlain.n ? "<i>·</i><b class='slain' title='kings slain: times you took the hill from a sitting king'>👑 "+mySlain.n+"</b>" : "")+"</span>"
       + (r ? "<u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0]))) : "")+"</div>"
     + "<div class='king-clock you-nums'><u>all-time</u><b class='rank'>"+(rk ? (rk.rank ? "#"+rk.rank : "—") : "…")+"</b><span>"+(rk ? (rk.rank ? "of "+rk.total+" · best "+rk.score : "not on the board yet") : "&nbsp;")+"</span>"
       + "<u class='gap'>drip</u><b class='drip'>"+num(META.drip)+"</b><span>"+(u ? "to spend on unlocks" : "waiting for you")+"</span></div></div>"
@@ -4837,7 +4838,7 @@ async function loadKing(){
   }
   const r = await api("/api/king?player="+playerId());
   if(!r){ if(!el.querySelector(".king-card:not(.skel-wrap)")) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
-  mySlain = { pid:playerId(), n:r.slain||0 };
+  { const was = mySlain && mySlain.pid===playerId() ? mySlain.n : -1; mySlain = { pid:playerId(), n:r.slain||0 }; if(was!==mySlain.n && $("screen-title").classList.contains("active")) renderLast(); } // the card shows it too
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"

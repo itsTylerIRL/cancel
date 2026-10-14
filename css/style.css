@@ -2026,3 +2026,6 @@ body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
 .pfeed:hover::before{color:var(--neon);}
 .board.recent .brow>i.ago{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:26px;text-align:center;}
 .bdaily{text-decoration:none;font-size:9px;letter-spacing:.06em;color:var(--acid);border:1px solid rgba(80,250,123,.4);border-radius:3px;padding:0 4px;margin-left:4px;white-space:nowrap;}
+
+/* kings slain, on the player card beside the record */
+.king-card .wl .slain{color:var(--gold);white-space:nowrap;}
