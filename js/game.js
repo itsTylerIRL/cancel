@@ -4536,6 +4536,7 @@ async function kingReport(run, won, k, back){
     : res==="lost" ? "<b>"+esc(k.name)+" keeps the hill.</b> that's "+beaten(r.king.defences)+" now"
     : res==="already" ? "<b>you already hold the hill.</b>" : "the hill couldn't be reached. your run still stands")+"</div>";
   if(res==="claimed" || res==="took"){ achieve("king"); sfx("fanfare"); burst("👑✨🌸"); }
+  if(res==="took" && mySlain && mySlain.pid===playerId()) mySlain.n++; // a king just fell to you
   if(back) back(); else if($("end-king")) $("end-king").innerHTML = run.kingDone;
 }
 const beaten = n => n ? n+" challenger"+(n===1?"":"s")+" beaten" : "unchallenged so far"; // how a king's record reads (not their armor)
@@ -4826,6 +4827,8 @@ async function loadDaily(){
   dailyInfo = { day, total:res.total, wins:res.top.filter(e=>e.win).length, top:res.top[0] ? res.top[0].score : 0, you:res.you || null };
   if($("screen-title").classList.contains("active")) renderDailyButton();
 }
+let mySlain = null; // how many sitting kings you have taken the hill from, once the service has said
+async function loadSlain(){ const r = await api("/api/king?player="+playerId()); if(r) mySlain = { pid:playerId(), n:r.slain||0 }; return r; }
 async function loadKing(){
   const el = $("king-box"); if(!el || !online()) return;
   if(!el.innerHTML.trim()){ // first load: hold the space with the panel's outline, so the menu below doesn't jump when it arrives
@@ -4834,6 +4837,7 @@ async function loadKing(){
   }
   const r = await api("/api/king?player="+playerId());
   if(!r){ if(!el.querySelector(".king-card:not(.skel-wrap)")) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
+  mySlain = { pid:playerId(), n:r.slain||0 };
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
     + (k ? "<canvas class='bpfp big' width='4' height='4'></canvas><div><b>👑 "+esc(k.name)+(k.handle ? " "+whoTag(k.handle) : "")+(r.you ? " <span class='good'>(you)</span>" : "")+" "+tribeBadge(k.tribe)+"</b>"
@@ -5228,6 +5232,7 @@ async function openBoard(tab, back, seed, page){
       + "<div class='note'>"+(u ? "your record is saved to your account. " : "your record is kept in this browser: sign in to carry it to your other devices. ")+(u ? "your runs and settings are too, so every machine you sign in on looks like this one. " : "")+"an abandoned run counts as cancelled</div>")); wire();
     for(const cv of [...$("modal-panel").querySelectorAll("canvas[data-run]")]){ if(!cv.isConnected) return; const r = runs[+cv.dataset.run]; try{ await drawLook(cv, r.look, r.relics); }catch(e){} }
     if(!rk) loadRank().then(()=>{ if($("modal-panel").querySelector(".me-head") && myRank) openBoard("me", back, seed); });
+    if(!(mySlain && mySlain.pid===playerId())) loadSlain().then(()=>{ if($("modal-panel").querySelector(".me-head") && mySlain) openBoard("me", back, seed); });
     return;
   }
   const q = tab==="recent" ? "recent" : tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
@@ -5640,6 +5645,7 @@ function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
     + line("relics discovered", pool.filter(r=>META.seen[r.id]).length+" / "+pool.length)
     + line("achievements", ACHIEVEMENTS.filter(a=>META.ach[a.id]).length+" / "+ACHIEVEMENTS.length)
     + line("DRIP to spend", (META.drip||0).toLocaleString("en-US"))
+    + line("kings slain", mySlain && mySlain.pid===playerId() ? (mySlain.n ? "👑 "+mySlain.n : "none yet") : online() ? "…" : "—")
     + line("daily streak", streakNow() ? streakTag(streakNow()).replace(" streak","s").replace("1 days","1 day") : "—")
     + line("longest daily streak", (META.streak||{}).best ? META.streak.best+" day"+(META.streak.best===1?"":"s") : "—")
     + "</div>";
