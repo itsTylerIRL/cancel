@@ -4799,7 +4799,7 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   const wl = { w:META.wins||0, l:Math.max(0, (META.runs||0)-(META.wins||0)) };
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
     + (r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
-    + "<div><b>"+esc(u ? u.name : (r ? r.name : META.name || "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
+    + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+(u ? " "+whoTag(u.handle) : "")+"</b>"
       + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
@@ -4961,7 +4961,6 @@ function rnReturn(){ // back from signing in: keep the session, tidy the address
     META.rn = { token:m[2], handle:String(d.h), name:String(d.n||d.h), player:String(d.p), exp:+d.exp };
     if((META.profiles||{})[META.rn.player]) loadProfile(META.rn.player); // been here before: pick up where the account left off
     else { META.profiles.anon = PROFILE_BLANK(); META.anonMoved = 1; } // a first sign-in keeps what this browser had, and it joins the account. It is moved, not copied: the next account to sign in here must not be handed the same DRIP, streak and record
-    if(!META.name && !isShip(META.rn.handle)) META.name = cleanName(META.rn.name);
     META.prefsSig = JSON.stringify(prefsOf()); // signing in isn't a change of settings: the account's own are about to arrive
     saveMeta();
   }catch(e){ return "sign-in didn't go through"; }
@@ -5070,7 +5069,7 @@ async function syncProfile(force){
     if(d.prefs && d.prefs.at > (META.prefsAt||0)){ // settings changed on another machine since this one last changed them
       for(const k of PREF_KEYS) if(d.prefs.v[k]!==undefined) META[k] = d.prefs.v[k];
       META.prefsAt = d.prefs.at; META.prefsSig = JSON.stringify(prefsOf());
-      setMute(!!META.mute); applyCalm(); applyBackground(); if($("name-in")) $("name-in").value = META.name || "";
+      setMute(!!META.mute); applyCalm(); applyBackground(); 
       if(G) document.body.dataset.frame = frameWorn();
     }
     if(r.runs){ // run history is the service's: the same cards on every machine. A run that hasn't finished posting yet stays on top.
@@ -5227,7 +5226,7 @@ async function openBoard(tab, back, seed, page){
   };
   if(tab==="me"){ // personal: your record, where you stand, and your last few runs
     const runs = runHistory(), rk = myRank && myRank.pid===playerId() ? myRank : null, u = rnUser();
-    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : META.name || "you")+(u ? " "+whoTag(u.handle) : "")+"</b>"
+    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle) : "")+"</b>"
         + "<span>"+(rk ? (rk.rank ? "all-time <u>#"+rk.rank+"</u> of "+rk.total+" · best "+rk.score : "not on the all-time board yet") : "")+"</span></div>"
       + recordHTML()
       + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"
@@ -5428,7 +5427,6 @@ function leaveRun(){
 /* ---------- avatar screen ---------- */
 let AVA = null, avaTok = 0;
 /* names end up inside HTML in the feed and dialogs, so keep them to plain characters */
-const cleanName = v => v.replace(/[<>&"'`\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
 const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen is setting up
 /* The daily turns over at midnight Eastern (New York), wherever the player is. */
 const DAILY_TZ = "America/New_York";
@@ -5500,7 +5498,7 @@ const isRadbro = n => !!n && n.kind===RADBRO_TOKEN.kind && +n.id===RADBRO_TOKEN.
 async function genAvatar(nft, last){ // last: the character from the previous run, to start from instead of a new roll
   const tok = ++avaTok;
   const keep = last && last.picks && BASE_LAYERS.every(l=>(ASSETS.Milady[l]||[]).includes(last.picks[l])) ? last : null; // only if its layers still exist
-  const ava = keep ? { picks:{...keep.picks}, name:keep.name || choice(NAMES) } : { picks: basePicks(), name: choice(NAMES) };
+  const ava = keep ? { picks:{...keep.picks}, name:"milady" } : { picks: basePicks(), name:"milady" }; // a character is named for what it is: nobody types a name
   if(nft && !(NFT[nft.kind] && NFT[nft.kind].playable)) nft = null; // only Miladys and Remilios are playable
   if(nft){
     const rad = isRadbro(nft), label = rad ? "Radbro" : NFT[nft.kind].name+" #"+nft.id;
@@ -5524,7 +5522,7 @@ async function genAvatar(nft, last){ // last: the character from the previous ru
   const cv = $("avatar-canvas");
   paint(cv, ava.canvas); paint($("hud-avatar"), ava.canvas);
   cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
-  $("name-in").placeholder = ava.name;
+  $("ava-name").textContent = ava.name;
   document.querySelector("#screen-avatar h2").textContent = isRadbro(ava.picks.nft) ? "that's radbro" : "your "+(ava.picks.nft && ava.picks.nft.kind==="remilio" ? "remilio" : "milady");
   renderPicks();
   $("btn-begin").disabled = false;
@@ -6006,7 +6004,6 @@ async function init(){
   }
   $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("btn-ava-back").onclick=()=>{ sfx("click"); avaTok++; show("screen-title"); renderTitle(); }; // back to the title; whatever was loading is dropped
-  $("name-in").value = META.name || "";
   $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("")+"<option value='radbro'>Radbro</option>";
   if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = isRadbro(META.nft) ? "radbro" : META.nft.kind; $("nft-id").value = META.nft.id; }
   /* No load button: the character follows the number as it is typed. A number that isn't one (empty, out of range)
@@ -6028,9 +6025,6 @@ async function init(){
   $("btn-begin").onclick=()=>{
     if(!AVA) return;
     clearRun();
-    const typed = cleanName($("name-in").value);
-    META.name = typed; saveMeta();
-    if(typed) AVA.name = typed;
     // next time, this is who is waiting on the character screen
     META.last = AVA.picks.nft ? { nft:AVA.picks.nft } : { picks:AVA.picks, name:AVA.name }; saveMeta();
     beginSetup();

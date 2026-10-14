@@ -421,9 +421,6 @@ def parse_run(d):
         player = verified_player(handle)  # the account's one row per board, from any device
     elif player.startswith(("rn", "ur")):
         raise Bad("sign in again")  # an expired or forged session must not write to a verified player's row
-    name = clean_text(d.get("name"), 18)
-    if not name:
-        raise Bad("bad name")
     score = as_int(d.get("score"), 0, MAX_SCORE, "score")
     day = as_int(d.get("day"), 1, 9, "day")
     bosses = as_int(d.get("bosses"), 0, 3, "bosses")
@@ -442,6 +439,7 @@ def parse_run(d):
     token = d.get("token")
     if token is not None:
         token = as_int(token, 0, 9999, "token")
+    name = char_name(collection, token)  # whatever name the browser sent is ignored
     relics = d.get("relics")
     if not isinstance(relics, list) or len(relics) > 8:
         raise Bad("bad relics")
@@ -512,8 +510,29 @@ def rank_of(con, board, player):
     return {"rank": ahead + 1, "score": me["score"], "win": bool(me["win"])}
 
 
+def char_name(collection, token):
+    """The only name a run carries: the character it was played as. Players can't type one, so the boards can't be used
+    to impersonate anyone or to post whatever fits in 18 characters. A verified handle is shown beside it as before.
+    Applied when a run is stored and again whenever one is read, so runs posted before this rule read the same way."""
+    c = collection if collection in COLLECTIONS else "milady"
+    try:
+        t = int(token) if token is not None and not isinstance(token, bool) else None
+    except (TypeError, ValueError):
+        t = None
+    if c == "remilio" and t == 2305:
+        return "radbro"
+    return "%s #%d" % (c, t) if t is not None else c
+
+
+def named(d):
+    """A run card's data, with its name as the boards show it."""
+    if isinstance(d, dict):
+        d["name"] = char_name(d.get("collection"), d.get("token"))
+    return d
+
+
 def public(row, rank):
-    return {"rank": rank, "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]),
+    return {"rank": rank, "name": char_name(row["collection"], row["token"]), "score": row["score"], "day": row["day"], "win": bool(row["win"]),
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
             "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"],
@@ -594,7 +613,7 @@ def recent(limit):
     out = []
     with db() as con:
         for cid, created, data in con.execute("SELECT id, created, data FROM cards ORDER BY created DESC, rowid DESC LIMIT ?", (limit,)):
-            d = json.loads(data)
+            d = named(json.loads(data))
             out.append({"id": cid, "name": d.get("name"), "handle": d.get("handle"), "score": d.get("score"), "day": d.get("day"),
                         "win": bool(d.get("win")), "bosses": d.get("bosses"), "kills": d.get("kills", 0), "heat": d.get("heat", 0),
                         "tribe": d.get("tribe"), "cult": d.get("cult"), "killedBy": d.get("killedBy") or "",
@@ -614,7 +633,7 @@ def hall(limit):
         kings = []  # whoever held the hill as each past week ended
         for k in con.execute("""SELECT h.date, h.defences, c.data FROM hill h JOIN cards c ON c.id=h.card
                                 WHERE h.date<? ORDER BY h.date DESC LIMIT 52""", (hill_week(),)):
-            d = json.loads(k["data"])
+            d = named(json.loads(k["data"]))
             kings.append({"week": k["date"], "name": d["name"], "handle": d.get("handle"), "look": d.get("look"), "relics": d["relics"],
                           "score": d["score"], "tribe": d["tribe"], "defences": k["defences"]})
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows],
@@ -653,7 +672,7 @@ def king_public(con):
     c = con.execute("SELECT data FROM cards WHERE id=?", (row["card"],)).fetchone()
     if not c:
         return None, None
-    d = json.loads(c[0])
+    d = named(json.loads(c[0]))
     st = d.get("stats") or {}
     stats = {k: max(lo, min(hi, int(st.get(k, lo)))) for k, (lo, hi) in KING_LIMITS.items()}
     return {"name": d["name"], "handle": d.get("handle"), "look": d.get("look"), "relics": d["relics"], "tribe": d["tribe"],
@@ -807,7 +826,7 @@ def recent_runs(con, player, n=5):
                 if json.loads(r["data"]).get("player") == player][:n]
     out = []
     for r in rows:
-        d = json.loads(r["data"])
+        d = named(json.loads(r["data"]))
         st = d.get("stats") or {}
         out.append({"id": r["id"], "at": r["created"], "name": d["name"], "score": d["score"], "day": d["day"], "win": bool(d["win"]),
                     "tribe": d["tribe"], "heat": d.get("heat", 0), "daily": d.get("daily") or "", "killedBy": d.get("killedBy") or "",
@@ -876,7 +895,7 @@ def card_run(cid):
         return None
     with db() as con:
         r = con.execute("SELECT data FROM cards WHERE id=?", (cid,)).fetchone()
-    return json.loads(r[0]) if r else None
+    return named(json.loads(r[0])) if r else None  # the card image and the link preview read the name from here
 
 
 _draw_lock = threading.Lock()  # one card at a time: drawing is the only heavy thing this service does

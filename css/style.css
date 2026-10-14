@@ -2030,3 +2030,6 @@ body.bossfight #grade{opacity:0 !important;transition:opacity .4s;}
 /* kings slain, on the player card beside the record */
 .king-card .wl .slain{color:var(--gold);white-space:nowrap;}
 .king-card .wl .slain.sword{color:#ff8b8b;}
+
+/* the character screen names the character for what it is: nobody types a name */
+.ava-name{font-family:var(--mono);font-size:18px;letter-spacing:.14em;text-transform:lowercase;color:var(--neon);margin:10px 0 6px;min-height:1.3em;}
