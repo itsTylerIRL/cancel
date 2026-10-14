@@ -6007,14 +6007,13 @@ async function init(){
     document.querySelectorAll(".fs").forEach(b=>{ b.hidden = !can; b.onclick = ()=>{ sfx("click"); (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(()=>{}); }; });
     document.addEventListener("fullscreenchange", ()=>{ paint(); if(G && !G.over && $("screen-map").classList.contains("active")){ groundSig = ""; renderMap(); } });
   }
-  $("btn-reroll").onclick=()=>{ sfx("click"); genAvatar(); };
   $("btn-ava-back").onclick=()=>{ sfx("click"); avaTok++; show("screen-title"); renderTitle(); }; // back to the title; whatever was loading is dropped
   $("nft-kind").innerHTML = Object.keys(NFT).filter(k=>NFT[k].playable).map(k=>"<option value='"+k+"'>"+NFT[k].name+"</option>").join("")+"<option value='radbro'>Radbro</option>";
   if(META.nft && NFT[META.nft.kind] && NFT[META.nft.kind].playable){ $("nft-kind").value = isRadbro(META.nft) ? "radbro" : META.nft.kind; $("nft-id").value = META.nft.id; }
   /* No load button: the character follows the number as it is typed. A number that isn't one (empty, out of range)
      changes nothing, and neither does one that fails to load. */
   let nftT = 0;
-  const nftRow = ()=>{ $("nft-id").classList.toggle("hidden", $("nft-kind").value==="radbro"); };
+  const nftRow = ()=>{ const rad = $("nft-kind").value==="radbro"; $("nft-id").classList.toggle("hidden", rad); $("btn-reroll").disabled = rad; }; // Radbro is one character: nothing to reroll
   const useNft = ()=>{
     clearTimeout(nftT);
     const sel = $("nft-kind").value, kind = sel==="radbro" ? RADBRO_TOKEN.kind : sel, id = sel==="radbro" ? RADBRO_TOKEN.id : parseInt($("nft-id").value, 10);
@@ -6025,6 +6024,10 @@ async function init(){
   $("nft-id").oninput = ()=>{ clearTimeout(nftT); nftT = setTimeout(useNft, 380); }; // a beat after the last keystroke
   $("nft-id").onchange = useNft;
   $("nft-kind").onchange = ()=>{ nftRow(); useNft(); };
+  $("btn-reroll").onclick = ()=>{ // a random token from whichever collection the dropdown shows now, not the one last loaded
+    const sel = $("nft-kind").value; if(sel==="radbro" || !NFT[sel]) return;
+    sfx("click"); $("nft-id").value = Math.floor(Math.random()*(NFT[sel].max+1)); useNft();
+  };
   nftRow();
 
   $("btn-begin").onclick=()=>{
