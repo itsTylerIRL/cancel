@@ -1256,6 +1256,7 @@ function renderHUD(){
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
       + (G.tenx ? "<span class='chip res tenx' title='10x holds "+G.tenx.dep+" $CULT of yours. kill "+G.tenx.goal+" Schizoposters before your next boss fight and it comes back as "+tenxPay(G.tenx)+". miss and it is gone'>10x "+G.tenx.got+"/"+G.tenx.goal+"</span>" : "")
+      + "<span class='chip res kills' title='enemies beaten this run'>💀 "+(G.kills||0)+"</span>"
       + "<span class='chip res' title='keys: each one opens a vault'>"+KEY_ICO+" "+(G.keys||0)+"</span>"
       + "<span class='chip res' title='banishes: use one on a mint to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
       + "<span class='chip res' title='"+(tribeIs("collector") ? "a Collector can't reroll" : "what the next reroll of a mint will cost. it doubles each time")+"'>🎲 "+(tribeIs("collector") ? "—" : rerollCost())+"</span></span>"
