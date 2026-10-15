@@ -4812,12 +4812,11 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
     + (r && r.look || u ? "<span class='pcol'>"+(r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")+(u ? provTag(u.handle) : "")+"</span>" : "")
     + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+"</b>"
-      + (r ? "<span class='badge-row'>"+tribeBadge(r.tribe)+"</span>" : "")
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
            + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
-    + "<div class='king-relics you-mid'><span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
+    + "<div class='king-relics you-mid'>"+(r ? "<span class='badge-row tb-top'>"+tribeBadge(r.tribe)+"</span>" : "")+"<span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
         + (mySlain && mySlain.pid===playerId() && mySlain.crowns ? "<i>·</i><b class='slain' title='weeks as king: every week you show as king of the hill on the leaderboard'>👑 "+mySlain.crowns+"</b>" : "")
         + (mySlain && mySlain.pid===playerId() && mySlain.n ? "<i>·</i><b class='slain sword' title='kings slain: times you took the hill from a sitting king'>⚔️ "+mySlain.n+"</b>" : "")+"</span>"
       + (r ? "<u>last carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0]))) : "")+"</div>"
@@ -4855,9 +4854,9 @@ async function loadKing(){
   { const was = mySlain && mySlain.pid===playerId() ? mySlain.n+"/"+mySlain.crowns : ""; mySlain = { pid:playerId(), n:r.slain||0, crowns:r.crowns||0 }; if(was!==mySlain.n+"/"+mySlain.crowns && $("screen-title").classList.contains("active")) renderLast(); } // the card shows both
   const k = r.king;
   el.innerHTML = "<div class='phead'>king of the hill</div><div class='king-card'>"
-    + (k ? "<span class='pcol'><canvas class='bpfp big' width='4' height='4'></canvas>"+provTag(k.handle)+"</span><div><b>👑 "+esc(k.name)+(r.you ? " <span class='good'>(you)</span>" : "")+"</b><span class='badge-row'>"+tribeBadge(k.tribe)+"</span>"
+    + (k ? "<span class='pcol'><canvas class='bpfp big' width='4' height='4'></canvas>"+provTag(k.handle)+"</span><div><b>👑 "+esc(k.name)+(r.you ? " <span class='good'>(you)</span>" : "")+"</b>"
            + "<span>"+si("❤️ "+k.stats.hp+" · ⚔️ "+k.stats.atk+" · 🛡️ "+k.stats.arm)+"</span><span class='king-rec'>"+beaten(k.defences)+"</span><span class='dim'>beat THE CANCEL to challenge</span></div>"
-           + "<div class='king-relics'><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
+           + "<div class='king-relics'><span class='badge-row tb-top'>"+tribeBadge(k.tribe)+"</span><u>carrying</u>"+relicStrip(k.relics)+"</div>" // inside the card, across the bar from the clock
          : "<div><b>the hill is empty</b><span>the first to beat THE CANCEL this week takes it</span></div>")
     + "<div class='king-clock'><u>hill resets in</u><b id='king-left'>"+untilReset(r.resets)+"</b><span>Sunday night, Eastern</span>"
       + (k ? "<span class='king-turns' title='how many times a challenger has taken the hill from a sitting king this week'>👑 "+(r.changes ? "changed hands <b>"+r.changes+"</b> time"+(r.changes===1?"":"s") : "hasn't changed hands yet")+"</span>" : "")+"</div></div>";

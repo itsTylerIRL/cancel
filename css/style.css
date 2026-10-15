@@ -2051,3 +2051,10 @@ a.vtag:hover b{text-decoration:underline;}
 .hh-nav:disabled{opacity:.25;cursor:default;} .hh-nav:not(:disabled):hover{border-color:var(--neon);}
 .hh-cal{gap:4px;} .hh-cal>u{font-size:8.5px;}
 .hh-cal .cal-cell{border-radius:5px;} .hh-cal .cal-cell em{font-size:8.5px;} .hh-cal .cal-cell.kcell{margin-left:3px;} .hh-cal .cal-cell s{font-size:10px;}
+
+/* the tribe badge heads the right-hand column on both cards, so the name and stats beside the portrait stay short */
+.king-card .king-relics .tb-top{display:flex;justify-content:flex-end;margin:0 0 4px;}
+.king-box .king-card>div>b:first-child{white-space:nowrap;overflow:visible;text-overflow:clip;}
+@media (max-width:600px){ .king-card .king-relics .tb-top{justify-content:center;} }
+@media (max-width:600px){ html body .king-box .king-card .king-relics{display:flex;flex-basis:100%;max-width:none;align-items:center;order:3;} .king-box .king-card .king-relics:not(.you-mid) u,.king-box .king-card .king-relics:not(.you-mid) .duel-relics{display:none;} }
+@media (min-width:601px){ .king-box .king-card>div>span:not(.dim){white-space:nowrap;} }
