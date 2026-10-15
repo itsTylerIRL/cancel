@@ -177,6 +177,10 @@ function genRemilio(){ // a Remilio made from the trait files, the way a token w
   try{
     for(let i=0;i<8;i++){
       const p = randomPicks("Remilio"), layers = {};
+      if(!p.Mouth){ // enemies go without a mouth sometimes; a character you play always has one, unless something it wears hides it
+        const hid = Object.keys(M.exclusions||{}).some(l=>p[l] && ((M.exclusions[l][p[l].slice(0,-5)]||[]).includes("Mouth")));
+        if(!hid && (ASSETS.Remilio.Mouth||[]).length) p.Mouth = choice(ASSETS.Remilio.Mouth);
+      }
       for(const l in p) if(TOKEN_SLOTS.Remilio[l]) layers[l] = p[l];
       if(layers[M.body]) return { cfg:"Remilio", layers, eyeColor:"" };
     }
