@@ -2057,4 +2057,7 @@ a.vtag:hover b{text-decoration:underline;}
 .king-box .king-card>div>b:first-child{white-space:nowrap;overflow:visible;text-overflow:clip;}
 @media (max-width:600px){ .king-card .king-relics .tb-top{justify-content:center;} }
 @media (max-width:600px){ html body .king-box .king-card .king-relics{display:flex;flex-basis:100%;max-width:none;align-items:center;order:3;} .king-box .king-card .king-relics:not(.you-mid) u,.king-box .king-card .king-relics:not(.you-mid) .duel-relics{display:none;} }
-@media (min-width:601px){ .king-box .king-card>div>span:not(.dim){white-space:nowrap;} }
+@media (min-width:601px){ #king-box .king-card>div>span:not(.dim){white-space:nowrap;} }
+
+/* the player card's middle column wraps inside its own width, never into the record beside it */
+#last-box .king-card>div:not(.king-relics):not(.king-clock){min-width:0;overflow-wrap:anywhere;}
