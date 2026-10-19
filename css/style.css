@@ -2061,3 +2061,7 @@ a.vtag:hover b{text-decoration:underline;}
 
 /* the player card's middle column wraps inside its own width, never into the record beside it */
 #last-box .king-card>div:not(.king-relics):not(.king-clock){min-width:0;overflow-wrap:anywhere;}
+.hh-switch{position:relative;width:26px;height:14px;flex:none;margin-left:2px;padding:0;background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;transition:border-color .15s;}
+.hh-switch i{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dim);transition:transform .15s,background .15s;}
+.hh-switch[aria-checked="true"]{border-color:var(--neon);} .hh-switch[aria-checked="true"] i{transform:translateX(12px);background:var(--neon);}
+.hh-switch:hover{border-color:var(--neon);}

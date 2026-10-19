@@ -5234,8 +5234,9 @@ function rankLines(res){ // "#3 of 41 on today's daily" for each board the run l
 let boardGot = null; // the board last fetched, so turning a page doesn't ask again
 const BOARD_PAGE = 10;
 /* The hall of fame's month, on the home page under the latest runs: each day's champion and each week's king, in the
-   same grid as the leaderboard's calendar. A day opens the full hall on that day. */
-let homeHall = { month:"", data:null, at:0 };
+   same grid as the leaderboard's calendar. A day opens the full hall on that day. It loads folded away behind a switch
+   in its heading, and stays however it was last set until the page reloads. */
+let homeHall = { month:"", data:null, at:0, open:false };
 async function loadHomeHall(){
   const el = $("home-hall"); if(!el || !online()) return;
   if(!homeHall.data || Date.now()-homeHall.at > 60000){
@@ -5255,8 +5256,14 @@ function drawHomeHall(){
   const month = homeHall.month = homeHall.month && homeHall.month>=first && homeHall.month<=last ? homeHall.month : last;
   const [Y, M] = month.split("-").map(Number), one = month+"-01", end = iso(new Date(Date.UTC(Y, M, 0, 12)));
   const who = e => e.handle ? (isShip(e.handle) ? e.handle : "~"+e.handle) : e.name;
+  const sw = "<button class='hh-switch' id='hh-switch' role='switch' aria-checked='"+homeHall.open+"' aria-label='show the hall of fame'><i></i></button>";
+  if(!homeHall.open){
+    el.innerHTML = "<div class='phead hh-head'><span>hall of fame</span>"+sw+"</div>"; el.classList.remove("hidden");
+    $("hh-switch").onclick = ()=>{ sfx("click"); homeHall.open = true; drawHomeHall(); };
+    return;
+  }
   let html = "<div class='phead hh-head'><button class='hh-nav' id='hh-prev'"+(month<=first ? " disabled" : "")+" aria-label='earlier month'>‹</button><span>hall of fame · "
-    + D(one).toLocaleDateString("en-US", {month:"long", year:"numeric", timeZone:"UTC"}).toLowerCase()+"</span><button class='hh-nav' id='hh-next'"+(month>=last ? " disabled" : "")+" aria-label='later month'>›</button></div>"
+    + D(one).toLocaleDateString("en-US", {month:"long", year:"numeric", timeZone:"UTC"}).toLowerCase()+"</span><button class='hh-nav' id='hh-next'"+(month>=last ? " disabled" : "")+" aria-label='later month'>›</button>"+sw+"</div>"
     + "<div class='cal hh-cal'>"+["m","t","w","t","f","s","s"].map(d=>"<u>"+d+"</u>").join("")+"<u class='kcol'>👑</u>";
   for(let w = mondayOf(one); w<=end && w<=h.today; w = addDays(w, 7)){ // weeks that haven't started yet aren't drawn: the month grows down as it goes
     for(let i=0;i<7;i++){ const d = addDays(w, i), e = days[d];
@@ -5267,6 +5274,7 @@ function drawHomeHall(){
     html += k ? "<button class='cal-cell kcell"+(k.live ? " live" : "")+"' data-king='"+w+"' title='"+esc("king, week of "+w+" · "+who(k))+"'><canvas class='bpfp' data-hk='"+w+"' width='4' height='4'></canvas><em>👑</em></button>" : "<i class='cal-cell kcell empty'></i>";
   }
   el.innerHTML = html+"</div>"; el.classList.remove("hidden");
+  $("hh-switch").onclick = ()=>{ sfx("click"); homeHall.open = false; drawHomeHall(); };
   $("hh-prev").onclick = ()=>{ sfx("click"); homeHall.month = iso(new Date(Date.UTC(Y, M-2, 1, 12))).slice(0,7); drawHomeHall(); };
   $("hh-next").onclick = ()=>{ sfx("click"); homeHall.month = iso(new Date(Date.UTC(Y, M, 1, 12))).slice(0,7); drawHomeHall(); };
   el.querySelectorAll("[data-day],[data-king]").forEach(b=>{ b.onclick = ()=>{ if(b.classList.contains("future")) return; sfx("click");
