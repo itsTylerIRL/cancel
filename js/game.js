@@ -62,12 +62,12 @@ function sfx(name){
     });
   }catch(e){}
 }
-/* a faint blip when the mouse comes onto something you can press: once per thing, not for every child it crosses, and
+/* a faint blip when the mouse comes onto something you can press (not on the home page): once per thing, not for every child it crosses, and
    never in a rattle when the pointer sweeps across a row of them. Silent until a click has woken the audio. */
 const HOVERABLE = "button,a[href],select,summary,label,[role=button],[role=switch],[role=tab],.cal-cell";
 let hoverOn = null, hoverAt = 0;
 document.addEventListener("pointerover", e=>{
-  if(e.pointerType!=="mouse") return; // a tap already clicks
+  if(e.pointerType!=="mouse" || $("screen-title").classList.contains("active")) return; // a tap already clicks; and the home page stays quiet
   const el = e.target.closest && e.target.closest(HOVERABLE);
   if(el===hoverOn) return; hoverOn = el;
   if(!el || el.disabled || el.matches("i.cal-cell,.future") || !AC || AC.state!=="running") return;
