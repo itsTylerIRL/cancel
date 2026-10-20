@@ -1279,8 +1279,8 @@ function renderHUD(){
   document.body.classList.toggle("danger", !G.over && s.hp <= s.maxhp*0.3);
   if(G.cult>=800) achieve("rich");
   const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
-  const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, dodge:s.dodge, HP:s.maxhp};
-  $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
+  const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, crit:Math.round(s.crit||0), dodge:s.dodge, HP:s.maxhp};
+  $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+chip("✨","crit",Math.round(s.crit||0)+"%")+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
       + (G.tenx ? "<span class='chip res tenx' title='10x holds "+G.tenx.dep+" $CULT of yours. kill "+G.tenx.goal+" Schizoposters before your next boss fight and it comes back as "+tenxPay(G.tenx)+". miss and it is gone'>10x "+G.tenx.got+"/"+G.tenx.goal+"</span>" : "")
       + "<span class='chip res kills' title='enemies beaten this run'>💀 "+(G.kills||0)+"</span>"
@@ -3183,9 +3183,34 @@ function closeModal(){ $("modal").classList.add("hidden");
   if(setupStep) setTimeout(()=>{ if(setupStep && $("modal").classList.contains("hidden") && $("screen-map").classList.contains("active")) setupStep(); }, 0); setTimeout(pump,0); setTimeout(navRefresh,0); }
 
 /* THE CANCEL IS COMING — engine part 3: combat, endings, avatar/title screens, init */
-function clog(msg, cls){
-  const el=$("combat-log"); const d=document.createElement("div");
-  if(cls)d.className=cls; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG); el.appendChild(d); el.scrollTop=el.scrollHeight;
+/* The fight log is a conversation: what goes your way sits on the left in your colors, what goes the enemy's way on
+   the right in theirs, and the fight's own beats (rounds, turn order, the summary) in the middle. A line can say which
+   side it belongs to; otherwise its color decides. Lines and pieces marked dbg are the working (the rolls, the armor,
+   the math) and only show with "details" on; they are always in what "copy" takes, for a bug report. */
+function clog(msg, cls, side){
+  const el=$("combat-log"); const d=document.createElement("div"), c = cls||"";
+  side = side || (/\b(rnd|sum)\b/.test(c) ? "sys" : /\bbad\b/.test(c) ? "foe" : /\b(good|heal|crit|gold)\b/.test(c) ? "you" : "sys");
+  d.className = (c ? c+" " : "")+"L-"+side; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG);
+  const stick = el.scrollTop+el.clientHeight >= el.scrollHeight-30; // reading back up the log isn't yanked down by every new line
+  el.appendChild(d); if(stick) el.scrollTop=el.scrollHeight;
+}
+const roundHead = (n, a, b) => { const hp = f => Math.max(0, Math.round(f.hp))+"/"+f.maxhp;
+  return "<span>❤️ "+hp(a)+"</span><b>round "+n+"</b><span>"+hp(b)+" ❤️</span>"; };
+function clogClear(){ // an empty log, with its two buttons pinned to the top
+  const el = $("combat-log"); el.innerHTML = "<div class='log-bar'><span class='lb-k'><i>◂ you</i><i>them ▸</i></span><button class='lb-v' aria-pressed='"+!!META.logv+"' title='show the rolls and the math behind every line'>🔍 details</button><button class='lb-c' title='copy the whole fight log, details included'>📋 copy</button></div>";
+  el.classList.toggle("verbose", !!META.logv);
+  const v = el.querySelector(".lb-v"), c = el.querySelector(".lb-c");
+  v.onclick = ()=>{ sfx("click"); META.logv = !META.logv; saveMeta(); v.setAttribute("aria-pressed", META.logv); el.classList.toggle("verbose", META.logv); if(META.logv) el.scrollTop = el.scrollHeight; };
+  c.onclick = ()=>{ sfx("click");
+    const mark = {you:"  YOU  |", foe:"  FOE  |", sys:"       |"};
+    const txt = [...el.children].filter(d=>!d.classList.contains("log-bar")).map(d=>{
+      if(d.classList.contains("rnd")) return "---- "+[...d.children].map(x=>x.textContent.trim()).join("  ·  ")+" ----";
+      const side = (d.className.match(/L-(\w+)/)||[])[1] || "sys", t = d.cloneNode(true);
+      t.querySelectorAll(".dbg").forEach(x=>x.textContent = " ["+x.textContent.trim()+"]"); t.querySelectorAll("img").forEach(x=>x.replaceWith(x.alt||""));
+      return mark[side]+" "+t.textContent.replace(/\s+/g," ").trim(); }).join("\n");
+    const head = "the cancel is coming · fight log · "+$("combat-title").textContent+(G && G.day ? " · day "+G.day : "")+(BUILD ? " · build "+BUILD : "")+"\n";
+    const ok = ()=>{ c.textContent = "✓ copied"; setTimeout(()=>{ c.textContent = "📋 copy"; }, 1400); };
+    try{ navigator.clipboard.writeText(head+txt).then(ok, ()=>{ c.textContent = "can't copy"; }); }catch(e){ c.textContent = "can't copy"; } };
 }
 function combatBars(you, foe, lead){
   for(const [id, c] of [["you",you],["foe",foe]]){
@@ -3308,6 +3333,7 @@ function shake(side){
    (startCombat) or run silently many times to estimate the odds (fightOdds).
    io = { log(msg,cls), hit(side,dmg,crit), float(side,text,cls), strip(F) }. */
 const NOIO = { log(){}, hit(){}, float(){}, strip(){} };
+const dbg = a => a.length ? " <span class='dbg'>"+a.join(" ")+"</span>" : ""; // the working behind a line, for the log's details
 function fightEngine(foeDef, opts, io){
   const boss = opts.boss || null;
   const st = { relics:[...G.relics], tiers:G.relics.map((_,i)=>tierAt(i)), cult:G.cult, memUsed:!!G.memUsed };
@@ -3431,6 +3457,9 @@ function fightEngine(foeDef, opts, io){
     io.log("⚖️ INJUNCTION: "+relicById(st.relics[0]).name+" frozen.", "bad");
     io.strip(F);
   }
+  if(!foe.puppet){ const line = (f, d, c) => "❤️ "+Math.round(f.hp)+"/"+f.maxhp+" · ⚔️ "+Math.round(f.atk)+" · 🛡️ "+f.arm+" · SPD "+f.spd+" · 💨 "+d+"% · crit "+c+"%";
+    io.log("<span class='dbg'>you: "+line(you, you.dodge||0, you.crit||0)+"</span>", "dbg", "you");
+    io.log("<span class='dbg'>"+foe.name+": "+line(foe, 0, act("airpods") ? 0 : 5+(foe.lck||0)/2)+(opts.elite ? " · elite" : "")+(foe.trait ? " · "+foe.trait : "")+"</span>", "dbg", "foe"); }
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
   if(foe.trait==="smoker"){ // secondhand smoke: you heal half as well while it stands. a Face Mask keeps it out
@@ -3444,38 +3473,48 @@ function fightEngine(foeDef, opts, io){
   if(act("cookie") && you.hp<you.maxhp) heal(tv("cookie",14), false, "🍪 Cookie");
   if(act("vibe_shift")){ foe.stun=1; io.log("🌀 Vibe shift. "+foe.name+" is caught off guard.", "good"); }
 
-  let notes = []; // what changed the blow being worked out, for its line in the log
+  let notes = [], math = []; // what changed the blow being worked out, for its line in the log; and all the working, for its details
   function dmgCalc(att, def, isYou){
-    notes = [];
+    notes = []; math = [];
     let atk = !isYou && att.puppet ? att.nextDmg : att.atk; // in a duel the foe's swing carries what the other build dealt this round
-    if(boss && boss.id==="bonkler911") atk *= (0.5+rnd()); // chaos
+    const pm = (n, what) => { if(n) math.push((n>0 ? "+" : "−")+Math.abs(Math.round(n*10)/10)+" "+what); };
+    math.push((!isYou && att.puppet ? "landed " : "ATK ")+Math.round(atk));
+    if(boss && boss.id==="bonkler911"){ const r = 0.5+rnd(); atk *= r; notes.push("chaos ×"+r.toFixed(2)); } // chaos
     if(isYou && you.hp < you.maxhp/2 && act("blood_splatter")){ atk += tv("blood_splatter",5); notes.push("+"+tv("blood_splatter",5)+" Blood Splatter"); }
-    if(isYou && act("scarface")) atk += Math.min(8, Math.floor(st.cult/40));
-    if(isYou && tribe==="gyaru") atk += Math.min(8, Math.floor(st.cult/100)); // DEGEN TRADER: money hits
-    if(isYou) atk += you.hard + (set("blood",3) ? foe.bleed : 0) + heftOf(you.maxhp);
+    if(isYou && act("scarface")){ const b = Math.min(8, Math.floor(st.cult/40)); atk += b; pm(b, "Scarface"); }
+    if(isYou && tribe==="gyaru"){ const b = Math.min(8, Math.floor(st.cult/100)); atk += b; pm(b, "DEGEN TRADER"); } // DEGEN TRADER: money hits
+    if(isYou){ const h = heftOf(you.maxhp); atk += you.hard + (set("blood",3) ? foe.bleed : 0) + h; pm(you.hard, "going hard"); pm(h, "heft"); }
     if(isYou && set("blood",3) && foe.bleed>0) notes.push("+"+foe.bleed+" BLOODSPORT");
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.chill>0) notes.push("chilled −"+8*foe.chill+"%"); if(foe.burn>0 && set("flame",3)){ atk *= 0.8; notes.push("burning −20%"); } }
-    if(!isYou && act("beetleposting")) atk *= 0.8;
-    if(!isYou && act("atf_agent") && (opts.elite || hunter)) atk *= 0.85;
+    if(!isYou && act("beetleposting")){ atk *= 0.8; math.push("−20% Beetleposting"); }
+    if(!isYou && act("atf_agent") && (opts.elite || hunter)){ atk *= 0.85; math.push("−15% ATF Agent"); }
     if(!isYou && att.puppet){ // already past armor and crits on the other side: only what you carry can soften it now
-      let d = Math.min(Math.max(1, Math.round(atk)), Math.ceil(you.maxhp * BAL.guardDuel)); // guarded: a duel is never one round long
-      if(def===you && act("fbi_cap")) d = Math.max(1, d-tv("fbi_cap",3));
+      const cap = Math.ceil(you.maxhp * BAL.guardDuel);
+      let d = Math.min(Math.max(1, Math.round(atk)), cap); // guarded: a duel is never one round long
+      if(Math.round(atk) > cap) math.push("guard cap "+cap);
+      if(def===you && act("fbi_cap")){ d = Math.max(1, d-tv("fbi_cap",3)); math.push("−"+tv("fbi_cap",3)+" FBI Cap"); }
       if(def===you && you.hp < you.maxhp/2 && act("hodl")){ d = Math.max(1, Math.round(d*0.7)); notes.push("HODL −30%"); }
       return {dmg:d, crit:false};
     }
     const critC = isYou ? you.crit : (act("airpods") ? 0 : 5 + att.lck/2);
     const arm = isYou && act("energy_sword") ? 0 : def.arm;
+    math.push("− ARM "+arm+(isYou && act("energy_sword") && def.arm ? " (Energy Sword ignores "+def.arm+")" : ""));
     // your armor stops at most about two thirds of a hit: a wall of ARM is very hard to kill, not impossible
-    let dmg = Math.max((!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, Math.round(atk - arm + randi(-1,1))); // a king's armor has the same limit
+    const roll = randi(-1,1), floor = (!isYou && def===you) || (isYou && foe.king) ? Math.max(1, Math.ceil(atk*0.35)) : 1, raw = Math.round(atk - arm + roll); // a king's armor has the same limit
+    let dmg = Math.max(floor, raw);
+    math.push("roll "+(roll>0 ? "+" : roll<0 ? "−" : "±")+Math.abs(roll)); if(floor>raw) math.push("→ "+floor+" (armor stops at most 65%)");
     if(!isYou && def===you && set("war",4)){ const kept = Math.min(you.arm, Math.max(0, Math.round(atk) - dmg)); you.stored += kept; if(kept>0) notes.push("WAR ROOM stores "+kept); }
     let crit = false;
-    if(rnd()*100 < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
-      dmg = Math.round(dmg * ((isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0))); crit=true; }
+    const cr = rnd()*100;
+    if(cr < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
+      const x = (isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0);
+      dmg = Math.round(dmg * x); crit=true; math.push("· crit ×"+Math.round(x*100)/100+(isYou && you.sure ? " (sure)" : " (rolled "+Math.floor(cr)+" < "+Math.round(critC)+"%)")); }
+    else math.push("· no crit (rolled "+Math.floor(cr)+", needed < "+Math.round(critC)+"%)");
     if(isYou && crit){ if(you.sure) notes.push("sure crit"); if(set("hype",4)) notes.push("×3 HYPEBEAST"); }
     if(isYou){ if(crit && you.sure && set("agency",3) && !you.agencyDone){ you.agencyDone = true; syn("agency"); } if(crit && set("hype",4)) syn("hype"); if(set("blood",3) && foe.bleed>0) syn("blood"); you.sure = false; }
     if(isYou && crit && act("cigarette")){ dmg += tv("cigarette",4); notes.push("+"+tv("cigarette",4)+" Cigarette"); }
     if(isYou && act("bugatti") && foe.chill>=chillMax()){ dmg = Math.round(dmg*1.3); notes.push("×1.3 Bugatti"); }
-    if(!isYou && def===you && act("fbi_cap")) dmg = Math.max(1, dmg-tv("fbi_cap",3));
+    if(!isYou && def===you && act("fbi_cap")){ dmg = Math.max(1, dmg-tv("fbi_cap",3)); math.push("· −"+tv("fbi_cap",3)+" FBI Cap"); }
     if(!isYou && def===you && you.hp < you.maxhp/2 && act("hodl")){ dmg = Math.max(1, Math.round(dmg*0.7)); notes.push("HODL −30%"); }
     if(isYou && you.blunt && act("blunt")){ dmg*=3; you.blunt=false; crit=true; notes.push("×3 Blunt"); }
     return {dmg, crit};
@@ -3485,20 +3524,21 @@ function fightEngine(foeDef, opts, io){
     // bonkler redirect
     if(!isYou && act("bonkler") && rnd()<0.15*tm("bonkler")){
       const {dmg,crit}=dmgCalc(foe,foe,false);
-      foe.hp-=dmg; credit("🌀 Bonkler chaos", dmg); io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+".", crit?"crit":"good");
+      foe.hp-=dmg; credit("🌀 Bonkler chaos", dmg); io.log("🌀 Bonkler chaos! "+foe.name+" hits itself for "+dmg+"."+dbg(math), crit?"crit":"good", "you");
       io.hit("foe", dmg, crit);
       return;
     }
     if(!isYou && foe.bleed>0){ // a bleeding enemy pays for every swing
-      const d = grow(2*foe.bleed); foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+".", "good"); io.float("foe","-"+d,"psn");
+      const d = grow(2*foe.bleed); foe.hp-=d; credit("🩸 bleed", d); io.log("🩸 "+foe.name+" bleeds for "+d+"."+dbg([foe.bleed+" stack"+(foe.bleed>1?"s":"")+" × 2, scaled by day"]), "good"); io.float("foe","-"+d,"psn");
       if(act("vampire")) heal(2, true, nm("vampire"));
       if(foe.hp<=0) return;
     }
     if(!isYou && you.guard){ you.guard=0; io.log("🪖 Dug in. The first one doesn't land.", "good"); io.float("you","blocked","heal"); return; }
     if(!isYou && you.block){ you.block=0; io.log("🐯 Hobbes takes the hit for you.", "good"); io.float("you","blocked","heal"); return; }
     // dodge
-    if(!isYou && !(you.hx||{}).noDodge && rnd()*100 < (you.dodge||0)){
-      io.log("💨 You dodge.", "good"); io.float("you","dodge","heal"); F.dodges++;
+    const dr = !isYou && !(you.hx||{}).noDodge ? rnd()*100 : null; // the dodge roll, kept for the hit line's details
+    if(dr!=null && dr < (you.dodge||0)){
+      io.log("💨 You dodge."+dbg(["rolled "+Math.floor(dr)+" < "+(you.dodge||0)+"% dodge"]), "good"); io.float("you","dodge","heal"); F.dodges++;
       if(act("cat_ears")) heal(tv("cat_ears",5), true, nm("cat_ears"));
       if(act("matrix") || tribe==="schizoposter") you.sure = true;
       if(set("schizo",4)){ syn("schizo"); const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
@@ -3507,13 +3547,14 @@ function fightEngine(foeDef, opts, io){
     }
     if(!isYou){ // armor bites back: a swing that reaches you costs the attacker a quarter of your ARM
       const th = thornsOf(you.arm) * (act("cactus_shirt") ? 2 : 1) * (tribe==="prep" ? 2 : 1);
-      if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armor bites back for "+th+".", "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
+      if(th>0){ foe.hp-=th; credit("🛡️ thorns", th); io.log("🛡️ Your armor bites back for "+th+"."+dbg(["thorns from "+you.arm+" ARM"+(act("cactus_shirt") ? " ×2 Cactus Shirt" : "")+(tribe==="prep" ? " ×2 prep" : "")]), "good"); io.float("foe","-"+th,"psn"); if(foe.hp<=0) return; }
     }
     let {dmg,crit}=dmgCalc(att,def,isYou);
     const why = notes; // dmgCalc's notes for this blow; more are added below
+    if(dr!=null && you.dodge>0) math.unshift("dodge missed (rolled "+Math.floor(dr)+", needed < "+(you.dodge||0)+"%) ·"); else if(!isYou && (you.hx||{}).noDodge) math.unshift("can't dodge (VR Goggles) ·");
     if(!isYou && you.shield>0){
       const soak = Math.min(you.shield, dmg); you.shield-=soak; dmg-=soak;
-      if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+".", "good"); io.float("you","shield","heal"); return; }
+      if(!dmg){ io.log("🕯️ Your shield absorbs "+soak+"."+dbg(math.concat("· "+you.shield+" shield left")), "good"); io.float("you","shield","heal"); return; }
       why.push("shield took "+soak);
     }
     if(!isYou && you.helmet){ you.helmet = false; if(dmg>1){ dmg = 1; io.log("🚲 Bike Helmet takes the first one.", "good"); } }
@@ -3521,13 +3562,13 @@ function fightEngine(foeDef, opts, io){
     let guarded = false;
     if(isYou && !foe.puppet){ // guard: no single blow takes more than a share of an enemy's health, so a fight is never one swing long
       const lim = Math.max(1, Math.ceil(foe.maxhp * (boss ? BAL.guardBoss : BAL.guardFoe)));
-      if(dmg > lim){ dmg = lim; guarded = true; }
+      if(dmg > lim){ math.push("· guard caps "+dmg+" at "+lim+" ("+Math.round((boss ? BAL.guardBoss : BAL.guardFoe)*100)+"% of max HP)"); dmg = lim; guarded = true; }
     }
     def.hp-=dmg;
     if(isYou && crit) F.crits = (F.crits||0)+1;
     if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else { F.took += dmg; hurtBy(crit ? "✨ its crits" : "⚔️ its hits", dmg); }
     if(guarded) F.guarded++;
-    io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : "")+(why.length ? " <i class='nt'>"+why.join(" · ")+"</i>" : ""), crit?"crit":(isYou?"good":"bad"));
+    io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : "")+(why.length ? " <i class='nt'>"+why.join(" · ")+"</i>" : "")+dbg(math.concat("→ "+dmg, "· "+Math.max(0, Math.round(def.hp))+"/"+def.maxhp+" left")), crit?"crit":(isYou?"good":"bad"), isYou?"you":"foe");
     io.hit(isYou?"foe":"you", dmg, crit);
     const was = isYou ? { burn:foe.burn, bleed:foe.bleed, chill:foe.chill, poison:foe.poison } : null; // what the blow leaves on the enemy is said on the line under it
     if(!isYou && act("plaster") && you.hp>0) heal(2, true, nm("plaster"));
@@ -3554,7 +3595,7 @@ function fightEngine(foeDef, opts, io){
     if(isYou && act("newports")){ if(!(foe.ratio>0)) io.log("🚬 Newports. "+dn+" is ratio'd: it heals half as well.", "good"); foe.ratio = 2; }
     if(was){ const on = [];
       if(foe.burn>was.burn) on.push("🔥 burning "+foe.burn); if(foe.bleed>was.bleed) on.push("🩸 bleed "+foe.bleed); if(foe.chill>was.chill) on.push("🧊 chill "+foe.chill); if(foe.poison>was.poison) on.push("🐍 poisoned "+foe.poison);
-      if(on.length || set("cheese",3)) io.log("↳ "+(on.length ? dn+": "+on.join(" · ") : "")+(set("cheese",3) ? (on.length ? " · " : "")+"+3 $CULT for you" : ""), "sub"); }
+      if(on.length || set("cheese",3)) io.log("↳ "+(on.length ? dn+": "+on.join(" · ") : "")+(set("cheese",3) ? (on.length ? " · " : "")+"+3 $CULT for you" : ""), "sub", "you"); }
     if(isYou && crit && act("tyson_tattoo")){ foe.denied = true; foe.stripped = true; if(foe.shield>0){ foe.shield = 0; io.float("foe","GUARD BROKEN","gbreak"); } io.log("🥊 Tyson Tribal: "+dn+"'s guard is down and its next heal won't come.", "good"); }
   }
   function lethalCheck(){
@@ -3586,6 +3627,7 @@ function fightEngine(foeDef, opts, io){
   F.step = function(){
     if(F.over) return;
     F.tick++; F.fxDelay=0; foe.tk = F.tick;
+    if(!foe.puppet) io.log(roundHead(F.tick, you, foe), "rnd", "sys"); // a duel writes its own, with both real fighters
     if(foe.ratio>0) foe.ratio--;
     if(foe.regen && !foe.puppet && foe.hp>0 && foe.hp<foe.maxhp && F.tick>1){ if(mend(Math.max(1, foe.maxhp*foe.regen)) > 0 && F.tick===2) io.log("✨ "+foe.name+" mends itself every tick. Something that stops healing would help.", "bad"); }
     // boss: allegations suppression (a suppressed relic gives nothing this tick, stats included)
@@ -3622,8 +3664,8 @@ function fightEngine(foeDef, opts, io){
     if(tribe==="lolita" && F.tick%4===0 && you.hp>0){ // LOVEBOMBER: 8% of max HP, whatever the day (undoing the multipliers every other heal gets)
       heal(Math.max(1, you.maxhp*0.08/1.5/(1+BAL.growth*Math.max(0,((G&&G.day)||1)-1))), false, "💌 Love bomb"); }
     // poison ticks
-    if(foe.burn>0){ if(set("flame",2)) syn("flame"); const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0) + (act("cigar")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
-    if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+".", "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.burn>0){ if(set("flame",2)) syn("flame"); const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0) + (act("cigar")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+"."+dbg([foe.burn ? foe.burn+" more tick"+(foe.burn>1?"s":"") : "burn is out"]), "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+"."+dbg([foe.poison ? foe.poison+" more tick"+(foe.poison>1?"s":"") : "poison is out"]), "good"); io.float("foe","-"+d,"psn"); }
     if(act("pikachu") && F.tick%4===0){ const z = grow(tv("pikachu",8)); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     if(act("gnome") && F.tick%4===0) heal(tv("gnome",6), false, "🍄 Gnome patches you up");
     if(act("juicebox") && F.tick%3===0) heal(tv("juicebox",4), false, "🧃 Juicebox");
@@ -3635,7 +3677,7 @@ function fightEngine(foeDef, opts, io){
       if(act("remilio_friend") && you.compTick%3===0) companion(grow(tv("remilio_friend",5)), "🧸 Remilio Friend strikes");
       if(act("tails") && rnd()<0.3) companion(grow(tv("tails",4)), "🦊 Tails spins in");
       if(act("dino") && you.compTick%2===0) companion(grow(tv("dino",3)), "🦖 Dino bites");
-      if(act("cia") && you.compTick%2===0){ companion(grow(tv("cia",4)), "🕴️ CIA strikes"); if(foe.arm>0) foe.arm--; }
+      if(act("cia") && you.compTick%2===0){ companion(grow(tv("cia",4)), "🕴️ CIA strikes"); if(foe.arm>0){ foe.arm--; io.log("<span class='dbg'>🕴️ CIA: "+foe.name+" ARM "+(foe.arm+1)+" → "+foe.arm+"</span>", "dbg", "you"); } }
       if(act("amogus") && !boss && !foe.king && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
       }
@@ -3643,10 +3685,13 @@ function fightEngine(foeDef, opts, io){
     if(foe.hp<=0) return done(true);
     if(lethalCheck()) return done(false);
     const order = tribe==="harajuku" || you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true]; // ACCELERATIONIST always goes first
+    if(!foe.puppet && F.first!==order[0]){ // who swings first, said when the fight opens and whenever it changes
+      const why = tribe==="harajuku" ? "ACCELERATIONIST" : "SPD "+you.spd+" vs "+foe.spd+(act("square_diamond") && foe.chill ? " (−"+foe.chill+" chill)" : "")+(you.spd===foe.spd ? ", ties go to you" : "");
+      io.log((order[0] ? "⏩ You move first" : "⏩ "+foe.name+" moves first")+(F.first!=null ? " now" : "")+". <i class='nt'>"+why+"</i>", "sub", "sys"); F.first = order[0]; }
     for(const isYou of order){
       const att = isYou?you:foe, def = isYou?foe:you;
       F.fxDelay = isYou===order[0] ? 0 : 270; // the second striker's visuals land a beat later
-      if(att.stun>0 && !(!isYou && foe.puppet)){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned.", ""); continue; } // a duel's stand-in keeps its stun for the fighter it stands for
+      if(att.stun>0 && !(!isYou && foe.puppet)){ att.stun--; io.log((isYou?"You are":foe.name+" is")+" stunned."+dbg(["turn lost"]), isYou ? "bad" : "good"); continue; } // a duel's stand-in keeps its stun for the fighter it stands for
       if(!isYou && foe.puppet && !(foe.nextDmg>0)) continue; // nothing to land this round
       const critsBefore = F.crits||0;
       strike(att,def,isYou);
@@ -4003,7 +4048,7 @@ function startCombat(foeDef, opts={}){
   $("btn-combat-done").classList.add("hidden");
   $("combat-ctl").classList.remove("hidden");
   navSet($("btn-skip"));
-  $("combat-log").innerHTML="";
+  clogClear();
   $("combat-title").textContent = opts.label || (boss ? boss.name : (opts.elite ? "ELITE " : "WILD ")+foeDef.name.toUpperCase());
   $("screen-combat").classList.toggle("night", G.phase==="night" && !boss); // a boss brings its own weather
   bossAmbient(boss ? boss.id : null);
@@ -4031,7 +4076,7 @@ function startCombat(foeDef, opts={}){
     d ? setTimeout(run, d) : run();
   };
   const io = {
-    log: (m,c)=>{ clog(m,c); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); fx(()=>STAGE.cue(m)); },
+    log: (m,c,s)=>{ clog(m,c,s); if(c==="rnd" || c==="dbg") return; m = m.replace(/ <span class='dbg'>.*?<\/span>/g, ""); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); fx(()=>STAGE.cue(m)); },
     hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); if(crit) stall += 110; clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
@@ -4500,10 +4545,10 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
   const kg = kingContext(k), kn = "👑 "+esc(k.name);
   G.stats.hp = G.stats.maxhp;
   const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
-  const ioA = { log:(m,c)=>{ if(!raw(m)) log(m, c, "you"); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, syn:id=>{ if(V && V.syn) V.syn("you", id); }, strip(){} };
+  const ioA = { log:(m,c,s)=>{ if(!raw(m)) log(m, c, "you", s); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, syn:id=>{ if(V && V.syn) V.syn("you", id); }, strip(){} };
   const flip = {good:"bad", bad:"good"};
-  const ioB = { log:(m,c)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
-      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c, "foe"); },
+  const ioB = { log:(m,c,s)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
+      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c, "foe", {you:"foe", foe:"you"}[s]||s); },
     hit:(s,d,c)=>{ if(V && s==="you") V.hit("foe", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("foe", t, c); }, syn:id=>{ if(V && V.syn) V.syn("foe", id); }, strip(){} };
   const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
   const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
@@ -4527,6 +4572,7 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
     step(){
       if(D.over) return;
       D.rounds++; round = D.rounds;
+      log(roundHead(D.rounds, A.you, B.you), "rnd", "", "sys");
       for(const turn of (youFirst ? [yours, theirs] : [theirs, yours])){
         turn();
         if(A.over){ D.over = true; D.win = false; return; } // you fell
@@ -4715,7 +4761,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
   closeModal(); show("screen-combat");
   $("btn-combat-done").classList.add("hidden"); $("combat-ctl").classList.remove("hidden"); $("combat-choice").classList.add("hidden");
   navSet($("btn-skip"));
-  $("combat-log").innerHTML = ""; $("combat-title").textContent = "KING OF THE HILL";
+  clogClear(); $("combat-title").textContent = "KING OF THE HILL";
   $("you-name").textContent = run.name.toUpperCase(); $("foe-name").textContent = "👑 "+k.name.toUpperCase();
   $("port-foe").classList.add("boss"); $("port-foe").classList.remove("elite"); $("screen-combat").classList.remove("night"); bossAmbient("king"); document.body.classList.add("bossfight"); for(const s of ["you","foe"]) $("port-"+s).classList.remove("hit","dead");
   paint($("combat-you"), run.avatar); delete $("chp-you").parentElement.dataset.hp;
@@ -4737,7 +4783,7 @@ function kingDuel(run, k, back){ // the hill is fought on the same stage as ever
     float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
   };
   STAGE.reset(run.tribe);
-  const D = makeDuel(run, k, (m,c,who)=>{ clog(m,c); if(!quiet) fx(()=>{ if(who!=="foe") STAGE.proc(m, run.relics); STAGE.cue(m, who==="foe"); }); }, V), you = D.you, king = D.king;
+  const D = makeDuel(run, k, (m,c,who,s)=>{ clog(m,c,s); if(c==="rnd" || c==="dbg") return; m = m.replace(/ <span class='dbg'>.*?<\/span>/g, ""); if(!quiet) fx(()=>{ if(who!=="foe") STAGE.proc(m, run.relics); STAGE.cue(m, who==="foe"); }); }, V), you = D.you, king = D.king;
   // the king, as the stage expects an enemy: what you have done to them is kept on your side's stand-in
   const view = ()=>({ ...king, lck:Math.max(0, (king.crit-5)*2), burn:D.A.foe.burn, bleed:D.A.foe.bleed, chill:D.A.foe.chill, poison:D.A.foe.poison, ratio:D.A.foe.ratio, stun:king.stun||0 });
   // and you, wearing what the king's build has put on you (kept on their side's stand-in)

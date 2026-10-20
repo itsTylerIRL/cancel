@@ -2065,3 +2065,43 @@ a.vtag:hover b{text-decoration:underline;}
 .hh-switch i{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dim);transition:transform .15s,background .15s;}
 .hh-switch[aria-checked="true"]{border-color:var(--neon);} .hh-switch[aria-checked="true"] i{transform:translateX(12px);background:var(--neon);}
 .hh-switch:hover{border-color:var(--neon);}
+
+/* the fight log as a conversation: your side on the left, the enemy's on the right, the fight's own beats in the middle */
+#combat-log>div{margin:1px 0;padding:1px 7px;border-radius:3px;}
+#combat-log .L-you{margin-right:16%;text-align:left;border-left:2px solid rgba(80,250,123,.55);background:linear-gradient(90deg,rgba(80,250,123,.07),transparent 70%);}
+#combat-log .L-foe{margin-left:16%;text-align:right;border-right:2px solid rgba(255,85,85,.55);background:linear-gradient(270deg,rgba(255,85,85,.07),transparent 70%);}
+#combat-log .L-sys{text-align:center;color:#9fb3ba;}
+#combat-log .L-you.crit{border-left-color:var(--gold);} #combat-log .L-foe.crit{border-right-color:var(--gold);color:#ffb86c;}
+#combat-log .sub.L-you{padding-left:1.4em;} #combat-log .sub.L-foe{padding-left:7px;padding-right:1.4em;} #combat-log .sub.L-sys{padding-left:7px;}
+#combat-log .L-you.sub,#combat-log .L-foe.sub{border-width:1px;background:none;}
+#combat-log .rnd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:7px 0 2px;padding:2px 2px 0;border-top:1px dashed rgba(139,233,253,.18);border-radius:0;font-size:.8em;color:var(--dim);}
+#combat-log .rnd:first-of-type{margin-top:2px;}
+#combat-log .rnd b{font-family:var(--label);font-weight:400;text-transform:uppercase;letter-spacing:.16em;color:#8fa3aa;}
+#combat-log .rnd span:first-child{color:rgba(80,250,123,.8);} #combat-log .rnd span:last-child{color:rgba(255,120,120,.85);}
+/* the working: hidden until "details" is on, then a quiet line under the one it explains */
+#combat-log .dbg{display:none;}
+#combat-log.verbose div.dbg{display:block;} #combat-log.verbose span.dbg{display:block;}
+#combat-log.verbose .dbg{color:#6f8790;font-size:.82em;font-weight:400;font-style:normal;letter-spacing:0;}
+#combat-log.verbose div.dbg{background:none;border-color:rgba(139,233,253,.15);}
+#combat-log .log-bar{position:sticky;top:-8px;z-index:1;display:flex;align-items:center;gap:4px;margin:-8px 0 2px;padding:8px 0 3px;background:var(--crt-bg);border-radius:0;box-shadow:0 5px 6px -3px var(--crt-bg);}
+#combat-log .log-bar .lb-k{flex:1;display:flex;justify-content:space-between;padding:0 4px 0 2px;font-size:.75em;font-family:var(--label);letter-spacing:.12em;text-transform:uppercase;}
+#combat-log .log-bar .lb-k i{font-style:normal;color:rgba(80,250,123,.6);} #combat-log .log-bar .lb-k i+i{color:rgba(255,120,120,.65);}
+#combat-log .log-bar button{background:none;border:1px solid var(--line);border-radius:4px;color:var(--dim);font:inherit;font-size:.75em;line-height:1.2;padding:1px 6px;cursor:pointer;}
+#combat-log .log-bar button:hover{border-color:var(--neon);color:var(--neon);}
+#combat-log .log-bar button[aria-pressed="true"]{border-color:var(--neon);color:var(--neon);}
+@media (max-width:600px){ #combat-log .L-you{margin-right:7%;} #combat-log .L-foe{margin-left:7%;} }
+
+/* the fight log as an arcade CRT: a dark phosphor screen behind thick glass, scanlines that stay put while the text
+   scrolls under them, a soft glow on every glyph, a curved-glass vignette and a cursor waiting at the bottom */
+#combat-log{--crt-bg:#020a07;background-color:var(--crt-bg);
+  background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 40%,rgba(80,250,123,.05),transparent 70%);
+  border:2px solid #1b2a26;border-radius:14px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.9),inset 0 0 28px rgba(0,0,0,.85),inset 0 0 70px rgba(80,250,123,.05),0 0 0 3px #0a100e,0 0 0 4px rgba(139,233,253,.12),0 0 22px rgba(80,250,123,.08);
+  text-shadow:0 0 5px currentColor;scrollbar-width:thin;scrollbar-color:rgba(80,250,123,.35) transparent;}
+#combat-log .log-bar,#combat-log .rnd,#combat-log .dbg{text-shadow:none;}
+#combat-log::after{content:"▌";display:block;margin:2px 0 0 4px;color:var(--acid);text-shadow:0 0 6px var(--acid);animation:crtblink 1.05s steps(1) infinite;}
+@keyframes crtblink{50%{opacity:0;}}
+#screen-combat.active #combat-log{animation:crtflicker 6s infinite;}
+@keyframes crtflicker{0%,96%,100%{opacity:1;} 97%{opacity:.86;} 98%{opacity:.97;} 99%{opacity:.9;}}
+#combat-log>div:last-child{animation:crtin .18s ease-out;} @keyframes crtin{from{opacity:0;filter:brightness(2.2) blur(1px);}}
+body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{animation:none!important;}
