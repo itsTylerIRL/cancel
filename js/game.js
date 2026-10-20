@@ -1249,6 +1249,9 @@ function renderHUD(){
     const th = thornsOf(s.arm), hf = heftOf(s.maxhp), over = Math.max(0, s.crit-100), gr = Math.round(BAL.growth*(G.day-1)*100);
     const dot = G.relics.some(id=>["fire_glasses","laser_eyes","claw","vampire","desert_eagle","snakebites","pikachu","dino","tails","remilio_friend","amogus","cia",
       "cult_robe","lollipop","cookie","strawberry","maid","birthday_hat","cat_ears","trucker","gnome","juicebox","plaster","flower_clip","burger_earring","mcdonalds"].includes(id)) || (s.sets.kawaii||0)>=4;
+    const tv = (id, n) => hasRelic(id) ? Math.round(n*tm(id)) : 0; // the same sums the fight makes (fightEngine)
+    const regen = Math.round(grow(tv("cult_robe",4) + tv("lollipop",2) + ((s.sets.kawaii||0)>=4 ? 4 : 0)) * (hasRelic("heart_tattoo") ? 2 : 1) * (tribeIs("lolita") ? 1.5 : 1));
+    const shield = tv("network_spirituality",16) + tv("jesus_tank",12) + ((s.sets.cult||0)>=2 ? 8 : 0);
     const bits = [ th ? ["🛡️ thorns "+th, "every enemy swing that lands costs it a quarter of your ARM"] : 0,
       s.dodge ? ["💨 counter "+Math.max(1,Math.round(s.atk/2)), "every dodge ("+Math.round(s.dodge)+"%) hits back for half your ATK"] : 0,
       hf ? ["💪 heft +"+hf, "every 12 max HP above 50 adds 1 to your hits"] : 0,
@@ -1256,6 +1259,8 @@ function renderHUD(){
       tribeIs("gyaru") ? ["📈 +"+Math.min(8, Math.floor(G.cult/100))+" ATK", "Degen Trader: +1 ATK for every 100 $CULT you hold, up to +8"] : 0,
       tribeIs("schizoposter") ? [G.phase==="night" ? "📡 awake" : "📡 daylight", "Schizoposter: +4 ATK and +15% dodge at night, −1 ATK by day"] : 0,
       tribeIs("hypebeast") && G.relics.length>new Set(G.relics).size ? ["👟 +"+5*(G.relics.length-new Set(G.relics).size)+"% crit", "Hypebeast: +5% crit for every duplicate relic"] : 0,
+      regen ? ["💚 +"+regen+"/round", "what you heal every round of a fight, from "+[hasRelic("cult_robe") && "Cult Robe", hasRelic("lollipop") && "Lollipop", (s.sets.kawaii||0)>=4 && "KAWAII"].filter(Boolean).join(", ")] : 0,
+      shield ? ["🕯️ "+shield+" shield", "you start every fight with this much shield, from "+[hasRelic("network_spirituality") && "Network Spirituality", hasRelic("jesus_tank") && "Jesus Tank", (s.sets.cult||0)>=2 && "CULT"].filter(Boolean).join(", ")] : 0,
       dot && gr ? ["🔥 +"+gr+"%", "your burn, bleed, poison, shocks, companions and healing have grown this much with the days"] : 0 ].filter(Boolean);
     $("hud-build").innerHTML = si(bits.map(([t,why])=>"<span title='"+why+"'>"+t+"</span>").join(""));
     if(hf) tip("heft"); if(over) tip("crit");
@@ -3428,7 +3433,7 @@ function fightEngine(foeDef, opts, io){
   };
   const companion = (dmg, msg) => { // every companion hit goes through here so SQUAD applies to all of them
     dmg += set("squad",2) ? 3 : 0; if(set("squad",2)) syn("squad");
-    foe.hp-=dmg; credit(msg.replace(/ (strikes|spins in|bites)$/, ""), dmg); io.log(msg+" for "+dmg+".", "good"); io.hit("foe",dmg,false);
+    foe.hp-=dmg; credit(msg.replace(/ (strikes|spins in|bites)$/, ""), dmg); io.log(msg+" for "+dmg+"."+dbg(set("squad",2) ? ["includes +3 SQUAD"] : []), "good"); io.hit("foe",dmg,false);
     if(set("squad",3)) heal(3, true, "💚 SQUAD");
   };
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
@@ -3460,6 +3465,7 @@ function fightEngine(foeDef, opts, io){
   if(!foe.puppet){ const line = (f, d, c) => "❤️ "+Math.round(f.hp)+"/"+f.maxhp+" · ⚔️ "+Math.round(f.atk)+" · 🛡️ "+f.arm+" · SPD "+f.spd+" · 💨 "+d+"% · crit "+c+"%";
     io.log("<span class='dbg'>you: "+line(you, you.dodge||0, you.crit||0)+"</span>", "dbg", "you");
     io.log("<span class='dbg'>"+foe.name+": "+line(foe, 0, act("airpods") ? 0 : 5+(foe.lck||0)/2)+(opts.elite ? " · elite" : "")+(foe.trait ? " · "+foe.trait : "")+"</span>", "dbg", "foe"); }
+  if(boss && (boss.id==="allegations" || boss.id==="cancel") && act("tinfoil")) io.log("🧢 Tinfoil Hat: "+(boss.id==="allegations" ? "FUD can't suppress your relics." : "the ratio only cuts for 2."), "good");
   if(foe.trait==="mirror"){ foe.atk = Math.max(foe.atk, Math.round(you.atk*0.6)); io.log("🪞 "+foe.name+" copies your style.", "bad"); }
   if(foe.trait==="thief") io.log("💸 "+foe.name+" steals $CULT with every hit. Kill it to get it back.", "bad");
   if(foe.trait==="smoker"){ // secondhand smoke: you heal half as well while it stands. a Face Mask keeps it out
@@ -3509,7 +3515,7 @@ function fightEngine(foeDef, opts, io){
     if(cr < critC || (isYou && you.sure)){ // crit chance past 100% isn't wasted: it becomes crit damage
       const x = (isYou && set("hype",4) ? 3 : 2) + (isYou ? Math.max(0, you.crit-100)*BAL.critOver : 0);
       dmg = Math.round(dmg * x); crit=true; math.push("· crit ×"+Math.round(x*100)/100+(isYou && you.sure ? " (sure)" : " (rolled "+Math.floor(cr)+" < "+Math.round(critC)+"%)")); }
-    else math.push("· no crit (rolled "+Math.floor(cr)+", needed < "+Math.round(critC)+"%)");
+    else math.push(!isYou && act("airpods") ? "· no crit (AirPods: it can't crit)" : "· no crit (rolled "+Math.floor(cr)+", needed < "+Math.round(critC)+"%)");
     if(isYou && crit){ if(you.sure) notes.push("sure crit"); if(set("hype",4)) notes.push("×3 HYPEBEAST"); }
     if(isYou){ if(crit && you.sure && set("agency",3) && !you.agencyDone){ you.agencyDone = true; syn("agency"); } if(crit && set("hype",4)) syn("hype"); if(set("blood",3) && foe.bleed>0) syn("blood"); you.sure = false; }
     if(isYou && crit && act("cigarette")){ dmg += tv("cigarette",4); notes.push("+"+tv("cigarette",4)+" Cigarette"); }
@@ -3593,9 +3599,13 @@ function fightEngine(foeDef, opts, io){
     // poison
     if(isYou && act("snakebites")){ def.poison = 3 + (act("lab_coat") ? 2 : 0); }
     if(isYou && act("newports")){ if(!(foe.ratio>0)) io.log("🚬 Newports. "+dn+" is ratio'd: it heals half as well.", "good"); foe.ratio = 2; }
-    if(was){ const on = [];
+    if(was){ const on = [], src = [];
+      if(foe.burn>was.burn) src.push([act("fire_glasses") && "Fire Glasses", crit && act("laser_eyes") && "Laser Eyes", act("juul") && "Juul +2"].filter(Boolean).join(" + ")+" → burn");
+      if(foe.bleed>was.bleed) src.push([(act("claw")||act("vampire")) && (act("claw") ? "Claw" : "Vampire"), crit && act("desert_eagle") && "Desert Eagle +2", act("teardrops") && you.hp < you.maxhp/2 && "Teardrops"].filter(Boolean).join(" + ")+" → bleed (max "+bleedMax()+")");
+      if(foe.chill>was.chill) src.push("chill (max "+chillMax()+")");
+      if(foe.poison>was.poison) src.push("Snakebites"+(act("lab_coat") ? " + Lab Coat" : "")+" → poison");
       if(foe.burn>was.burn) on.push("🔥 burning "+foe.burn); if(foe.bleed>was.bleed) on.push("🩸 bleed "+foe.bleed); if(foe.chill>was.chill) on.push("🧊 chill "+foe.chill); if(foe.poison>was.poison) on.push("🐍 poisoned "+foe.poison);
-      if(on.length || set("cheese",3)) io.log("↳ "+(on.length ? dn+": "+on.join(" · ") : "")+(set("cheese",3) ? (on.length ? " · " : "")+"+3 $CULT for you" : ""), "sub", "you"); }
+      if(on.length || set("cheese",3)) io.log("↳ "+(on.length ? dn+": "+on.join(" · ") : "")+(set("cheese",3) ? (on.length ? " · " : "")+"+3 $CULT for you" : "")+dbg(src.length ? [src.join(" · ")] : []), "sub", "you"); }
     if(isYou && crit && act("tyson_tattoo")){ foe.denied = true; foe.stripped = true; if(foe.shield>0){ foe.shield = 0; io.float("foe","GUARD BROKEN","gbreak"); } io.log("🥊 Tyson Tribal: "+dn+"'s guard is down and its next heal won't come.", "good"); }
   }
   function lethalCheck(){
@@ -3664,8 +3674,8 @@ function fightEngine(foeDef, opts, io){
     if(tribe==="lolita" && F.tick%4===0 && you.hp>0){ // LOVEBOMBER: 8% of max HP, whatever the day (undoing the multipliers every other heal gets)
       heal(Math.max(1, you.maxhp*0.08/1.5/(1+BAL.growth*Math.max(0,((G&&G.day)||1)-1))), false, "💌 Love bomb"); }
     // poison ticks
-    if(foe.burn>0){ if(set("flame",2)) syn("flame"); const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0) + (act("cigar")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+"."+dbg([foe.burn ? foe.burn+" more tick"+(foe.burn>1?"s":"") : "burn is out"]), "good"); io.float("foe","-"+d,"psn"); }
-    if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+"."+dbg([foe.poison ? foe.poison+" more tick"+(foe.poison>1?"s":"") : "poison is out"]), "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.burn>0){ if(set("flame",2)) syn("flame"); const d = grow(3 + (set("flame",2)?2:0) + (act("laser_eyes")?1:0) + (act("cigar")?1:0)); foe.burn--; foe.hp-=d; credit("🔥 burn", d); io.log("🔥 "+foe.name+" burns for "+d+"."+dbg(["3"+(set("flame",2) ? " +2 FLAMEWAR" : "")+(act("laser_eyes") ? " +1 Laser Eyes" : "")+(act("cigar") ? " +1 Cigar" : "")+", scaled by day ·", foe.burn ? foe.burn+" more tick"+(foe.burn>1?"s":"") : "burn is out"]), "good"); io.float("foe","-"+d,"psn"); }
+    if(foe.poison>0){ const d = grow(tv("snakebites",2) * (act("milady_pilled") ? 3 : 1)); foe.poison--; foe.hp-=d; credit("🐍 poison", d); io.log("🐍 Poison bites "+foe.name+" for "+d+"."+dbg([(act("milady_pilled") ? "×3 Milady Pilled, " : "")+"scaled by day ·", foe.poison ? foe.poison+" more tick"+(foe.poison>1?"s":"") : "poison is out"]), "good"); io.float("foe","-"+d,"psn"); }
     if(act("pikachu") && F.tick%4===0){ const z = grow(tv("pikachu",8)); foe.hp-=z; credit("⚡ Pikachu Suit", z); io.log("⚡ Pikachu Suit shocks "+foe.name+" for "+z+".", "good"); io.hit("foe",z,false); }
     if(act("gnome") && F.tick%4===0) heal(tv("gnome",6), false, "🍄 Gnome patches you up");
     if(act("juicebox") && F.tick%3===0) heal(tv("juicebox",4), false, "🧃 Juicebox");
