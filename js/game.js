@@ -42,7 +42,7 @@ function saveMeta(){
 const SFX = { beat:["sine",[58,46],0.09,0.16], // [wave, notes (Hz), seconds per note, volume]
   step:["triangle",[440],0.04,0.03], click:["triangle",[700],0.03,0.04],
   hit:["square",[190,130],0.05,0.04], hurt:["square",[120,90],0.06,0.05], crit:["sawtooth",[440,660,880],0.05,0.06],
-  coin:["triangle",[988,1319],0.07,0.06], heal:["sine",[523,784],0.09,0.06], relic:["triangle",[523,659,784,1047],0.08,0.07],
+  hover:["triangle",[1100],0.022,0.022], coin:["triangle",[988,1319],0.07,0.06], heal:["sine",[523,784],0.09,0.06], relic:["triangle",[523,659,784,1047],0.08,0.07],
   bad:["sawtooth",[200,150,110],0.09,0.05], fight:["square",[220,330],0.07,0.04], night:["sine",[330,262,196],0.16,0.06],
   boss:["sawtooth",[110,104,110,98],0.16,0.08], win:["triangle",[523,659,784],0.09,0.06],
   fanfare:["triangle",[523,659,784,1047,1319,1568],0.11,0.07], lose:["sawtooth",[330,262,196,131],0.18,0.07],
@@ -62,6 +62,18 @@ function sfx(name){
     });
   }catch(e){}
 }
+/* a faint blip when the mouse comes onto something you can press: once per thing, not for every child it crosses, and
+   never in a rattle when the pointer sweeps across a row of them. Silent until a click has woken the audio. */
+const HOVERABLE = "button,a[href],select,summary,label,[role=button],[role=switch],[role=tab],.cal-cell";
+let hoverOn = null, hoverAt = 0;
+document.addEventListener("pointerover", e=>{
+  if(e.pointerType!=="mouse") return; // a tap already clicks
+  const el = e.target.closest && e.target.closest(HOVERABLE);
+  if(el===hoverOn) return; hoverOn = el;
+  if(!el || el.disabled || el.matches("i.cal-cell,.future") || !AC || AC.state!=="running") return;
+  const now = performance.now(); if(now-hoverAt < 45) return; hoverAt = now;
+  sfx("hover");
+});
 function burst(emojis){ // a pop of emoji confetti from the middle of the screen
   if(META.calm) return;
   const chars = [...emojis];
