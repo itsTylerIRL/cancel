@@ -3213,9 +3213,10 @@ function closeModal(){ $("modal").classList.add("hidden");
    the right in theirs, and the fight's own beats (rounds, turn order, the summary) in the middle. A line can say which
    side it belongs to; otherwise its color decides. Lines and pieces marked dbg are the working (the rolls, the armor,
    the math) and only show with "details" on; they are always in what "copy" takes, for a bug report. */
+const logSide = c => /\b(rnd|sum)\b/.test(c) ? "sys" : /\bbad\b/.test(c) ? "foe" : /\b(good|heal|crit|gold)\b/.test(c) ? "you" : "sys"; // a line that doesn't say whose it is
 function clog(msg, cls, side){
   const el=$("combat-log"); const d=document.createElement("div"), c = cls||"";
-  side = side || (/\b(rnd|sum)\b/.test(c) ? "sys" : /\bbad\b/.test(c) ? "foe" : /\b(good|heal|crit|gold)\b/.test(c) ? "you" : "sys");
+  side = side || logSide(c);
   d.className = (c ? c+" " : "")+"L-"+side; d.innerHTML=si(msg).replace(/🗝️/g, KEY_ICO).replace(/📌/g, PIN_SVG);
   const stick = el.scrollTop+el.clientHeight >= el.scrollHeight-30; // reading back up the log isn't yanked down by every new line
   el.appendChild(d); if(stick) el.scrollTop=el.scrollHeight;
@@ -4583,9 +4584,10 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
   G.stats.hp = G.stats.maxhp;
   const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
   const ioA = { log:(m,c,s)=>{ if(!raw(m)) log(m, c, "you", s); }, hit:(s,d,c)=>{ if(V) V.hit(s, d, c); }, float:(s,t,c)=>{ if(V) V.float(s, t, c); }, syn:id=>{ if(V && V.syn) V.syn("you", id); }, strip(){} };
-  const flip = {good:"bad", bad:"good"};
-  const ioB = { log:(m,c,s)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
-      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c, "foe", {you:"foe", foe:"you"}[s]||s); },
+  const flip = c => (c||"").replace(/\b(good|bad)\b/g, w => w==="good" ? "bad" : "good");
+  const ioB = { log:(m,c,s)=>{ if(raw(m)) return; // the same lines, told from your side of the fight: the king's heals, crits and procs sit on the king's side
+      const side = s || logSide(c||"");
+      log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip(c), "foe", {you:"foe", foe:"you"}[side]||side); },
     hit:(s,d,c)=>{ if(V) V.hit(s==="you" ? "foe" : "you", d, c); }, float:(s,t,c)=>{ if(V) V.float(s==="you" ? "foe" : "you", t, c); }, syn:id=>{ if(V && V.syn) V.syn("foe", id); }, strip(){} };
   const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
   const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
