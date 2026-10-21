@@ -737,6 +737,7 @@ def clean_profile(d):
     st = d.get("streak") if isinstance(d.get("streak"), dict) else {}
     out["streak"] = {"n": num(st, "n", 100000), "best": num(st, "best", 100000), "last": day(st.get("last"))}
     out["daily"] = day(d.get("daily"))  # the last day this player's daily was played, on any device
+    out["lock"] = num(d, "lock", 10**14)  # until when (ms) this player can't start a run: two given up in a few minutes
     out["prefs"] = clean_prefs(d.get("prefs"))
     return out
 
@@ -786,6 +787,7 @@ def merge_profile(old, new, base):
     lead = b if (b["last"], b["n"]) > (a["last"], a["n"]) else a
     out["streak"] = {"n": lead["n"], "last": lead["last"], "best": max(a["best"], b["best"], lead["n"])}
     out["daily"] = max(old["daily"], new["daily"])
+    out["lock"] = max(old["lock"], new["lock"])
     out["prefs"] = new["prefs"] if new["prefs"]["at"] > old["prefs"]["at"] else old["prefs"]
     return out
 
@@ -812,6 +814,7 @@ def profile_sync(player, data, base, now):
         row = con.execute("SELECT data FROM profiles WHERE player=?", (player,)).fetchone()
         old = retire(clean_profile(json.loads(row[0])), True) if row else None
         merged = merge_profile(old, new, clean_profile(base) if isinstance(base, dict) and old is not None else None)
+        merged["lock"] = min(merged["lock"], (now + 31 * 60) * 1000)  # a device with its clock wrong can't lock anyone out for longer
         con.execute("INSERT OR REPLACE INTO profiles (player, data, at) VALUES (?,?,?)",
                     (player, json.dumps(merged, separators=(",", ":")), now))
     return merged

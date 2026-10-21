@@ -3018,6 +3018,27 @@ function openScearpo(note, cls){
   $("npc-leave").onclick=()=>{ if(done){ G.traded = ""; clearTile(); mlog("Scearpo leaves. The ground where he stood is still warm.", ""); } else setPin(G.px, G.py, true); renderMap(); closeModal(); };
 }
 
+/* Giving up is allowed; rerolling the start until it comes up lucky isn't. Two runs given up inside QUIT_WINDOW and the
+   next run waits QUIT_LOCK. Throwing away a saved run to start another counts as giving it up. A signed-in player's
+   cooldown is on the account, so another device or a cleared browser doesn't skip it. */
+const QUIT_WINDOW = 10*60e3, QUIT_LOCK = 30*60e3;
+const quitsRecent = () => (META.quits||[]).filter(t=>Date.now()-t < QUIT_WINDOW);
+const lockLeft = () => Math.max(0, (META.quitLock||0) - Date.now());
+function noteQuit(){
+  const q = quitsRecent().concat(Date.now());
+  if(q.length>=2){ META.quitLock = Date.now()+QUIT_LOCK; META.quits = []; } else META.quits = q;
+  saveMeta(); syncProfile(true);
+}
+const quitWarn = () => { const q = quitsRecent(); return q.length ? "<br><br>You gave up a run "+agoText(q[q.length-1])+". Give this one up too and <b>you'll wait 30 minutes</b> before your next run." : ""; };
+function lockedOut(){ // true, and says so, while the cooldown runs
+  const ms = lockLeft(); if(!ms) return false;
+  const m = Math.ceil(ms/60000);
+  openModal("<h2>⏳ COOLING OFF</h2><div class='note'>two runs given up in a few minutes. the timeline isn't a slot machine.<br>your next run can start in <b>"+m+" minute"+(m===1?"":"s")+"</b>.</div>"
+    + "<div class='row'><button class='btn' id='lock-ok'>ok</button></div>");
+  $("lock-ok").onclick = ()=>{ sfx("click"); closeModal(); };
+  navSet($("lock-ok"));
+  return true;
+}
 /* ---------- settings ---------- */
 function openSettings(){
   if(G && !G.over && $("screen-combat").classList.contains("active")) return;
@@ -3045,8 +3066,8 @@ function openSettings(){
   $("set-close").onclick=()=>{ sfx("click"); closeModal(); };
   if(inRun) $("set-quit").onclick=()=>{ sfx("click");
     confirmBox({ title:"ABANDON THIS RUN?", yes:"abandon the run",
-      body:"<b>"+esc(G.name)+"</b>, day "+G.day+", "+G.relics.length+" relic"+(G.relics.length===1?"":"s")+". The run ends here and counts as cancelled"+(G.daily && !G.practice ? ", and <b>today's daily attempt is used</b>" : "")+". This can't be undone." },
-      ()=>{ G.killedBy = "giving up"; G.diedToBoss = false; endRun(false); }, openSettings);
+      body:"<b>"+esc(G.name)+"</b>, day "+G.day+", "+G.relics.length+" relic"+(G.relics.length===1?"":"s")+". The run ends here and counts as cancelled"+(G.daily && !G.practice ? ", and <b>today's daily attempt is used</b>" : "")+". This can't be undone."+quitWarn() },
+      ()=>{ noteQuit(); G.killedBy = "giving up"; G.diedToBoss = false; endRun(false); }, openSettings);
   };
 }
 function applyCalm(){ document.body.classList.toggle("calm", !!META.calm); }
@@ -4334,7 +4355,7 @@ function endRun(win){
     $("end-rank").innerHTML = rankHtml;
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
     $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
-    $("end-again").onclick=()=>{ sfx("click"); leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft, run.base.nft ? null : META.last); };
+    $("end-again").onclick=()=>{ sfx("click"); if(lockedOut()) return; leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft, run.base.nft ? null : META.last); };
     $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
     $("end-copy").onclick=async()=>{
       sfx("click");
@@ -5124,7 +5145,7 @@ const streakTag = n => "⚡ "+n+" day streak";
    the service adds only what changed since. */
 const profileOf = () => ({ runs:META.runs||0, wins:META.wins||0, drip:META.drip||0, best:META.best||0, heat:META.heat||0,
   unlocks:META.unlocks||{}, seen:META.seen||{}, ach:META.ach||{}, tips:META.tips||{}, tut:!!META.tut,
-  streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "", prefs:{ at:META.prefsAt||0, v:prefsOf() } });
+  streak:META.streak||{}, daily:META.dailyAt ? META.dailyAt.date : "", lock:META.quitLock||0, prefs:{ at:META.prefsAt||0, v:prefsOf() } });
 /* Runs posted from this browser before signing in belong to the account once you do: the service moves them over,
    keeping the better of the two where both have a row, so nobody is on a board twice. Once per account. */
 async function claimRows(){
@@ -5149,6 +5170,7 @@ async function syncProfile(force){
     for(const k of ["unlocks","seen","ach","tips"]) META[k] = {...(META[k]||{}), ...keys(d[k])};
     pruneUnlocks();
     META.tut = META.tut || !!d.tut;
+    META.quitLock = Math.max(META.quitLock||0, d.lock||0); // a cooldown earned on another device
     const a = META.streak || {n:0, last:"", best:0}, b = d.streak || a;
     META.streak = (b.last > a.last || (b.last===a.last && b.n > a.n)) ? {n:b.n, last:b.last, best:Math.max(a.best||0, b.best||0)} : {...a, best:Math.max(a.best||0, b.best||0)};
     if(d.daily===today() && !(META.dailyAt && META.dailyAt.date===d.daily)) META.dailyAt = {date:d.daily, run:"elsewhere"}; // played on another device
@@ -6115,11 +6137,12 @@ async function init(){
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
     if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
+    if(lockedOut()) return;
     const saved = loadRun();
     if(saved && !startOver){ // a run is waiting to be continued: starting another throws it away
       return confirmBox({ title:"START A NEW RUN?", yes:"start over",
-        body:"You have a run in progress: <b>"+esc(saved.name)+"</b>, day "+saved.day+". Starting a new one throws it away for good"+(saved.daily && !saved.practice ? ", and it was <b>today's daily attempt</b>" : "")+"." },
-        ()=>{ closeModal(); startOver = true; $("btn-start").onclick(); startOver = false; });
+        body:"You have a run in progress: <b>"+esc(saved.name)+"</b>, day "+saved.day+". Starting a new one throws it away for good"+(saved.daily && !saved.practice ? ", and it was <b>today's daily attempt</b>" : "")+". It counts as giving it up."+quitWarn() },
+        ()=>{ closeModal(); noteQuit(); startOver = true; $("btn-start").onclick(); startOver = false; });
     }
     const label = $("btn-start").textContent;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
@@ -6167,7 +6190,7 @@ async function init(){
   nftRow();
 
   $("btn-begin").onclick=()=>{
-    if(!AVA) return;
+    if(!AVA || lockedOut()) return;
     clearRun();
     // next time, this is who is waiting on the character screen
     META.last = AVA.picks.nft ? { nft:AVA.picks.nft } : { picks:AVA.picks, name:AVA.name }; saveMeta();
