@@ -3377,7 +3377,8 @@ function fightEngine(foeDef, opts, io){
   const you = {...base, stun:0, wartime:true, blunt:true, compTick:0, shield:0, suppressed:new Set()};
   const foe = {...foeDef, poison:0, stun:0, stolen:0, burn:0, bleed:0, chill:0};
   const F = { you, foe, st, tick:0, over:false, win:false, fxDelay:0, dodges:0, dealt:{}, took:0, hurt:{}, guarded:0 };
-  const credit = (what, n) => { if(n>0) F.dealt[what] = (F.dealt[what]||0) + n; }; // who did the damage, for the summary after the fight
+  const credit = (what, n) => { if(!(n>0)) return; F.dealt[what] = (F.dealt[what]||0) + n; // who did the damage, for the summary after the fight
+    if(foe.puppet && what!=="✨ crits" && what!=="⚔️ hits") (foe.direct = foe.direct||{})[what] = (foe.direct[what]||0) + n; }; // in a duel, what didn't come from a swing lands as it happens (see F.take)
   const hurtBy = (what, n) => { if(n>0) F.hurt[what] = (F.hurt[what]||0) + n; };   // and what did it to you
   const act = id => st.relics.includes(id) && !you.suppressed.has(id);
   const set = (id,n) => (you.sets[id]||0) >= n;
@@ -3596,7 +3597,7 @@ function fightEngine(foeDef, opts, io){
     if(isYou) credit(crit ? "✨ crits" : "⚔️ hits", dmg); else { F.took += dmg; hurtBy(crit ? "✨ its crits" : "⚔️ its hits", dmg); }
     if(guarded) F.guarded++;
     io.log((crit?"✨ CRIT! ":"")+an+" hit "+dn+" for <b>"+dmg+"</b>."+(guarded ? " <i>(guarded)</i>" : "")+(why.length ? " <i class='nt'>"+why.join(" · ")+"</i>" : "")+dbg(math.concat("→ "+dmg, "· "+Math.max(0, Math.round(def.hp))+"/"+def.maxhp+" left")), crit?"crit":(isYou?"good":"bad"), isYou?"you":"foe");
-    io.hit(isYou?"foe":"you", dmg, crit);
+    if(!(isYou && foe.puppet)) io.hit(isYou?"foe":"you", dmg, crit); // a swing at a duel's stand-in is shown where it lands, on the other side
     const was = isYou ? { burn:foe.burn, bleed:foe.bleed, chill:foe.chill, poison:foe.poison } : null; // what the blow leaves on the enemy is said on the line under it
     if(!isYou && act("plaster") && you.hp>0) heal(2, true, nm("plaster"));
     if(isYou && set("cheese",3)){ st.cult+=3; syn("cheese"); }
@@ -3655,6 +3656,11 @@ function fightEngine(foeDef, opts, io){
     }
     return true;
   }
+  /* A duel: what the other build dealt this fighter without swinging (burn, poison, bleed, thorns, companions...) lands
+     straight away. Its own lines and numbers were already shown; nothing dodges, soaks or caps it, as nothing does a tick. */
+  F.take = function(by){
+    for(const [what, n] of Object.entries(by||{})){ if(F.over) return; you.hp -= n; F.took += n; hurtBy(what, n); if(lethalCheck()) return done(false); }
+  };
   F.step = function(){
     if(F.over) return;
     F.tick++; F.fxDelay=0; foe.tk = F.tick;
@@ -4576,11 +4582,11 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
   const kg = kingContext(k), kn = "👑 "+esc(k.name);
   G.stats.hp = G.stats.maxhp;
   const raw = m => /^(✨ CRIT! )?You hit /.test(m.replace(/<[^>]+>/g,"")); // a swing at a stand-in: the landed hit is reported on the other side
-  const ioA = { log:(m,c,s)=>{ if(!raw(m)) log(m, c, "you", s); }, hit:(s,d,c)=>{ if(V && s==="you") V.hit("you", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("you", t, c); }, syn:id=>{ if(V && V.syn) V.syn("you", id); }, strip(){} };
+  const ioA = { log:(m,c,s)=>{ if(!raw(m)) log(m, c, "you", s); }, hit:(s,d,c)=>{ if(V) V.hit(s, d, c); }, float:(s,t,c)=>{ if(V) V.float(s, t, c); }, syn:id=>{ if(V && V.syn) V.syn("you", id); }, strip(){} };
   const flip = {good:"bad", bad:"good"};
   const ioB = { log:(m,c,s)=>{ if(raw(m)) return; // the same lines, told from your side of the fight
       log(m.replace(/\bYou are\b/g, kn+" is").replace(/\bYou\b/g, kn).replace(/\bYour\b/g, kn+"'s").replace(/\byour\b/g, kn+"'s").replace(/\byou\b/g, kn), flip[c]||c, "foe", {you:"foe", foe:"you"}[s]||s); },
-    hit:(s,d,c)=>{ if(V && s==="you") V.hit("foe", d, c); }, float:(s,t,c)=>{ if(V && s==="you") V.float("foe", t, c); }, syn:id=>{ if(V && V.syn) V.syn("foe", id); }, strip(){} };
+    hit:(s,d,c)=>{ if(V) V.hit(s==="you" ? "foe" : "you", d, c); }, float:(s,t,c)=>{ if(V) V.float(s==="you" ? "foe" : "you", t, c); }, syn:id=>{ if(V && V.syn) V.syn("foe", id); }, strip(){} };
   const A = fightEngine(standIn(k.name, kg.stats), {}, ioA);
   const B = inRun(kg, ()=>fightEngine(standIn(run.name, G.stats), {}, ioB));
   let fromKing = 0, fromYou = 0;
@@ -4597,8 +4603,12 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
   };
   carryStun(A, B); carryStun(B, A); // anything that stuns as the fight opens
   const hand = (from, to) => { const h = from.hexOut(); to.you.hx = h; if(h.strip && to.you.shield>0){ to.you.shield = 0; if(V) V.float(to===B ? "foe" : "you", "GUARD BROKEN", "gbreak"); } }; // what one build does to the other's healing, shield and dodging
-  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); hand(A, B); fromYou += Math.max(0, Math.round(DUEL_HP - A.foe.hp)); A.foe.hp = DUEL_HP; carryStun(A, B); };
-  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); hand(B, A); fromKing += Math.max(0, Math.round(DUEL_HP - B.foe.hp)); B.foe.hp = DUEL_HP; carryStun(B, A); };
+  // only a swing is carried to the other side's turn, to be dodged or soaked there; the rest lands now (F.take)
+  const landed = (from, to, ctx) => { const by = from.foe.direct || {}; from.foe.direct = null;
+    const swing = Math.max(0, Math.round(DUEL_HP - from.foe.hp - Object.values(by).reduce((a,n)=>a+n, 0))); from.foe.hp = DUEL_HP;
+    ctx ? inRun(ctx, ()=>to.take(by)) : to.take(by); return swing; };
+  const yours = ()=>{ A.foe.nextDmg = fromKing; fromKing = 0; A.step(); hand(A, B); fromYou += landed(A, B, kg); carryStun(A, B); };
+  const theirs = ()=>{ B.foe.nextDmg = fromYou; fromYou = 0; inRun(kg, ()=>B.step()); hand(B, A); fromKing += landed(B, A); carryStun(B, A); };
   const D = { A, B, you:A.you, king:B.you, kg, rounds:0, over:false, win:false, youFirst,
     step(){
       if(D.over) return;
@@ -4606,8 +4616,10 @@ function makeDuel(run, k, log, V){ // V, when given, is shown what lands on each
       log(roundHead(D.rounds, A.you, B.you), "rnd", "", "sys");
       for(const turn of (youFirst ? [yours, theirs] : [theirs, yours])){
         turn();
-        if(A.over){ D.over = true; D.win = false; return; } // you fell
-        if(B.over){ D.over = true; D.win = true; return; }  // the king fell
+        // both can fall in one turn: the mover's burn, poison and companions land before the other side's swing does
+        const kingFirst = turn===yours ? B.over : B.over && !A.over;
+        if(kingFirst){ D.over = true; D.win = true; return; } // the king fell
+        if(A.over){ D.over = true; D.win = false; return; }   // you fell
       }
       if(D.rounds>=300){ D.over = true; D.win = false; log("⏳ Neither falls. The hill stays with its king.", ""); }
     } };
