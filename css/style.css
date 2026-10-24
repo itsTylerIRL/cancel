@@ -983,6 +983,7 @@ body.calm #btn-daily.funnel{animation:none;}
 body.calm #btn-endless,body.calm #btn-endless::after,body.calm #btn-endless:hover{animation:none;}
 /* endless: the track across the top slides with the nights, and the ones where they get worse are red */
 #timeline .day.surge{border-color:#ff2a3d;color:#ff8b8b;background:#1a0606;}
+#timeline .day.gift{border-color:var(--gold);color:var(--gold);}
 body.endless #doom b{color:#ff4a57;letter-spacing:.12em;}
 .bendless{color:#ff4a57;border-color:rgba(255,42,61,.5);}
 /* the worldwide panel's terminally online tile: the fifth in the row, in red */

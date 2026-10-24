@@ -1360,7 +1360,9 @@ function renderEndlessTrack(){
   let h = "";
   for(let d=from; d<from+9; d++){
     const surge = d>1 && (d-1)%3===0 && Math.floor((d-1)/3)+depthOf()-1<=2; // the nights the hunters' tier goes up
-    h += "<div class='day"+(d<G.day?" past":"")+(d===G.day?" now night":"")+(surge?" surge":"")+"'"+(surge?" title='they get worse from this night'":"")+"><span>"+d+"</span></div>";
+    const gift = BOSS_DAYS.includes(d); // the nights that pay tribute (endlessTribute)
+    const title = [gift && (d<=G.day ? "paid tribute: +1 relic slot and a mint" : "pays tribute: +1 relic slot and a mint"), surge && "they get worse from this night"].filter(Boolean).join(" · ");
+    h += "<div class='day"+(d<G.day?" past":"")+(d===G.day?" now night":"")+(surge?" surge":"")+(gift?" gift":"")+"'"+(title?" title='"+title+"'":"")+"><span>"+(gift && d>G.day ? "🎁" : d)+"</span></div>";
   }
   $("timeline").innerHTML = h;
   const out = G.hunters.length;
@@ -1992,11 +1994,21 @@ function endPhase(){
   if(G.endless){
     if(G.tenx && G.tenx.until && G.day>=G.tenx.until) tenxRug(); // the night his position ran to is over
     G.day++; G.nightPts = (G.nightPts||0) + ENDLESS.pts.night*depthOf(); // banked at the depth it was reached
-    dawnDue(); return startNight(); // no dawn down here: the next night starts where this one ended
+    dawnDue(); startNight(); // no dawn down here: the next night starts where this one ended
+    if(BOSS_DAYS.includes(G.day)) endlessTribute();
+    return;
   }
   if(G.phase==="day") return startNight();
   if(G.bossUnlocked>=0) return bossArrives(); // you didn't go to it, so it comes to you
   G.day++; startDay();
+}
+/* endless has no bosses, so the nights they would come on pay what beating one does: a relic slot and a tribute mint.
+   Nights 3, 6 and 9, like the timeline; after that the build is what you made it. */
+function endlessTribute(){
+  G.maxSlots++; recalcStats();
+  mlog("🎁 <b>Night "+G.day+" pays tribute.</b> +1 relic slot"+(G.day>=BOSS_DAYS[2] ? ", the last one down here." : "."), "gold");
+  renderMap();
+  G.queue.unshift(()=>openDraft("The night yields tribute.", richRoll));
 }
 function startDay(){
   G.phase="day"; G.movesLeft=dayMoves(); G.hunters=[];
@@ -5751,7 +5763,7 @@ function beginSetup(){
     mlog("🌸 <b>"+G.name+"</b> "+(G.endless ? "drops into the endless night" : "enters the timeline")+" with "+G.cult+" $CULT.", "gold");
     if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
-    mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
+    mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper. Nights 3, 6 and 9 pay tribute: a relic slot and a mint." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     if(G.endless){ G.nightPts = ENDLESS.pts.night; G.killPts = 0; startNight(); } else startDay();
     startDaily(G);
