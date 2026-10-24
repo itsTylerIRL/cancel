@@ -2172,20 +2172,12 @@ body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{ani
   .top-score{flex-basis:100%;font-size:15px;} .top-card .duel-relics .relic-ico{width:18px;height:18px;} }
 
 /* the way over to the companion game, clicker.tylerirl.com: its pink, so it reads as the other place */
-.sister{display:flex;align-items:center;gap:12px;max-width:440px;margin:6px auto 12px;padding:10px 14px;text-align:left;text-decoration:none;color:var(--txt);
-  border:1px solid rgba(255,121,198,.4);border-top-color:rgba(255,255,255,.15);border-radius:12px;background:rgba(40,0,24,.25);transition:var(--btn-t);}
-.sister:hover{border-color:var(--pink);background:rgba(255,121,198,.1);box-shadow:0 0 24px rgba(255,121,198,.25);}
-.sister img{width:46px;height:46px;border-radius:50%;flex:none;box-shadow:0 0 0 2px rgba(255,121,198,.5);}
-.sister:hover img{animation:sister-wobble .5s ease-in-out;}
-.sister span{display:flex;flex-direction:column;gap:3px;min-width:0;}
-.sister b{color:var(--pink);text-transform:lowercase;letter-spacing:.06em;}
-.sister i{font-style:normal;font-size:11px;color:#9aa6ab;line-height:1.45;}
-.sister em{font-style:normal;color:var(--pink);margin-left:auto;font-size:16px;}
-@keyframes sister-wobble{30%{transform:rotate(-12deg) scale(1.08);}65%{transform:rotate(8deg);}}
+.btn.small.sister-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--pink);border-color:rgba(255,121,198,.4);padding-left:5px;}
+.btn.small.sister-btn:hover{color:var(--pink);border-color:var(--pink);background:rgba(255,121,198,.1);box-shadow:0 0 18px rgba(255,121,198,.25);}
+.sister-btn img{width:22px;height:22px;border-radius:50%;}
 .sister-pill{display:inline-flex;align-items:center;gap:6px;height:var(--btnh-s);padding:0 10px 0 4px;border:1px solid rgba(255,121,198,.4);border-radius:var(--r);
   color:var(--pink);text-decoration:none;font-size:12px;letter-spacing:.04em;text-transform:lowercase;white-space:nowrap;transition:var(--btn-t);}
 .sister-pill:hover{border-color:var(--pink);background:rgba(255,121,198,.1);box-shadow:0 0 16px rgba(255,121,198,.25);}
 .sister-pill img{width:24px;height:24px;border-radius:50%;}
 @media (max-width:820px){ .sister-pill span{display:none;} .sister-pill{padding:0 8px 0 4px;} }
 .shop-row .sinfo a{color:var(--pink);}
-body.calm .sister:hover img{animation:none;}
