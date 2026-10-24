@@ -5416,7 +5416,7 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
       + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
     el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
       + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)
-      + tile("endless", "📡 terminally online runs", "total depth", "", false).replace("class='pcell'", "class='pcell terminal' title='every terminally online run ever, and how deep they went between them'")+"</div>"
+      + tile("endless", "endless", "total depth", "", false).replace("class='pcell'", "class='pcell terminal' title='every terminally online run ever, and how deep they went between them'")+"</div>"
       + "<div class='pfeed' id='pulse-feed' aria-live='off' role='button' tabindex='0' title='see every recent run'></div>";
     el.classList.remove("hidden"); PULSE.built = true;
     const pf = $("pulse-feed"); pf.onclick = ()=>{ sfx("click"); openBoard("recent"); }; pf.onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); pf.click(); } };

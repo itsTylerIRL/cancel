@@ -774,12 +774,12 @@ body.bg3d #modal{background:rgba(0,0,0,.78);}
 .lineup .bpfp.big:first-child{border-color:var(--gold);box-shadow:0 0 14px rgba(241,250,140,.4);}
 .pulse{margin:6px auto 14px;max-width:560px;}
 .phead{font-family:var(--label);text-transform:uppercase;letter-spacing:.18em;font-size:10px;color:var(--dim);margin-bottom:6px;}
-.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
+.pgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;}
 .pcell{border:1px solid var(--line);border-radius:4px;background:rgba(139,233,253,.04);padding:8px 4px;display:flex;flex-direction:column;gap:2px;min-width:0;}
 .pcell u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.12em;font-size:9px;color:var(--dim);}
 .pcell b{font-size:20px;color:var(--cyan,#8be9fd);}
 .pcell span{font-size:10px;color:var(--dim);}
-@media (max-width:520px){ .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:520px){ .pgrid{grid-template-columns:repeat(6,minmax(0,1fr));} .pgrid .pcell{grid-column:span 2;} .pgrid .pcell:nth-child(n+4){grid-column:span 3;} } /* five tiles: three over two */
 .hall{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:12px 0;}
 .hcard{border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.03);padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;min-width:0;text-align:center;}
 .hcard .bpfp{width:84px;height:84px;border-radius:8px;margin-bottom:4px;}
@@ -985,10 +985,9 @@ body.calm #btn-endless,body.calm #btn-endless::after,body.calm #btn-endless:hove
 #timeline .day.surge{border-color:#ff2a3d;color:#ff8b8b;background:#1a0606;}
 body.endless #doom b{color:#ff4a57;letter-spacing:.12em;}
 .bendless{color:#ff4a57;border-color:rgba(255,42,61,.5);}
-/* the worldwide panel's terminally online tile: a row of its own, in red */
-.pcell.terminal{grid-column:1/-1;flex-direction:row;align-items:baseline;justify-content:center;gap:10px;border-color:rgba(255,42,61,.45);background:rgba(255,42,61,.06);}
+/* the worldwide panel's terminally online tile: the fifth in the row, in red */
+.pcell.terminal{border-color:rgba(255,42,61,.45);background:rgba(255,42,61,.06);}
 .pcell.terminal u{color:#ff4a57;} .pcell.terminal b{color:#ff8b94;text-shadow:0 0 14px rgba(255,42,61,.55);}
-.pcell.terminal .pbar{display:none;}
 /* ---------- cursed altar ---------- */
 .tile.poi.t18 span{border-color:#bd93f9;background:#0d0618;box-shadow:0 2px 0 #000,0 0 14px rgba(189,147,249,.6);animation:altar 2.6s ease-in-out infinite;}
 @keyframes altar{50%{box-shadow:0 2px 0 #000,0 0 24px rgba(255,85,85,.7);}}
