@@ -408,14 +408,15 @@ def render(run, seed="x"):
     text("is coming_", 500 + off, 108, 50, "#8be9fd")
 
     tribe = SPEC["tribes"].get(run["tribe"], "")
-    where = " · daily " + run["daily"] if run.get("daily") else " · map " + run["seed"] if run.get("seed") else ""
+    where = " · terminally online" if run.get("endless") else " · daily " + run["daily"] if run.get("daily") else " · map " + run["seed"] if run.get("seed") else ""
     line = (run["name"] + " · " + tribe + (" · heat %d" % run["heat"] if run["heat"] else "") + where).lower()
     f24 = font(24, "Regular")
     while d.textlength(line, font=f24) > 660 and len(line) > 10:
         line = line[:-2].rstrip() + "…"
     text(line, 500, 156, 24, "#bdbdbd", "Regular")
-    text("timeline saved" if run["win"] else "cancelled on day %d" % run["day"], 500, 240, 44, "#50fa7b" if run["win"] else "#ff5555")
-    stats = "%d / 3 bosses  ·  %d kills" % (run["bosses"], run["kills"]) + ("  ·  %d $CULT" % run["cult"] if run.get("cult") is not None else "")
+    endless = run.get("endless")
+    text("run down on night %d" % run["day"] if endless else "timeline saved" if run["win"] else "cancelled on day %d" % run["day"], 500, 240, 44, "#50fa7b" if run["win"] else "#ff5555")
+    stats = ("depth %d" % (run.get("depth") or 1) if endless else "%d / 3 bosses" % run["bosses"]) + "  ·  %d kills" % run["kills"] + ("  ·  %d $CULT" % run["cult"] if run.get("cult") is not None else "")
     text(stats, 500, 288, 24, "#eaeaea", "Regular")
     text("DRIP", 500, 366, 18, "#666")
     text(str(run["score"]), 500, 438, 76, "#f1fa8c")

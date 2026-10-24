@@ -952,8 +952,43 @@ button,.btn,.card,.choice,.tile,.pick{touch-action:manipulation;}
 #btn-daily.funnel:hover,#btn-daily.funnel.ksel{background:var(--acid);color:#000;}
 @keyframes funnel{50%{box-shadow:0 0 40px rgba(80,250,123,.55);}}
 #btn-daily.played{color:var(--dim);border-color:var(--line);}
-#btn-start{opacity:.92;} #btn-start.lead{opacity:1;box-shadow:0 0 26px rgba(139,233,253,.35);}
+#btn-start{opacity:.92;}
+#btn-start.big{display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.2;}
+#btn-start b{font-weight:inherit;} #btn-start .cur{font-style:normal;animation:tl-cur 1.05s steps(1) infinite;}
+#btn-start .tl-sub{font-size:10px;letter-spacing:.08em;opacity:.75;text-transform:none;font-weight:400;}
+#btn-start.big.ksel{background:var(--neon);color:#000;box-shadow:0 0 30px rgba(139,233,253,.5);} /* picked with the keys, it fills like it does under the mouse */
+@keyframes tl-cur{50%{opacity:0;}}
+body.calm #btn-start .cur{animation:none;} #btn-start.lead{opacity:1;box-shadow:0 0 26px rgba(139,233,253,.35);}
 body.calm #btn-daily.funnel{animation:none;}
+/* terminally online, under the timeline: the red one is chipped, scratched and cracked, and it doesn't sit still */
+#btn-endless{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.2;overflow:hidden;isolation:isolate;
+  color:#ff4a57;border:1px solid #ff2a3d;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  background:repeating-linear-gradient(112deg, transparent 0 13px, rgba(0,0,0,.42) 13px 14px, transparent 14px 31px, rgba(255,90,100,.08) 31px 32px),
+    radial-gradient(120% 140% at 85% 110%, rgba(255,30,50,.32), transparent 60%), linear-gradient(180deg, #2b0007, #0f0002);
+  clip-path:polygon(0 7px, 9px 0, 36% 0, 39% 4px, 42% 0, 100% 0, 100% calc(100% - 10px), calc(100% - 8px) 100%, 66% 100%, 63% calc(100% - 5px), 60% 100%, 0 100%);
+  text-shadow:1.5px 0 rgba(139,233,253,.5), -1.5px 0 rgba(255,0,60,.75);
+  box-shadow:inset 0 0 22px rgba(255,20,40,.38), inset 0 -2px 0 rgba(255,42,61,.5);
+  animation:endless-flicker 4.2s steps(1) infinite;}
+#btn-endless::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.55; /* a crack across one corner */
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60' preserveAspectRatio='none'%3E%3Cpath d='M120 6 L104 14 L98 11 L86 24 L90 29 L77 41 M98 11 L94 3 M86 24 L72 22 L63 30 M90 29 L101 37' fill='none' stroke='%23ff7a85' stroke-width='.7'/%3E%3C/svg%3E") right top/60% 100% no-repeat;}
+#btn-endless::after{content:"";position:absolute;left:0;right:0;top:-30%;height:22%;z-index:-1;pointer-events:none; /* a bad scanline rolling through */
+  background:linear-gradient(180deg, transparent, rgba(255,60,75,.22), transparent);animation:endless-roll 3.1s linear infinite;}
+#btn-endless b{font-weight:inherit;} #btn-endless span{font-size:10px;letter-spacing:.08em;opacity:.8;text-transform:none;font-weight:400;text-shadow:none;}
+#btn-endless:hover,#btn-endless.ksel{background:#ff2a3d;color:#000;text-shadow:none;box-shadow:inset 0 0 0 1px #000;animation:endless-shake .28s linear infinite;}
+#btn-endless:hover::before,#btn-endless.ksel::before{opacity:.9;filter:brightness(0);}
+#btn-endless.small{color:#e0505c;border-color:#6b1520;letter-spacing:.08em;text-shadow:none;}
+@keyframes endless-flicker{0%,100%{opacity:1;transform:none;} 91%{opacity:.72;transform:translateX(1px);} 92%{opacity:1;transform:translateX(-1px);} 93%{transform:none;} 97%{opacity:.85;}}
+@keyframes endless-roll{to{top:115%;}}
+@keyframes endless-shake{0%,100%{transform:none;} 25%{transform:translate(1px,-1px);} 50%{transform:translate(-1px,1px);} 75%{transform:translate(1px,1px);}}
+body.calm #btn-endless,body.calm #btn-endless::after,body.calm #btn-endless:hover{animation:none;}
+/* endless: the track across the top slides with the nights, and the ones where they get worse are red */
+#timeline .day.surge{border-color:#ff2a3d;color:#ff8b8b;background:#1a0606;}
+body.endless #doom b{color:#ff4a57;letter-spacing:.12em;}
+.bendless{color:#ff4a57;border-color:rgba(255,42,61,.5);}
+/* the worldwide panel's terminally online tile: a row of its own, in red */
+.pcell.terminal{grid-column:1/-1;flex-direction:row;align-items:baseline;justify-content:center;gap:10px;border-color:rgba(255,42,61,.45);background:rgba(255,42,61,.06);}
+.pcell.terminal u{color:#ff4a57;} .pcell.terminal b{color:#ff8b94;text-shadow:0 0 14px rgba(255,42,61,.55);}
+.pcell.terminal .pbar{display:none;}
 /* ---------- cursed altar ---------- */
 .tile.poi.t18 span{border-color:#bd93f9;background:#0d0618;box-shadow:0 2px 0 #000,0 0 14px rgba(189,147,249,.6);animation:altar 2.6s ease-in-out infinite;}
 @keyframes altar{50%{box-shadow:0 2px 0 #000,0 0 24px rgba(255,85,85,.7);}}

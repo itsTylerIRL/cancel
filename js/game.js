@@ -617,7 +617,14 @@ let G = null;
 const DAY_MOVES = 34, NIGHT_MOVES = 16, BOSS_DAYS = [3,6,9];
 const tribeIs = id => !!G && G.tribe===id; // the run's class; each tribe's rules are marked with its id where they apply
 const dayMoves = () => DAY_MOVES - (tribeIs("harajuku") ? 6 : 0);
-const nightMoves = () => NIGHT_MOVES - (tribeIs("harajuku") ? 4 : 0) + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0);
+const nightMoves = () => NIGHT_MOVES - (tribeIs("harajuku") ? 4 : 0) + (G.heat>=3 ? 3 : 0) + (hasRelic("crescent") ? 6 : 0) + (G.endless ? ENDLESS.moves : 0);
+/* TERMINALLY ONLINE: the night never ends. No bosses, no monsters in the rooms: only Schizoposters, more of them every
+   night, and they don't go home. Each maze has a rift in every district; through one is a fresh maze, deeper and worse.
+   moves: extra steps a night lasts. deep: how much tougher every foe is per depth. cap: the most hunting you at once. */
+const ENDLESS = { moves:8, deep:0.12, cap:12, pts:{ night:20, depth:60, kill:3 }, rivergod:10, tenx:8, tenxNights:2 }; // pts: what each night lived through, each maze down and each kill score.
+// rivergod, tenx: how many of each a maze holds (4 and 3 on the timeline). tenxNights: a 10x position runs to the end of the night this many after the deposit
+const depthOf = () => (G && G.endless && G.depth) || 1;
+const marketUps = () => G.endless ? depthOf()-1 : G.bossesBeaten; // what prices rise with: bosses beaten, or how deep you are
 /* Unlocks belong to an account: they are bought, kept and switched on only while signed in. */
 const perk = id => !!(rnUser() && META.unlocks[id]);
 /* Frames are cosmetic, so which one you wear is yours to pick: any you own, or none. Unset means the best you have. */
@@ -633,21 +640,22 @@ function baseStats(){
   return { hp:50, maxhp:50, atk:6, arm:0, spd:5, lck:10 };
 }
 function newRun(ava, opt){
-  const tribe = TRIBES.find(t=>t.id===opt.tribe) || TRIBES[0], heat = opt.heat||0;
+  const tribe = TRIBES.find(t=>t.id===opt.tribe) || TRIBES[0], heat = opt.endless ? 0 : opt.heat||0;
   // the whole run grows from one short code: the date for a daily, or six characters that a link can carry
   const code = opt.daily ? "daily-"+opt.daily : (opt.seed || opt.code || Math.random().toString(36).slice(2,8).padEnd(6,"0"));
-  SEED = seedFrom("tcc-"+code);
+  SEED = seedFrom((opt.endless ? "tcc-endless-" : "tcc-")+code);
   const kit = ava.picks.kit || {};
   const pk = id => !opt.daily && perk(id); // the daily is the same for everyone: unlocks that change the game are switched off there
   const startCult = 100 + (pk("cult3")?400:pk("cult2")?250:pk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0);
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
+    endless: !!opt.endless, depth: 1,
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
     cult: startCult,
     relics: [],
     maxSlots: 4 + (pk("slot1")?1:0) + (tribe.id==="collector"?1:0) - (heat>=5?1:0),
-    day: 1, phase: "day", movesLeft: DAY_MOVES - (tribe.id==="harajuku" ? 6 : 0),
+    day: 1, phase: opt.endless ? "night" : "day", movesLeft: DAY_MOVES - (tribe.id==="harajuku" ? 6 : 0),
     px: SX, py: SY,
     map: [], fog: [],
     hunters: [], shops: {}, foes: {}, seen: [], bossLook: [],
@@ -666,7 +674,7 @@ function newRun(ava, opt){
     vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
     }; // fixed for the run (the frame isn't kept here: it is whatever is switched on in settings)
   G.flags = {}; G.curses = {}; G.altars = {}; youLeft = false; // a new run starts looking right
-  G.objectives = shuffle(OBJECTIVES).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives
+  G.objectives = shuffle(OBJECTIVES.filter(o=>!(G.endless && (o.id==="elite_early" || o.id==="gate_boss")))).slice(0,3).map(o=>({id:o.id, state:""})); // seeded, so a shared map shares its objectives. Endless has no elites or bosses to beat
   const first = kit.relic || tribe.relic; // a token that wears a relic's art starts with that relic instead of the tribe's
   addRelic(first); discover(first);
   if(pk("secondchance")){ addRelic("wartime_pfp"); discover("wartime_pfp"); }
@@ -680,7 +688,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles","endless","depth"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -711,7 +719,7 @@ async function resumeRun(d){
   G.bossIds.forEach((id,i)=>spawnBoss(i, d.boss[i] || cosmetic(()=>pinnedPicks(runBoss(i)))));
   paint($("hud-avatar"), G.avatar);
   $("map-log").innerHTML = d.log || "";
-  showBanner();
+  renderLegend(); showBanner();
   show("screen-map");
   mlog("💾 Run restored.", "gold");
   renderMap();
@@ -1023,11 +1031,11 @@ function recalcStats(){
 const W=41, H=41, SX=20, SY=20; // maze size, spawn (rooms sit on even coordinates)
 const viewTiles = () => window.innerWidth<=520 ? 7 : 9; // tiles visible across: fewer and bigger on a phone
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20, TENX:21, DRBABY:22 };
+const T = { EMPTY:0, CHEST:1, GRAVE:2, MON:3, ELITE:4, SHOP:5, SHRINE:6, FIRE:7, GATE:8, EVENT:9, WALL:10, FORGE:11, KEY:12, VAULT:13, FOUNTAIN:14, ONNO:15, FANG:16, SCEARPO:17, ALTAR:18, RIVERGOD:19, ETHCHAN:20, TENX:21, DRBABY:22, RIFT:23 };
 const REMILIA_LOGO = "assets/img/npc/remilia_logo.webp"; // the Remilia smiley: Remilia Jackson's face, and the mark on the sign-in button
 const NPC_ART = { [T.ONNO]:"assets/img/npc/onno.webp", [T.FANG]:"assets/img/npc/charlotte.webp", [T.SCEARPO]:"assets/img/npc/scearpo.webp", [T.RIVERGOD]:"assets/img/npc/rivergod.webp", [T.ETHCHAN]:"assets/img/npc/ethchan.webp", [T.TENX]:"assets/img/npc/tenx.webp", [T.DRBABY]:"assets/img/npc/drbaby.webp" }; // their own profile pictures
-const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️" };
-const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan", [T.TENX]:"10x", [T.DRBABY]:"Dr. Remilio Baby" };
+const T_EMOJI = { [T.CHEST]:"🎁", [T.GRAVE]:"🪦", [T.MON]:"👹", [T.ELITE]:"💀", [T.SHOP]:"🏪", [T.SHRINE]:"🎰", [T.FIRE]:"🔥", [T.GATE]:"⛩️", [T.EVENT]:"❓", [T.KEY]:"🗝️", [T.VAULT]:"🔐", [T.FOUNTAIN]:"⛲", [T.ALTAR]:"🕯️", [T.RIFT]:"🌀" };
+const T_NAME = { [T.CHEST]:"chest", [T.GRAVE]:"grave", [T.MON]:"monster", [T.ELITE]:"elite monster", [T.SHOP]:"shop", [T.SHRINE]:"degen shrine", [T.FIRE]:"campfire", [T.GATE]:"boss gate", [T.EVENT]:"something is happening", [T.FORGE]:"Remilia Jackson", [T.KEY]:"key", [T.VAULT]:"vault", [T.FOUNTAIN]:"fountain", [T.ONNO]:"onno", [T.FANG]:"Charlotte Fang", [T.SCEARPO]:"Scearpo", [T.ALTAR]:"cursed altar" , [T.RIVERGOD]:"Rivergod", [T.ETHCHAN]:"ETH Chan", [T.TENX]:"10x", [T.DRBABY]:"Dr. Remilio Baby", [T.RIFT]:"rift" };
 function districtAt(x,y){ return (y<H/2 ? (x<W/2?0:1) : (x<W/2?2:3)); }
 function isFloor(x,y){ return x>=0 && y>=0 && x<W && y<H && G.map[y][x]!==T.WALL; }
 /* walking distance from (sx,sy) to every floor tile it can reach, as {"x,y": steps} */
@@ -1070,14 +1078,14 @@ function genMap(){
     if(d==null || d<=2) continue;
     if(x%2===0 && y%2===0) rooms.push({x,y,d,dead:exits(x,y)===1}); else halls.push({x,y,d});
   }
-  // a boss gate in every district, a fair walk from spawn, so one is always within reach
+  // a boss gate in every district, a fair walk from spawn, so one is always within reach. In endless, a rift instead
   G.gates = [];
   for(let q=0;q<4;q++){
     const here = rooms.filter(r=>districtAt(r.x,r.y)===q);
     const good = here.filter(r=>r.d>=16 && r.d<=40);
     const g = good.length ? choice(good) : [...here].sort((a,b)=>Math.abs(a.d-28)-Math.abs(b.d-28))[0];
     if(!g) continue;
-    G.map[g.y][g.x] = T.GATE; G.gates.push([g.x,g.y]); g.used = true;
+    G.map[g.y][g.x] = G.endless ? T.RIFT : T.GATE; G.gates.push([g.x,g.y]); g.used = true;
   }
   G.gate = G.gates[0];
   // loot likes dead ends; everything else takes whatever rooms are left
@@ -1091,15 +1099,16 @@ function genMap(){
   };
   put(T.VAULT,5,true); // locked rooms at dead ends; the keys are somewhere else entirely
   put(T.CHEST,40,true); put(T.SHRINE,14,true); put(T.GRAVE,20,true); put(T.FORGE,8); put(T.KEY,6);
-  put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30); put(T.ELITE,24); put(T.MON,45);
+  put(T.SHOP,12); put(T.FIRE,18); put(T.EVENT,30);
+  if(!G.endless){ put(T.ELITE,24); put(T.MON,45); } // in endless the only foes are the ones hunting you
   put(T.FOUNTAIN,4); put(T.ONNO,4); put(T.FANG,3); put(T.SCEARPO,3); put(T.ALTAR,4); // placed last, so everything above stays where it always was on a given seed
   G.rivergod = !(G.daily && G.daily < RIVERGOD_FROM); // daily maps from before he arrived keep the layout, and the loot, their players already saw
-  if(G.rivergod) put(T.RIVERGOD,4);
+  if(G.rivergod) put(T.RIVERGOD, G.endless ? ENDLESS.rivergod : 4); // down here the guns are the point
   if(!(G.daily && G.daily < ETHCHAN_FROM)) put(T.ETHCHAN,3);
-  if(!(G.daily && G.daily < TENX_FROM)) put(T.TENX,3);
+  if(!(G.daily && G.daily < TENX_FROM)) put(T.TENX, G.endless ? ENDLESS.tenx : 3); // in endless a position runs a couple of nights instead of to the next boss
   if(!(G.daily && G.daily < DRBABY_FROM)) put(T.DRBABY,3);
   spreadOut(rooms);
-  for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
+  if(!G.endless) for(const h of shuffle(halls).slice(0,30)) G.map[h.y][h.x] = T.MON; // and some monsters hold the corridors
   // Miladycraft lore: a seed phrase is buried somewhere near spawn
   const near = Object.keys(walkDist(SX,SY,3)).map(k=>k.split(",").map(Number)).filter(([x,y])=>(x!==SX||y!==SY) && G.map[y][x]===T.EMPTY);
   G.seed = near.length ? choice(near) : null;
@@ -1201,7 +1210,7 @@ let shownCult = 0, shownStats = null, shownHp = null;
    and what you ended it with. The summary screen and the share card draw it like a memecoin chart. */
 function trackCult(){
   if(!G || G.setup || !G.stats || typeof G.cult!=="number") return;
-  const cs = G.candles = G.candles || [], i = clamp(G.day, 1, 9)-1;
+  const cs = G.candles = G.candles || [], i = clamp(G.day, 1, G.endless ? 999 : 9)-1; // endless keeps every night; charts show the last nine
   while(cs.length<=i){ const p = cs.length ? cs[cs.length-1][3] : G.cult; cs.push([p,p,p,p]); }
   const c = cs[i]; c[3] = G.cult; if(G.cult>c[1]) c[1] = G.cult; if(G.cult<c[2]) c[2] = G.cult;
 }
@@ -1287,7 +1296,7 @@ function renderHUD(){
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, crit:Math.round(s.crit||0), dodge:s.dodge, HP:s.maxhp};
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+chip("✨","crit",Math.round(s.crit||0)+"%")+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
-      + (G.tenx ? "<span class='chip res tenx' title='10x holds "+G.tenx.dep+" $CULT of yours. kill "+G.tenx.goal+" Schizoposters before your next boss fight and it comes back as "+tenxPay(G.tenx)+". miss and it is gone'>10x "+G.tenx.got+"/"+G.tenx.goal+"</span>" : "")
+      + (G.tenx ? "<span class='chip res tenx' title='10x holds "+G.tenx.dep+" $CULT of yours. kill "+G.tenx.goal+" Schizoposters before "+(G.tenx.until ? "the end of night "+G.tenx.until : "your next boss fight")+" and it comes back as "+tenxPay(G.tenx)+". miss and it is gone'>10x "+G.tenx.got+"/"+G.tenx.goal+"</span>" : "")
       + "<span class='chip res kills' title='enemies beaten this run'>💀 "+(G.kills||0)+"</span>"
       + "<span class='chip res' title='keys: each one opens a vault'>"+KEY_ICO+" "+(G.keys||0)+"</span>"
       + "<span class='chip res' title='banishes: use one on a mint to throw a relic out of the run. shops sell more'>🚫 "+(G.banishes||0)+"</span>"
@@ -1301,8 +1310,8 @@ function renderHUD(){
   shownStats = now;
   const dist = DISTRICTS[districtAt(G.px,G.py)];
   const tr = TRIBES.find(t=>t.id===G.tribe);
-  $("hud-name").textContent = G.name+(G.heat ? " 🔥"+G.heat : "")+(G.daily ? " 📅" : G.linked ? " 🔗" : ""); // the tribe has its own badge below
-  $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day;
+  $("hud-name").textContent = G.name+(G.heat ? " 🔥"+G.heat : "")+(G.endless ? " 📡" : G.daily ? " 📅" : G.linked ? " 🔗" : ""); // the tribe has its own badge below
+  $("hud-day").textContent = (G.phase==="day" ? "☀️ DAY " : "NIGHT ")+G.day+(G.endless ? " · DEPTH "+depthOf() : "");
   $("hud-district").innerHTML = "<span style='color:"+dist.color+"'>📍 "+dist.name+"</span> · "+dist.rule+" · "+G.movesLeft+" moves left";
   const total = G.phase==="day" ? dayMoves() : nightMoves();
   let pips = "";
@@ -1326,6 +1335,8 @@ function renderHUD(){
 /* the nine-day track across the top: where you are, and what is coming */
 function renderTimeline(){
   if(!G) return;
+  document.body.classList.toggle("endless", !!G.endless);
+  if(G.endless) return renderEndlessTrack();
   let h = "";
   for(let d=1; d<=9; d++){
     const bi = BOSS_DAYS.indexOf(d), look = bi>=0 && G.bossLook[bi];
@@ -1340,6 +1351,19 @@ function renderTimeline(){
   $("doom").title = nb ? "click to call out "+nb.name+" and fight it now" : "";
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends")
     + " <span class='callhint'>· "+(TOUCH && !PAD.on ? "tap to call it out" : "<kbd>"+padGlyph("C")+"</kbd> call it out")+"</span>";
+}
+/* endless: the same track, sliding along with you. The nights where they get worse are marked in red. */
+function renderEndlessTrack(){
+  const from = Math.max(1, G.day-4);
+  let h = "";
+  for(let d=from; d<from+9; d++){
+    const surge = d>1 && (d-1)%3===0 && Math.floor((d-1)/3)+depthOf()-1<=2; // the nights the hunters' tier goes up
+    h += "<div class='day"+(d<G.day?" past":"")+(d===G.day?" now night":"")+(surge?" surge":"")+"'"+(surge?" title='they get worse from this night'":"")+"><span>"+d+"</span></div>";
+  }
+  $("timeline").innerHTML = h;
+  const out = G.hunters.length;
+  $("doom").title = "";
+  $("doom").innerHTML = "<b>TERMINALLY ONLINE</b> · night "+G.day+" · depth "+depthOf()+" · "+(out ? out+" hunting you" : "nobody on your trail, for now");
 }
 /* ---------- one icon language ----------
    The six stats and the seventeen sets are drawn, like the things on the map, so they look the same on every device.
@@ -1394,7 +1418,7 @@ function drawGround(){
   if(!cv || !css) return;
   const ts = clamp(Math.round(css*Math.min(2, window.devicePixelRatio||1)), 24, 64);
   let seen = 0; for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(!G.fog[y][x]) seen++;
-  const sig = [G.runId||G.seedCode, seen, Object.keys(G.marks||{}).length, ts].join("|");
+  const sig = [G.runId||G.seedCode, depthOf(), seen, Object.keys(G.marks||{}).length, ts].join("|");
   if(sig===groundSig) return;
   groundSig = sig;
   if(cv.width!==W*ts){ cv.width = W*ts; cv.height = H*ts; }
@@ -1516,6 +1540,9 @@ const POI_SVG = {
     + "<rect x='14.3' y='11' width='3.4' height='9' fill='#efe6ff' stroke='#12091f' stroke-width='1.1'/><rect x='9.3' y='14.6' width='2.7' height='5.4' fill='#efe6ff' stroke='#12091f' stroke-width='1'/><rect x='20' y='14.6' width='2.7' height='5.4' fill='#efe6ff' stroke='#12091f' stroke-width='1'/>"
     + "<path d='M16 3.4 c2 2.5 2.4 4 2.4 5 a2.4 2.4 0 0 1 -4.8 0 c0 -1 .4 -2.5 2.4 -5 Z' fill='#bd93f9'/><path d='M10.65 9.4 c1.2 1.6 1.5 2.4 1.5 3 a1.5 1.5 0 0 1 -3 0 c0 -.6 .3 -1.4 1.5 -3 Z M21.35 9.4 c1.2 1.6 1.5 2.4 1.5 3 a1.5 1.5 0 0 1 -3 0 c0 -.6 .3 -1.4 1.5 -3 Z' fill='#bd93f9'/>"),
   [T.GATE]: svgIco(TORII),
+  [T.RIFT]: svgIco("<ellipse cx='16' cy='17' rx='11.5' ry='10' fill='#14020a' stroke='#3a0010' stroke-width='1.5'/>"
+    + "<path d='M16 8 C23 8 26 14 22.5 18.5 C19.5 22.5 13 21.5 12.5 17 C12 13.6 16.4 12.4 18.2 14.6 C19.6 16.4 17.8 18.4 16.2 17.6' fill='none' stroke='#ff2a3d' stroke-width='2.4' stroke-linecap='round'/>"
+    + "<path d='M6.2 13 C5 19.5 9.6 26.5 17.5 26.8 M25.8 21 C27.3 15 24 9.4 19 7.8' fill='none' stroke='#ff5555' stroke-width='1.5' stroke-linecap='round' opacity='.75'/><circle cx='16.2' cy='17.4' r='1.6' fill='#ffb3b3'/>"),
   locked: svgIco("<g opacity='.55'>"+TORII+"</g><path d='M13.2 19 v-2.4 a2.8 2.8 0 0 1 5.6 0 V19' fill='none' stroke='#f1fa8c' stroke-width='1.9'/><rect x='11.3' y='18.6' width='9.4' height='8' rx='1.5' fill='#f1fa8c' stroke='#2a2a00' stroke-width='1.2'/><circle cx='16' cy='22.4' r='1.2' fill='#2a2a00'/>"),
   dig: svgIco("<path d='M8 8 L24 24 M24 8 L8 24' stroke='#3a0707' stroke-width='5.4' stroke-linecap='round'/><path d='M8 8 L24 24 M24 8 L8 24' stroke='#ff5555' stroke-width='3' stroke-linecap='round'/>"),
 };
@@ -1523,7 +1550,8 @@ function renderLegend(){ // the key under the map uses the same drawings as the 
   const el = document.querySelector(".legend"); if(!el) return;
   const it = (t, label) => "<span>"+POI_SVG[t]+label+"</span>";
   el.innerHTML = it(T.CHEST,"loot")+it(T.GRAVE,"grave")+it(T.SHOP,"shop")+it(T.SHRINE,"shrine")+it(T.FIRE,"rest")+it(T.EVENT,"event")+it(T.FOUNTAIN,"fountain")+it(T.ALTAR,"cursed altar")
-    + it(T.KEY,"key")+it(T.VAULT,"vault")+it(T.GATE,"boss gate")+"<span class='lg-npc'>someone to trade with</span><span class='lg-foe'>foe</span><span class='lg-elite'>elite</span>";
+    + it(T.KEY,"key")+it(T.VAULT,"vault")+(G && G.endless ? it(T.RIFT,"rift: go deeper")+"<span class='lg-npc'>someone to trade with</span>"
+      : it(T.GATE,"boss gate")+"<span class='lg-npc'>someone to trade with</span><span class='lg-foe'>foe</span><span class='lg-elite'>elite</span>");
 }
 /* Some relics are not simply "on": a meal is waiting to be eaten once, and a few only work after dark. They say so. */
 const MEALS = { burger_earring:"eaten below 30% health", sandwich:"eaten at dawn if you're hurt", modelo:"drunk at the next boss" };
@@ -1685,7 +1713,7 @@ const DOOM_LINES = [
    "the consensus has reached a verdict.", "the Wired has finished eating the Real. you were in the Real.", "the curse is real. it has stopped being about other people."] ];
 let doomLevel = 0, doomTimer = 0;
 function setDoom(){
-  const live = G && !G.over && G.bossesBeaten<3 && !$("screen-title").classList.contains("active") && !$("screen-avatar").classList.contains("active");
+  const live = G && !G.over && !G.endless && G.bossesBeaten<3 && !$("screen-title").classList.contains("active") && !$("screen-avatar").classList.contains("active");
   const lvl = live ? clamp(G.day-6, 0, 3) : 0;
   if(lvl===doomLevel) return;
   doomLevel = lvl;
@@ -1729,7 +1757,7 @@ function centerMap(){
 }
 const MINI = { [T.CHEST]:"#ff79c6", [T.GRAVE]:"#7c8a90", [T.MON]:"#ff5555", [T.ELITE]:"#f1fa8c", [T.SHOP]:"#8be9fd",
   [T.SHRINE]:"#f1fa8c", [T.FIRE]:"#ffb86c", [T.EVENT]:"#bd93f9", [T.GATE]:"#ff5555", [T.FORGE]:"#50fa7b", [T.KEY]:"#f1fa8c", [T.VAULT]:"#ffb86c",
-  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff", [T.TENX]:"#39ff9c", [T.DRBABY]:"#7fd4ff" };
+  [T.FOUNTAIN]:"#8be9fd", [T.ONNO]:"#50fa7b", [T.FANG]:"#50fa7b", [T.SCEARPO]:"#ff5555", [T.ALTAR]:"#bd93f9", [T.RIVERGOD]:"#e0263a", [T.ETHCHAN]:"#a6b8ff", [T.TENX]:"#39ff9c", [T.DRBABY]:"#7fd4ff", [T.RIFT]:"#ff2a3d" };
 function renderMinimap(){
   const cv = $("minimap"), k = 4, cx = cv.getContext("2d");
   cv.width = W*k; cv.height = H*k;
@@ -1748,7 +1776,7 @@ function renderMinimap(){
 const TOUCH = !window.matchMedia("(hover:hover)").matches;
 const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b>Grave</b> — a relic mint, or some $CULT.",
   [T.SHOP]:"<b>Remilio Mart</b> — buy relics, or a patch-up: 25 HP early, 50 from day 5, one per shop. Closes once you've shopped. Prices rise 25% with every boss you beat.", [T.SHRINE]:"<b>Degen Shrine</b> — coin flip: double your bet and mint a relic.",
-  [T.FIRE]:"<b>Campfire</b> — at night only: sleep to heal to full and skip to dawn. One use.", [T.EVENT]:"<b>???</b> — something is happening here.",
+  [T.FIRE]:"<b>Campfire</b> — at night only: sleep to heal to full and skip to dawn. One use. <i>Terminally Online: heals you, and the night goes on.</i>", [T.EVENT]:"<b>???</b> — something is happening here.",
   [T.FORGE]:"<b>Remilia Jackson</b> — fuses two of the same relic into one slot: normal → gold → diamond. One visit.",
   [T.KEY]:"<b>Key</b> — opens one vault.", [T.VAULT]:"<b>Vault</b> — needs a key. 100 $CULT and a mint of better relics.",
   [T.FOUNTAIN]:"<b>Fountain</b> — throw in $CULT. Give enough, across any fountains, and it gives something back. It won't say how much.",
@@ -1759,7 +1787,8 @@ const T_DESC = { [T.CHEST]:"<b>Chest</b> — mint 1 of 3 relics.", [T.GRAVE]:"<b
   [T.RIVERGOD]:"<b>Rivergod</b> — made the Schizoposters. Sells guns, and nothing else. Nobody else sells guns. <b>At night only.</b>",
   [T.ETHCHAN]:"<b>ETH Chan</b> — for $CULT she strengthens one of your synergies for good: it counts one more relic. One blessing, then she's gone.",
   [T.TENX]:"<b>10x</b> — dev for the Radbros and the Schizoposters. Deposit $CULT and he names a number of Schizoposters to kill before your next boss fight. Do it and you're paid back with interest. Miss and he rugs you.",
-  [T.DRBABY]:"<b>Dr. Remilio Baby</b> — a full restore, or one curse lifted, for 250 $CULT or a relic of your choosing. One treatment, then it's his nap time." };
+  [T.DRBABY]:"<b>Dr. Remilio Baby</b> — a full restore, or one curse lifted, for 250 $CULT or a relic of your choosing. One treatment, then it's his nap time.",
+  [T.RIFT]:"<b>Rift</b> — a way down: a fresh maze, deeper and worse. You keep everything you carry." };
 function foeLine(def, elite, opts){
   const f = foeInstance(def);
   return "<b>"+def.name+"</b>"+(elite?" · elite":"")+" — "+si("❤️ "+f.hp+" ⚔️ "+f.atk+" 🛡️ "+f.arm+" 💨 "+f.spd)+" · "+oddsText(fightOdds(def, opts))
@@ -1787,7 +1816,7 @@ function pinName(x,y){
   return foe && (t===T.MON || t===T.ELITE) ? foe.def.name : (T_NAME[t]||"tile");
 }
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
-const PLACE_KINDS = [T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.DRBABY, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
+const PLACE_KINDS = [T.RIFT, T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.DRBABY, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
   // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
   const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
@@ -1958,6 +1987,10 @@ function ambush(msg){
   startCombat(foeInstance(ENEMIES.find(e=>e.tier==="hunter")), {label:"AMBUSH"});
 }
 function endPhase(){
+  if(G.endless){
+    if(G.tenx && G.tenx.until && G.day>=G.tenx.until) tenxRug(); // the night his position ran to is over
+    G.day++; dawnDue(); return startNight(); // no dawn down here: the next night starts where this one ended
+  }
   if(G.phase==="day") return startNight();
   if(G.bossUnlocked>=0) return bossArrives(); // you didn't go to it, so it comes to you
   G.day++; startDay();
@@ -1965,17 +1998,7 @@ function endPhase(){
 function startDay(){
   G.phase="day"; G.movesLeft=dayMoves(); G.hunters=[];
   mlog("☀️ <b>DAY "+G.day+"</b> dawns over the timeline.", "gold");
-  if(G.curses && G.curses.dawn && G.stats.hp>1){ // the altar's price
-    const d = Math.min(G.curses.dawn, G.stats.hp-1); G.stats.hp -= d;
-    mlog("🩸 The curse takes its due: <b>−"+d+" HP</b>.", "bad");
-  }
-  recalcStats(); // some relics only work in the dark, and some grow with the map
-  if(hasRelic("sleepyhead") && G.stats.hp<G.stats.maxhp){ const h = Math.min(G.stats.maxhp-G.stats.hp, Math.round(8*tm("sleepyhead"))); G.stats.hp += h; mlog("😴 Sleepyhead: you slept anyway. <b>+"+h+" HP</b>.", "good"); pulseRelic("sleepyhead"); }
-  if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
-    G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good"); pulseRelic("sandwich");
-    if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
-    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); if((G.flags.meals = (G.flags.meals||0)+1) >= 2) achieve("meals"); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
-  }
+  dawnDue();
   if(G.day>=9) achieve("day9");
   const bi = BOSS_DAYS.indexOf(G.day);
   if(bi>=0 && bi>=G.bossesBeaten){ // one you already beat early doesn't come
@@ -1988,22 +2011,44 @@ function startDay(){
   renderMap();
   doomWhisper();
 }
+function dawnDue(){ // what happens as a day begins: in endless, as each new night does
+  if(G.curses && G.curses.dawn && G.stats.hp>1){ // the altar's price
+    const d = Math.min(G.curses.dawn, G.stats.hp-1); G.stats.hp -= d;
+    mlog("🩸 The curse takes its due: <b>−"+d+" HP</b>.", "bad");
+  }
+  recalcStats(); // some relics only work in the dark, and some grow with the map
+  if(hasRelic("sleepyhead") && G.stats.hp<G.stats.maxhp){ const h = Math.min(G.stats.maxhp-G.stats.hp, Math.round(8*tm("sleepyhead"))); G.stats.hp += h; mlog("😴 Sleepyhead: you slept anyway. <b>+"+h+" HP</b>.", "good"); pulseRelic("sleepyhead"); }
+  if(hasRelic("sandwich") && G.stats.hp < G.stats.maxhp/2){
+    G.stats.hp = G.stats.maxhp; mlog("🥪 <b>Sandwich.</b> Eaten for breakfast: back to full health.", "good"); pulseRelic("sandwich");
+    if((G.stats.sets.food||0)>=3 && rnd()<0.4) mlog("🥪 Half of it is still there.", "good");
+    else { dropRelicAt(G.relics.indexOf("sandwich")); recalcStats(); if((G.flags.meals = (G.flags.meals||0)+1) >= 2) achieve("meals"); mlog("🍴 The <b>Sandwich</b> is gone. The slot is free again.", "gold"); setTimeout(()=>mapFloat("🥪 eaten: full health", "loot"), 600); }
+  }
+}
 function showBanner(){
   const bb = $("boss-banner"), b = runBoss(G.bossUnlocked);
   bb.classList.toggle("hidden", !b);
   if(b) bb.innerHTML = "⚠️ "+b.name+" IS COMING<small>"+b.mechanic+"<br>face it at the ⛩️ gate — or it finds you at dawn</small>";
 }
-const huntersOn = day => Math.max(1, (day<2 ? 1 : day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0) - ((G.perks||{}).night||0)); // how many Schizoposters a night sends
+const huntersOn = day => G.endless ? endlessWave(day) : Math.max(1, (day<2 ? 1 : day<4 ? 2 : 3) + (G.heat>=3 ? 1 : 0) + (nightTier()>=2 ? 1 : 0) - ((G.perks||{}).night||0)); // how many Schizoposters a night sends
+// endless: two on the first night and one more every second night, more the deeper you are, and the ones still out keep coming
+const endlessWave = day => Math.min(Math.max(1, 2 + Math.floor((day-1)/2) + (depthOf()-1) - ((G.perks||{}).night||0)), Math.max(0, ENDLESS.cap - G.hunters.length));
 function startNight(){
   G.phase="night"; G.movesLeft=nightMoves();
   recalcStats();
-  mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
-  splash("NIGHT FALLS<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
-  setTimeout(doomWhisper, 50);
+  if(G.endless){
+    const out = G.hunters.length;
+    mlog("📡 <b>NIGHT "+G.day+"</b>"+(depthOf()>1 ? " · depth "+depthOf() : "")+". "+["They're out there.", "They're bolder now: tougher, and quicker.", "They're everywhere, and they are fast."][nightTier()]
+      +(out ? " <b>"+out+"</b> still on your trail." : ""), "bad");
+    splash("NIGHT "+G.day+"<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
+  } else {
+    mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
+    splash("NIGHT FALLS<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
+    setTimeout(doomWhisper, 50);
+  }
   sfx("night");
   // they come out of the maze a little way off: close enough to matter, far enough to see coming
   const dist = walkDist(G.px,G.py);
-  const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14));
+  const spots = shuffle(Object.keys(dist).filter(k=>dist[k]>=7 && dist[k]<=14 && !G.hunters.some(h=>h.x+","+h.y===k)));
   for(const k of spots.slice(0, huntersOn(G.day))){ const [x,y]=k.split(",").map(Number); G.hunters.push({x,y}); }
   renderMap();
 }
@@ -2052,6 +2097,7 @@ function enterTile(t){
         mlog("🔐 The key turns. <b>+"+pay+" $CULT</b>, and something better than usual.", "gold"); }
       openDraft("The vault opens.", richRoll);
       break;
+    case T.RIFT: openRift(); break;
     case T.SHOP: openShop(); break;
     case T.SHRINE: openShrine(); break;
     case T.FIRE: openFire(); break;
@@ -2097,7 +2143,7 @@ function foeInstance(def){ return raised(foeBase(def), adaptLevel(def)); }
 /* The night gets worse every time a boss falls: the hunters come back tougher, quicker and in greater number. */
 const NIGHT = { power:0.35, names:["Schizoposter","Unhinged Schizoposter","Terminal Schizoposter","Terminal Schizoposter"],
   mood:["the schizoposters are hunting", "they are bolder tonight", "they are everywhere, and they are fast"] };
-const nightTier = () => clamp((G && G.bossesBeaten) || 0, 0, 2);
+const nightTier = () => !G ? 0 : G.endless ? clamp(Math.floor((G.day-1)/3) + depthOf()-1, 0, 2) : clamp(G.bossesBeaten || 0, 0, 2); // endless: worse every third night, and with every depth
 const CALL = { boss:0.2, day:0.05, world:0.08 }; // per boss called out early: that boss, per day early, and everything afterward
 function foeBase(def){
   if(def.tier==="hunter" && nightTier() && !def.night){ // a hunter, raised for the bosses already beaten, then grown by the day like anything else
@@ -2111,11 +2157,12 @@ function foeBase(def){
   // out is tougher again, by how many have been called and by how many days early this one is
   const ck = tribeIs("harajuku") ? 0.5 : 1; // ACCELERATIONIST: rushing costs half
   const rush = (1 + CALL.world*ck*(G.calls||0)) * (boss && G.calling ? 1 + ck*(CALL.boss*((G.calls||0)+1) + CALL.day*G.calling) : 1);
-  const hpx = lvl * rush * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
-  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * (boss && G.heat>=4 ? 1.2 : 1);
+  const deep = 1 + ENDLESS.deep*(depthOf()-1); // endless: every maze down is worse
+  const hpx = lvl * rush * deep * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
+  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * deep * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
     atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
-    cult:def.cult.map(c=>Math.round(c*lvl)) };
+    cult:def.cult.map(c=>Math.round(c*lvl*deep)) };
 }
 
 /* ---------- relic mint ---------- */
@@ -2303,14 +2350,15 @@ function openShop(note){
     shop.dupe = true;
     if(!shop.stock.some(it=>G.relics.includes(it.id))){ const r = relicById(choice(G.relics)); shop.stock[0] = {id:r.id, base:RARITY[r.rar].price}; }
   }
-  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten; // the market notices you winning
+  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*marketUps(); // the market notices you winning
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   // a shop patches you up, it doesn't make you whole: one dose each, small early and twice the size (and the price) from SHOP_HEAL.late on
   const dose = SHOP_HEAL.hp * (G.day>=SHOP_HEAL.late ? 2 : 1), healCost = Math.round(SHOP_HEAL.price * (G.day>=SHOP_HEAL.late ? 2 : 1) * disc), hurt = G.stats.hp < G.stats.maxhp && !shop.healed, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   let html = "<h2>🏪 REMILIO MART</h2><div class='shop-sign'>"+spotLine(SHOP_LINES, "shop")+"</div><div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span>"
     + "<span class='chip'>🎒 "+G.relics.length+" / "+G.maxSlots+" slots</span>"
     + (disc<1 ? "<span class='chip sale'>"+Math.round((1-disc)*100)+"% off</span>" : disc>1 ? "<span class='chip markup'>+"+Math.round((disc-1)*100)+"% prices</span>" : "")
-    + (infl>1 ? "<span class='chip markup' title='shop prices rise "+Math.round(SHOP_INFLATION*100)+"% for every boss you beat'>📈 "+G.bossesBeaten+" boss"+(G.bossesBeaten>1?"es":"")+" down</span>" : "")+"</div>";
+    + (infl>1 ? (G.endless ? "<span class='chip markup' title='shop prices rise "+Math.round(SHOP_INFLATION*100)+"% for every maze down'>📈 depth "+depthOf()+"</span>"
+                           : "<span class='chip markup' title='shop prices rise "+Math.round(SHOP_INFLATION*100)+"% for every boss you beat'>📈 "+G.bossesBeaten+" boss"+(G.bossesBeaten>1?"es":"")+" down</span>") : "")+"</div>";
   shop.stock.forEach((it,i)=>{
     const r = relicById(it.id), p = Math.round(it.base*disc);
     html += relicRow(r, relicExtras(r, true),
@@ -2404,7 +2452,7 @@ function openShrine(){
 
 /* ---------- events ---------- */
 function openEvent(){
-  const ok = EVENTS.filter(e=>(e.after||0) <= G.bossesBeaten); // some only turn up once a boss is down
+  const ok = EVENTS.filter(e=>(e.after||0) <= (G.endless ? Math.floor(G.day/3) : G.bossesBeaten)); // some only turn up once a boss is down (in endless, as the nights pile up)
   const fresh = ok.filter(e=>!G.seen.includes(e.id));
   const ev = choice(fresh.length ? fresh : ok);
   G.seen.push(ev.id); clearTile();
@@ -2480,6 +2528,7 @@ function applyFx(list){
       }
       case "reveal": for(const row of G.fog) row.fill(false); out.push("the whole map is revealed"); break;
       case "fight": { let def = ENEMIES.find(e=>e.id===v);
+        if(G.endless){ G.queue.unshift(()=>ambush("A Schizoposter was waiting for you.")); out.push("a Schizoposter attacks"); break; } // nothing else lives down here
         if(clashes(def)) def = choice(foePool("elite", 3));
         G.queue.unshift(()=>startCombat(foeInstance(def), {elite:true})); out.push(def.name+" attacks"); break; }
     }
@@ -2494,6 +2543,7 @@ function openFire(){
     mlog("🔥 A campfire. It isn't dark yet: <b>you can only sleep here at night.</b>", ""); mapFloat("🔥 night only", "loot"); sfx("click"); tip("night");
     return;
   }
+  if(G.endless) return openEndlessFire();
   openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Sleep until dawn? "+(tribeIs("schizoposter") ? "A Schizoposter doesn't heal here, but you" : "You heal to full and")+" skip the rest of this night safely — no loot, no fights. The fire burns out once you've used it."
     + (!day && G.bossUnlocked>=0 ? "<br><b class='bad'>"+runBoss(G.bossUnlocked).name+" arrives at dawn.</b>" : "")
     + "</div><div class='row'><button class='btn' id='fire-yes'>SLEEP</button><button class='btn small' id='fire-no'>keep moving</button></div>");
@@ -2504,6 +2554,44 @@ function openFire(){
     closeModal();
   };
   $("fire-no").onclick=()=>closeModal();
+}
+
+function openEndlessFire(){ // no dawn to sleep to: a fire down here is a recharge. They keep coming, and the night goes on
+  const out = G.hunters.length;
+  openModal("<h2>🔥 CAMPFIRE</h2><div class='note'>Rest a moment? "+(tribeIs("schizoposter") ? "A Schizoposter doesn't heal here." : "You heal to full.")
+    + " <b class='bad'>The night doesn't stop for it"+(out ? ", and the "+out+" on your trail keep coming" : "")+".</b> The fire burns out once you've used it.</div>"
+    + "<div class='row'><button class='btn' id='fire-yes'>REST</button><button class='btn small' id='fire-no'>keep moving</button></div>");
+  $("fire-yes").onclick=()=>{
+    clearTile(); G.flags.rested = true;
+    if(tribeIs("schizoposter")){ mlog("You sit by the fire and don't rest. <i>A Schizoposter doesn't.</i>", ""); sfx("click"); }
+    else { G.stats.hp=G.stats.maxhp; mlog("🔥 Recharged. HP restored. The fire burns out, and they're still out there.", "good"); sfx("heal"); mapFloat("🔥 full health", "loot"); }
+    closeModal(); renderMap();
+  };
+  $("fire-no").onclick=()=>closeModal();
+}
+/* ---------- endless: the rift ----------
+   Every maze in endless has a rift in each district. Through one is a fresh maze, with everything you carry: new
+   loot, new people, and Schizoposters ENDLESS.deep tougher. The night goes on. */
+function openRift(){
+  const next = depthOf()+1;
+  openModal("<h2>🌀 THE RIFT</h2><div class='note'><i>The maze has a hole in it. It goes down.</i></div>"
+    + "<div class='note'>Go through and you come out in a <b>new maze</b>, depth "+next+": fresh loot, fresh shops, fresh people. You keep everything you carry, and the ones hunting you here stay here.</div>"
+    + "<div class='note bad'>Everything down there is <b>"+Math.round(ENDLESS.deep*100*(next-1))+"% tougher</b> than on the first maze, shops charge more, and more of them come every night.</div>"
+    + "<div class='row'><button class='btn big' id='rift-go'>GO DEEPER</button><button class='btn small' id='rift-no'>not yet</button></div>");
+  $("rift-go").onclick=()=>{ closeModal(); descend(); };
+  $("rift-no").onclick=()=>closeModal();
+}
+function descend(){
+  G.depth = depthOf()+1;
+  for(const k of ["foes","shops","armory","altars","marks","pins","lit"]) G[k] = {};
+  G.hunters = []; G.late = []; G.seedDug = false; G.seedKnown = false; G.sel = "";
+  genMap();
+  G.px = SX; G.py = SY; youLeft = false; camSnap = true;
+  updateFog();
+  sfx("boss"); quake();
+  mlog("🌀 <b>DEPTH "+G.depth+".</b> A new maze, and it already knows you're here.", "bad");
+  splash("🌀 DEPTH "+G.depth+"<small>deeper, and worse</small>", "boss");
+  startNight(); // a new maze is a new night
 }
 
 /* ---------- boss gate ---------- */
@@ -2530,7 +2618,7 @@ function bossAtArrival(bi){
   try{ return foeInstance(runBoss(bi)); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
 }
 function skipToBoss(){
-  if(!G || G.over || busy() || !$("screen-map").classList.contains("active")) return;
+  if(!G || G.over || G.endless || busy() || !$("screen-map").classList.contains("active")) return;
   const bi = G.bossesBeaten, b = runBoss(bi); if(!b) return;
   const to = BOSS_DAYS[bi], early = to>G.day, was = G.day;
   G.day = Math.max(G.day, to); G.calling = to-was > 0 ? to-was : 0; oddsCache = {}; adaptCache = {}; // show its numbers, and your odds, as they will be in the fight
@@ -2787,7 +2875,7 @@ const ETH_LINES = [
   "\"the merge already happened. you just haven't finalized yet. come here.\"",
   "\"credible neutrality means i'd do this for anyone. it still costs gas.\"" ];
 function openEthChan(){
-  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", price = Math.round(ETH_PRICE * (1 + SHOP_INFLATION*G.bossesBeaten));
+  const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", price = Math.round(ETH_PRICE * (1 + SHOP_INFLATION*marketUps()));
   const n = setCounts(G.relics), held = SETS.filter(t=>n[t.id]);
   // the synergies you have started, nearest to their next tier first; with fewer than three, she suggests some
   const gap = t => { const next = t.tiers.find(([k])=>n[t.id]<k); return next ? next[0]-n[t.id] : 99; };
@@ -2878,8 +2966,10 @@ function openDrBaby(pick){
    Walk into the boss short of it and he is gone with the money. One position at a time. */
 const TENX_DEPOSITS = [50, 100, 500], TENX_RATE = { 3:1.3, 4:1.5, 5:1.8, 6:2.2, 7:2.75 };
 const tenxPay = c => Math.round(c.dep * TENX_RATE[c.goal]);
+const tenxUntil = () => G.day + ENDLESS.tenxNights; // endless: the last night a position opened now can be closed in
+const tenxDue = c => c && c.until ? "the end of night "+c.until : runBoss(clamp(G.bossesBeaten, 0, 2)) ? runBoss(clamp(G.bossesBeaten, 0, 2)).name : "the next boss"; // what a position has to be closed before
 function tenxLeft(){ // how many Schizoposters can still be met before the next boss: the ones out now, and every night still to come
-  const end = BOSS_DAYS[clamp(G.bossesBeaten, 0, 2)]; let n = (G.hunters||[]).length;
+  const end = G.endless ? tenxUntil() : BOSS_DAYS[clamp(G.bossesBeaten, 0, 2)]; let n = (G.hunters||[]).length;
   for(let d = G.phase==="day" ? G.day : G.day+1; d<=end; d++) n += huntersOn(d);
   return n;
 }
@@ -2896,7 +2986,7 @@ function tenxKill(log){ // a Schizoposter died with a position open
   if(c.got < c.goal){ log("🧪 10x: <b>"+c.got+" / "+c.goal+"</b> Schizoposters. \"keep thinning the supply, bro.\"", "gold"); return; }
   const pay = tenxPay(c); G.cult += pay; G.tenx = null; G.tenxWon = (G.tenxWon||0)+1;
   log("🧪 <b>The liquidity experiment worked.</b> 10x pays out <b>"+pay+" $CULT</b> on your "+c.dep+" (+"+(pay-c.dep)+"). \"told you. flywheel.\"", "crit");
-  if(log!==mlog) mlog("🧪 10x paid out <b>"+pay+" $CULT</b> on a "+c.dep+" deposit: "+c.goal+" Schizoposters, done before the boss.", "gold");
+  if(log!==mlog) mlog("🧪 10x paid out <b>"+pay+" $CULT</b> on a "+c.dep+" deposit: "+c.goal+" Schizoposters, done before "+(c.until ? "the deadline" : "the boss")+".", "gold");
   sfx("fanfare"); burst("🧪💸📈");
 }
 function tenxRug(){ // the boss fight is starting and the number wasn't hit
@@ -2907,7 +2997,7 @@ function tenxRug(){ // the boss fight is starting and the number wasn't hit
 }
 function openTenx(){
   const coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>", c = G.tenx;
-  const nextBoss = runBoss(clamp(G.bossesBeaten, 0, 2)), bn = nextBoss ? nextBoss.name : "the next boss";
+  const bn = c ? tenxDue(c) : G.endless ? "the end of night "+tenxUntil() : tenxDue(null);
   let html = "<h2>10X</h2><img class='npc-face tenx' src='"+localFile(NPC_ART[T.TENX])+"' alt=''>"
     + "<div class='note tenx-say'><i>"+spotLine(TENX_LINES, "tenx")+"</i></div>";
   if(c){ // one position at a time: every 10x knows about the one you have open
@@ -2917,12 +3007,12 @@ function openTenx(){
   }
   const left = tenxLeft();
   if(left<3){ // he never asks for more than can be found, and there aren't three left to find
-    html += "<div class='note'>\"window's closed, bro. "+esc(bn)+" is almost here and there aren't enough posters left out there to run the experiment."+(G.bossesBeaten<2 ? " find me after." : " it was a good run, bro.")+"\"</div>"
+    html += "<div class='note'>\"window's closed, bro. "+(G.endless ? "there aren't enough posters out there right now to run the experiment. find me later." : esc(bn)+" is almost here and there aren't enough posters left out there to run the experiment."+(G.bossesBeaten<2 ? " find me after." : " it was a good run, bro."))+"\"</div>"
       + "<div class='row'><button class='btn small' id='npc-leave'>leave</button></div>";
     openModal(html); $("npc-leave").onclick = ()=>{ setPin(G.px, G.py, true); closeModal(); renderMap(); }; return;
   }
   const top = Math.min(7, left);
-  html += "<div class='note'>deposit $CULT in his liquidity experiment. he then names a number of <b>Schizoposters</b>, from 3 to "+top+", to kill before your fight with <b>"+esc(bn)+"</b>. "
+  html += "<div class='note'>deposit $CULT in his liquidity experiment. he then names a number of <b>Schizoposters</b>, from 3 to "+top+", to kill before "+(G.endless ? "" : "your fight with ")+"<b>"+esc(bn)+"</b>. "
     + "hit it and the deposit comes back with interest; a bigger ask pays more. <b class='bad'>miss it and he rugs you.</b> they hunt at night: about <b>"+left+"</b> more will come before then.</div>"
     + "<div class='tenx-rates'>"+Object.keys(TENX_RATE).filter(g=>+g<=top).map(g=>"<span><u>kill "+g+"</u><b>+"+Math.round((TENX_RATE[g]-1)*100)+"%</b></span>").join("")+"</div>"
     + "<div class='sheet-top'><span class='chip cult'>"+coin+"<b>"+G.cult+"</b></span></div><div class='tenx-deps'>";
@@ -2933,7 +3023,7 @@ function openTenx(){
   $("modal-panel").querySelectorAll("[data-dep]").forEach(b=>{ b.onclick=()=>{
     const dep = +b.dataset.dep; if(G.cult<dep || G.tenx) return;
     const goal = Math.min(top, 3 + Math.abs(seedFrom("tenx|"+G.px+","+G.py+"|"+dep+"|"+(G.daily||G.seedCode||""))) % 5); // the same ask for everyone who deposits this much here, and never more than are left to find
-    G.cult -= dep; G.tenx = { dep, goal, got:0 };
+    G.cult -= dep; G.tenx = { dep, goal, got:0 }; if(G.endless) G.tenx.until = tenxUntil();
     clearTile(); sfx("coin");
     mlog("🧪 Deposited <b>"+dep+" $CULT</b> with 10x. The ask: kill <b>"+goal+" Schizoposters</b> before "+esc(bn)+". Pays <b>"+tenxPay(G.tenx)+"</b>, or nothing.", "gold");
     openModal("<h2>10X</h2><img class='npc-face tenx' src='"+localFile(NPC_ART[T.TENX])+"' alt=''>"
@@ -2966,7 +3056,7 @@ function openRivergod(note){
   const key = G.px+","+G.py, coin = "<img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>";
   G.armory = G.armory || {};
   const shop = G.armory[key] || (G.armory[key] = { stock: shuffle(gunPool()).slice(0,3).map(r=>({id:r.id, base:Math.round(RARITY[r.rar].price*1.15)})) }); // the only dealer charges like it
-  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*G.bossesBeaten;
+  const cheap = districtAt(G.px,G.py)===2, infl = 1 + SHOP_INFLATION*marketUps();
   const disc = G.stats.shopDisc * (cheap ? 0.8 : 1) * ((G.perks||{}).shopMul || ((G.perks||{}).shop ? 0.9 : 1)) * infl;
   let html = "<h2>RIVERGOD</h2><img class='npc-face river' src='"+localFile(NPC_ART[T.RIVERGOD])+"' alt=''>"
     + "<div class='note river-say'><i>"+spotLine(RIVER_LINES, "river")()+"</i><br>the only guns in the maze · open at night only, and he stays open all night</div>"
@@ -4280,12 +4370,13 @@ function winSequence(then){ // THE CANCEL is down: a few seconds that belong to 
    and never more than 100 in all. A clean win is worth about 700 before this. */
 const CULT_DRIP_MAX = 100;
 const EARLY_WIN = 80; // points for each day THE CANCEL was beaten ahead of day 9: more than a day of looting would have added
+const chartCandles = run => (run.candles||[]).slice(run.endless ? -9 : 0, run.endless ? undefined : 9);
 const cultDrip = c => Math.min(CULT_DRIP_MAX, Math.floor(Math.min(c, 1000)/25) + Math.floor(Math.max(0, c-1000)/100));
-function runStripHTML(run, win){ // nine days in a row: what you picked up, who you beat, when it nearly ended, and where it did
-  const j = run.journal || {};
-  return "<div class='run-strip'>"+Array.from({length:9}, (_,i)=>{ const day = i+1, d = j[day] || {}, last = !win && day===run.day, gone = day>run.day;
+function runStripHTML(run, win){ // nine days in a row: what you picked up, who you beat, when it nearly ended, and where it did. In endless, the last nine nights
+  const j = run.journal || {}, from = run.endless ? Math.max(1, run.day-8) : 1;
+  return "<div class='run-strip'>"+Array.from({length:9}, (_,i)=>{ const day = from+i, d = j[day] || {}, last = !win && day===run.day, gone = day>run.day;
     const rel = (d.relics||[]).filter(id=>ICONS[id]);
-    return "<div class='rs-day"+(gone?" gone":"")+(last?" died":"")+(d.boss?" boss":"")+(win && day===run.day ? " won" : "")+"'><u>day "+day+"</u>"
+    return "<div class='rs-day"+(gone?" gone":"")+(last?" died":"")+(d.boss?" boss":"")+(win && day===run.day ? " won" : "")+"'><u>"+(run.endless ? "night " : "day ")+day+"</u>"
       + (d.boss ? "<b class='rs-boss' title='beat "+esc(d.boss)+"'>☠ "+esc(d.boss)+"</b>" : "")
       + (rel.length ? "<span class='rs-rel'>"+rel.slice(0,4).map(id=>"<img class='relic-ico "+relicById(id).rar+"' src='"+ICONS[id]+"' alt='' data-rid='"+id+"' data-tier='1'>").join("")+(rel.length>4 ? "<small>+"+(rel.length-4)+"</small>" : "")+"</span>" : "")
       + (d.kills ? "<span class='rs-k'>"+d.kills+" kill"+(d.kills===1?"":"s")+(d.elite ? " · "+d.elite+" elite" : "")+"</span>" : "")
@@ -4301,7 +4392,9 @@ function endRun(win){
   G.over=true; clearRun();
   if(win){ achieve("win"); if(G.day<9) achieve("early"); if(!G.flags.rested) achieve("norest"); if(G.heat>=3) achieve("heat3"); }
   document.body.classList.remove("danger"); setDoom();
-  const parts = [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)]];
+  const banked = [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)];
+  const parts = G.endless ? [["night "+G.day+" reached", G.day*ENDLESS.pts.night], ["depth "+depthOf(), (depthOf()-1)*ENDLESS.pts.depth], [G.kills+" Schizoposters", G.kills*ENDLESS.pts.kill], banked]
+    : [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], banked];
   if(win) parts.push(["timeline saved", 300]);
   if(win && G.day<9) parts.push(["saved "+(9-G.day)+" day"+(9-G.day>1?"s":"")+" early", (9-G.day)*EARLY_WIN]); // calling THE CANCEL out and winning beats waiting for it
   const objDone = (G.objectives||[]).filter(o=>o.state==="done").length;
@@ -4316,25 +4409,28 @@ function endRun(win){
     if(d>old) META.daily = {date:G.daily, score:d, day:G.day, win};
     dailyNote = "<div class='note good'>📅 DAILY "+G.daily+" — "+(d>old ? "new best: "+d : "your best today: "+old)+"</div>";
   }
-  const best = !win && G.day>META.best && META.runs>0;
+  const eb = META.endlessBest || {night:0, depth:1, score:0};
+  const best = G.endless ? G.day>eb.night && META.runs>0 : !win && G.day>META.best && META.runs>0;
   META.drip+=d; META.runs++;
-  if(win){ META.wins++; META.best=9; } else META.best=Math.max(META.best,G.day);
+  if(G.endless){ if(G.day>eb.night || (G.day===eb.night && d>eb.score)) META.endlessBest = {night:G.day, depth:depthOf(), score:d}; } // endless has a best of its own: the nine-day record is about the timeline
+  else if(win){ META.wins++; META.best=9; } else META.best=Math.max(META.best,G.day);
   if(META.runs>=25) achieve("veteran"); if(META.wins>=5) achieve("wins5");
   saveMeta(); syncProfile(true);
   const next = UNLOCKS.filter(u=>!META.unlocks[u.id] && !(u.req && !META.unlocks[u.req])).sort((a,b)=>a.cost-b.cost)[0];
-  let html = "<h2>"+(win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
-    + (win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
+  let html = "<h2>"+(G.endless ? "📡 RUN DOWN" : win?"🌸 TIMELINE SAVED":"💀 CANCELLED")+"</h2><div class='note'>"
+    + (G.endless ? G.name+" lasted "+G.day+" night"+(G.day===1?"":"s")+(depthOf()>1 ? " and went "+depthOf()+" mazes deep" : "")+".<br>The Schizoposters post through it."
+       : win ? G.name+" survived THE CANCEL.<br>The Miladys post through it." : G.name+" has been ratio'd off the timeline.")+"</div>"
     + "<div class='end-cols'><div class='end-left'><canvas id='end-avatar' class='end-avatar"+(win?"":" dead")+"'></canvas>"+buildRow()
     + (win ? "<div id='end-king' class='end-king'></div>" : "") // straight under the character: the one thing left to do
     + "<div class='row end-actions'><button class='btn big' id='end-again'>"+(win?"RUN IT BACK":"ONE MORE RUN")+"</button><button class='btn small' id='end-title'>main menu"
       +"</button></div></div><div class='end-right'>"
     + dailyNote
     + (G.heatUp ? "<div class='note good'>🔥 HEAT "+META.heat+" unlocked — "+HEAT[META.heat-1]+"</div>" : "")
-    + (best ? "<div class='note good'>✨ NEW BEST — day "+G.day+"</div>" : "")
+    + (best ? "<div class='note good'>✨ NEW BEST — "+(G.endless ? "night " : "day ")+G.day+"</div>" : "")
     + (G.newAch ? "<div class='note good'>🏆 "+G.newAch+" achievement"+(G.newAch>1?"s":"")+" unlocked</div>" : "")
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
     + runStripHTML(G, win)
-    + ((G.candles||[]).length ? "<canvas id='end-chart' class='end-chart' width='1040' height='300'></canvas>" : "")
+    + (chartCandles(G).length ? "<canvas id='end-chart' class='end-chart' width='1040' height='300'></canvas>" : "")
     + parts.map(p=>"<div class='stat-line'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
     + "<div class='drip-total'>DRIP EARNED <b id='end-drip'>0</b></div>";
   const signed = !!rnUser();
@@ -4354,14 +4450,14 @@ function endRun(win){
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
     paint($("end-avatar"), win ? run.avatar : (run.lossLook = run.lossLook || cancelledPortrait(run)));
-    const chart = ()=>{ const cv = $("end-chart"); if(!cv || !run.candles || !run.candles.length) return; // as wide as the nine days above it, so each candle stands under its day
-      const w = Math.max(240, Math.round(cv.clientWidth*2)); cv.width = w; cv.height = 300; drawCandles(cv.getContext("2d"), 1, 1, w-2, 298, run.candles, 2, true); };
+    const chart = ()=>{ const cv = $("end-chart"), cs = chartCandles(run); if(!cv || !cs.length) return; // as wide as the nine days above it, so each candle stands under its day
+      const w = Math.max(240, Math.round(cv.clientWidth*2)); cv.width = w; cv.height = 300; drawCandles(cv.getContext("2d"), 1, 1, w-2, 298, cs, 2, true); };
     chart(); clearTimeout(endChartT); window.removeEventListener("resize", endChartFn); endChartFn = ()=>{ clearTimeout(endChartT); endChartT = setTimeout(chart, 120); }; window.addEventListener("resize", endChartFn);
     if(!first) $("end-drip").textContent = d;
     $("end-text").textContent = txt;
     $("end-rank").innerHTML = rankHtml;
     if(win) kingPanel(run, ()=>{ openModal(html); wireEnd(false); });
-    $("end-board").onclick=()=>{ sfx("click"); openBoard(run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily ? "" : run.seedCode); };
+    $("end-board").onclick=()=>{ sfx("click"); openBoard(run.endless ? "endless" : run.daily ? "daily" : run.linked ? "seed" : "all", ()=>{ openModal(html); wireEnd(false); }, run.daily || run.endless ? "" : run.seedCode); };
     $("end-again").onclick=()=>{ sfx("click"); if(lockedOut()) return; leaveRun(); $("btn-begin").disabled=true; show("screen-avatar"); genAvatar(run.base.nft, run.base.nft ? null : META.last); };
     $("end-title").onclick=()=>{ sfx("click"); leaveRun(); renderTitle(); show("screen-title"); };
     $("end-copy").onclick=async()=>{
@@ -4920,8 +5016,8 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
     + (r && r.look || u ? "<span class='pcol'>"+(r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")+(u ? provTag(u.handle) : "")+"</span>" : "")
     + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+"</b>"
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
-      + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
-           + "<span class='dim'>"+(r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
+      + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.endless ? "📡 "+endlessEnd(r) : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
+           + "<span class='dim'>"+(r.endless ? "📡 terminally online · " : r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
     + "<div class='king-relics you-mid'>"+(r ? "<span class='badge-row tb-top'>"+tribeBadge(r.tribe)+"</span>" : "")+"<span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
         + (mySlain && mySlain.pid===playerId() && mySlain.crowns ? "<i>·</i><b class='slain' title='weeks as king: every week you show as king of the hill on the leaderboard'>👑 "+mySlain.crowns+"</b>" : "")
@@ -5001,6 +5097,8 @@ function openMeme(run, win, back){
   draw();
 }
 /* A link that puts whoever opens it in the same maze: ?daily=2026-10-04 or ?seed=k3x9ab. */
+/* how an endless run ended, wherever a run is listed: "run down on night 14 · depth 3" */
+const endlessEnd = r => (r.killedBy==="giving up" ? "gave up" : "run down")+" on night "+r.day+((r.depth||1)>1 ? " · depth "+r.depth : "");
 function runLink(run){
   if(run.shareUrl) return run.shareUrl; // the service's link: its preview is this run's own card, and it opens the same map
   if(!/^https?:/.test(location.protocol)) return "";
@@ -5015,6 +5113,10 @@ function linkedRun(){ // what the page's own address asks for, if anything
 /* the run as a few lines of text and emoji, for pasting anywhere */
 function resultText(run, win, drip){
   const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
+  if(run.endless){ const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.icon).join(""), url = run.shareUrl || "";
+    return ["THE CANCEL IS COMING 📡 TERMINALLY ONLINE", run.name+" · "+tribe.icon+" "+tribe.name,
+      "🌑 night "+run.day+" · 🌀 depth "+(run.depth||1)+" · 💀 "+run.kills+" Schizoposters"+(run.killedBy ? " · run down by "+run.killedBy : ""),
+      (sets ? sets+" · " : "")+run.relics.length+" relics · "+drip+" DRIP"].concat(url ? [url] : []).join("\n"); }
   const bosses = [0,1,2].map(i => i<run.bossesBeaten ? "🟩" : (!win && run.diedToBoss && i===run.bossesBeaten ? "🟥" : "⬛")).join("");
   const days = "▰".repeat(run.day)+"▱".repeat(9-run.day);
   const sets = setRows(run.relics).filter(r=>r.on.length).map(r=>r.t.icon).join("");
@@ -5243,26 +5345,37 @@ async function postScore(body){
   finally{ clearTimeout(t); }
   return null;
 }
-function retryPending(){ if(META.pending && META.pending.run) postScore({...META.pending, session: rnUser() ? rnUser().token : META.pending.session}); }
-function submitRun(run, win, drip){
+/* The service says what it understands. A Terminally Online run is held back until it says "endless": an older
+   service would turn one away, or file a short one on the all-time board. It waits in META.pending meanwhile. */
+let apiFeatures = null;
+const apiHas = async k => { if(!apiFeatures){ const h = await api("/api/health"); if(!h) return false; apiFeatures = h; } return !!apiFeatures[k]; };
+async function retryPending(){
+  if(!META.pending || !META.pending.run) return;
+  if(META.pending.endless && !(await apiHas("endless"))) return;
+  postScore({...META.pending, session: rnUser() ? rnUser().token : META.pending.session});
+}
+async function submitRun(run, win, drip){
   const nft = run.base.nft;
   // kept in this browser too, for the "your last run" card on the title screen
-  const rec = META.lastRun = { name:run.name, score:drip, day:run.day, win, tribe:run.tribe, heat:run.heat||0, daily:run.daily||"", killedBy:win ? "" : (run.killedBy||""),
+  const rec = META.lastRun = { name:run.name, score:drip, day:run.day, win, tribe:run.tribe, heat:run.heat||0, daily:run.daily||"", killedBy:win ? "" : (run.killedBy||""), endless:!!run.endless, depth:run.depth||1,
     relics:run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), look:lookOf(run.base),
     stats:run.stats ? {hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm} : null, at:Date.now() };
   META.history = [rec].concat((META.history||[]).filter(h=>h.at!==rec.at)).slice(0, 5); // the last five, newest first, for the leaderboard's "you" tab
   saveMeta();
-  return postScore({
+  const body = {
     run: run.runId,
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : run.base && run.base.token ? run.base.token.cfg.toLowerCase() : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
-    candles: (run.candles||[]).slice(0,9).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
+    daily: run.daily||null, seed: run.daily || run.endless ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
+    endless: !!run.endless, depth: run.endless ? run.depth||1 : undefined, // endless has a board of its own
+    candles: chartCandles(run).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
     stats: run.stats ? { hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm, spd:run.stats.spd, crit:Math.round(run.stats.crit), dodge:Math.round(run.stats.dodge||0),
       batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
     session: rnUser() ? rnUser().token : undefined,
-  });
+  };
+  if(run.endless && !(await apiHas("endless"))){ META.pending = body; saveMeta(); return null; } // sent once the service can take it
+  return postScore(body);
 }
 const hereId = () => { try{ return playerId(); }catch(e){ return ""; } };
 /* The timeline, worldwide: four tiles and the latest run, kept current while the title screen is open. Numbers count
@@ -5284,7 +5397,7 @@ function pulseTicker(jump, isNew){ // the latest runs, one at a time
   const who = r.handle ? (isShip(r.handle) ? r.handle : "~"+r.handle) : r.name;
   const row = document.createElement("div"); row.className = "pfeed-row"+(r.win ? " won" : " fell")+(fresh ? " fresh" : "");
   row.innerHTML = "<canvas class='bpfp' width='4' height='4'></canvas><span class='pf-who'>"+(r.handle ? "<i>✓</i> " : "")+esc(who||"anon")+"</span>"
-    + "<span class='pf-what'>"+(r.win ? "saved the timeline on day "+r.day : (r.killedBy==="giving up" ? "gave up" : r.killedBy ? "&gt;"+esc(r.killedBy) : "cancelled")+" on day "+r.day)+"</span>"
+    + "<span class='pf-what'>"+(r.endless ? "📡 "+endlessEnd(r) : r.win ? "saved the timeline on day "+r.day : (r.killedBy==="giving up" ? "gave up" : r.killedBy ? "&gt;"+esc(r.killedBy) : "cancelled")+" on day "+r.day)+"</span>"
     + "<b>"+(r.score||0).toLocaleString("en-US")+"</b><em>"+agoText(r.at*1000)+"</em>";
   for(const old of [...box.querySelectorAll(".pfeed-row")]){ // every row already there leaves: two changes close together used to strand one underneath
     if(META.calm || old.classList.contains("out") || document.hidden){ old.remove(); continue; }
@@ -5297,12 +5410,13 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
   const el = $("pulse"); if(!el) return;
   const [p, rec] = await Promise.all([api("/api/pulse?here="+hereId()), api("/api/recent?limit=6")]);
   if(!p || !p.lifetime.games){ if(!PULSE.built) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
-  const first = !PULSE.built, pct = d => d.games ? Math.round(100*d.wins/d.games) : 0;
+  const first = !PULSE.built, pct = d => { const n = d.tgames!=null ? d.tgames : d.games; return n ? Math.round(100*d.wins/n) : 0; }; // endless runs can't save the timeline, so the share saved is of timeline runs
   if(first){
     const tile = (k, label, sub1, sub2, bar) => "<div class='pcell' data-t='"+k+"'><u>"+label+"</u><b data-n='"+k+".a' data-main='1'>0</b><span><i data-n='"+k+".b'>0</i> "+sub1+(sub2 ? " · <i data-n='"+k+".c'>0</i> "+sub2 : "")+"</span>"
       + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
     el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
-      + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)+"</div>"
+      + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)
+      + tile("endless", "📡 terminally online runs", "total depth", "", false).replace("class='pcell'", "class='pcell terminal' title='every terminally online run ever, and how deep they went between them'")+"</div>"
       + "<div class='pfeed' id='pulse-feed' aria-live='off' role='button' tabindex='0' title='see every recent run'></div>";
     el.classList.remove("hidden"); PULSE.built = true;
     const pf = $("pulse-feed"); pf.onclick = ()=>{ sfx("click"); openBoard("recent"); }; pf.onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); pf.click(); } };
@@ -5313,6 +5427,7 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
     set(k+".a", d.games); set(k+".b", d.wins);
     const bar = el.querySelector(".pcell[data-t='"+k+"'] .pbar"); if(bar){ bar.querySelector("s").style.width = pct(d)+"%"; bar.querySelector("em").textContent = pct(d)+"% saved"; } }
   set("players.a", p.players); set("players.b", p.lifetime.kills);
+  set("endless.a", (p.endless||{}).runs||0); set("endless.b", (p.endless||{}).depth||0);
   const now = $("pulse-now"); if(now){ now.parentElement.classList.toggle("hidden", !p.now); if(p.now && +now.textContent!==p.now){ now.textContent = p.now; now.classList.remove("bump"); void now.offsetWidth; now.classList.add("bump"); } }
   if(rec && rec.runs && rec.runs.length){
     const top = rec.runs[0].id, changed = top!==PULSE.newest, had = !!PULSE.newest;
@@ -5329,9 +5444,9 @@ setInterval(()=>{ if(document.hidden || !PULSE.built || PULSE.runs.length<2 || !
 function rankLines(res){ // "#3 of 41 on today's daily" for each board the run landed on
   if(!res || !res.boards) return "";
   return Object.keys(res.boards).sort().reverse().filter(k=>!(k.startsWith("seed:") && res.boards[k].total<2)).map(k=>{ // a map only you have played isn't a ranking yet
-    const b = res.boards[k], what = k==="all" ? "all-time" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
+    const b = res.boards[k], what = k==="all" ? "all-time" : k==="endless" ? "the terminally online board" : k.startsWith("daily:") ? "the "+k.slice(6)+" daily" : "this map";
     if(b.locked) return "<div>📅 the daily keeps your <b>first run</b> of the day"+(b.rank ? ": #"+b.rank+" of "+b.total+" with "+b.score : "")+" <span class='dim'>(this one was practice)</span></div>";
-    return "<div>"+(k==="all"?"🏆":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score!==res.sent ? " <span class='dim'>(best: "+b.score+(b.win ? " 👑" : "")+")</span>" : "")+"</div>";
+    return "<div>"+(k==="all"?"🏆":k==="endless"?"📡":k.startsWith("daily:")?"📅":"🔗")+" <b>#"+b.rank+"</b> of "+b.total+" on "+what+(b.score!==res.sent ? " <span class='dim'>(best: "+b.score+(b.win ? " 👑" : "")+")</span>" : "")+"</div>";
   }).join("");
 }
 /* the board itself: tabs for today's daily, all-time, and the current map when it has a seed */
@@ -5388,7 +5503,7 @@ function drawHomeHall(){
 let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
-  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
+  const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"],["endless","📡 endless"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
   const wire = ()=>{
@@ -5408,7 +5523,7 @@ async function openBoard(tab, back, seed, page){
     if(!(mySlain && mySlain.pid===playerId())) loadSlain().then(()=>{ if($("modal-panel").querySelector(".me-head") && mySlain) openBoard("me", back, seed); });
     return;
   }
-  const q = tab==="recent" ? "recent" : tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : "all=1";
+  const q = tab==="recent" ? "recent" : tab==="daily" ? "daily="+day : tab==="seed" ? "seed="+seed : tab==="endless" ? "endless=1" : "all=1";
   const turning = tab!=="hall" && page!=null && boardGot && boardGot.q===q;
   if(!turning){ // the shape of what is on its way, instead of the word "loading"
     openModal(shell(tab==="hall" ? "<div class='cal-wrap skel-wrap' aria-busy='true'><div class='cal'>"+"<i class='cal-cell skel'></i>".repeat(40)+"</div><div class='cal-detail'></div></div>"
@@ -5488,8 +5603,8 @@ async function openBoard(tab, back, seed, page){
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
           return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
-            + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
+            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 terminally online</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
+            + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
             + (e.cult!=null ? "<span>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span>"+(e.kills||0)+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>"; }).join("")+"</div>"
         + (pages>1 ? "<div class='pager'><button class='btn small' id='pg-prev'"+(pg ? "" : " disabled")+" aria-label='newer'>◀</button><span>"+(pg*BOARD_PAGE+1)+"–"+(pg*BOARD_PAGE+rows.length)+" <small>of "+all.length+"</small></span>"
@@ -5510,21 +5625,21 @@ async function openBoard(tab, back, seed, page){
   if($("modal").classList.contains("hidden") || !$("board-close")) return; // closed while loading
   let body;
   if(!res) body = "<div class='note bad'>the leaderboard can't be reached right now</div>";
-  else if(!res.top.length) body = "<div class='note'>nobody is on this board yet. be the first.</div>";
+  else if(!res.top.length) body = "<div class='note'>nobody is on this board yet. be the first.</div>"+(tab==="endless" ? "<div class='note'>📡 terminally online is the red button on the title screen</div>" : "");
   else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
         + "<span class='btribe'>"+tribeBadge(e.tribe)+"</span>"
-        + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
+        + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(tab==="endless" ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
             : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
         + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
         + (e.cult!=null ? "<span title='$CULT banked'>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span title='enemies beaten'>"+e.kills+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>";
     }).join("")+"</div>"
     + (pages>1 ? "<div class='pager'><button class='btn small' id='pg-prev'"+(pg ? "" : " disabled")+" aria-label='higher ranks'>◀</button><span>"+(pg*BOARD_PAGE+1)+"–"+(pg*BOARD_PAGE+rows.length)+" <small>of "+res.top.length+"</small></span>"
         + "<button class='btn small' id='pg-next'"+(pg<pages-1 ? "" : " disabled")+" aria-label='lower ranks'>▶</button></div>" : "")
-    + "<div class='note'>👑 saved timelines rank first, then score</div>"
-    + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : "")+"</div>";
+    + "<div class='note'>"+(tab==="endless" ? "📡 terminally online: the night never ends. ranked by score: nights lived through, how deep you got, and every Schizoposter you took with you" : "👑 saved timelines rank first, then score")+"</div>"
+    + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : tab==="endless" ? " · play terminally online to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
   if($("pg-prev")){ $("pg-prev").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg-1); }; $("pg-next").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg+1); }; }
   if(res && res.top.length){ // the characters, drawn one after another so the list stays responsive
@@ -5563,11 +5678,11 @@ async function shareCard(run, win, drip){
   text("the cancel", 500, 108, 50, "#fff"); text("is coming_", 500 + cx.measureText("the cancel ").width, 108, 50, "#8be9fd");
   cx.shadowBlur = 0;
   const tribe = TRIBES.find(t=>t.id===run.tribe) || TRIBES[0];
-  text((run.name+" · "+tribe.name+(run.heat?" · heat "+run.heat:"")+(run.daily?" · daily "+run.daily:run.seedCode?" · map "+run.seedCode:"")).toLowerCase(), 500, 156, 24, "#bdbdbd", "normal");
-  text(win ? "timeline saved" : "cancelled on day "+run.day, 500, 240, 44, win ? "#50fa7b" : "#ff5555");
-  text(run.bossesBeaten+" / 3 bosses  ·  "+run.kills+" kills  ·  "+run.cult+" $CULT", 500, 288, 24, "#eaeaea", "normal");
+  text((run.name+" · "+tribe.name+(run.endless ? " · terminally online" : (run.heat?" · heat "+run.heat:"")+(run.daily?" · daily "+run.daily:run.seedCode?" · map "+run.seedCode:""))).toLowerCase(), 500, 156, 24, "#bdbdbd", "normal");
+  text(run.endless ? "run down on night "+run.day : win ? "timeline saved" : "cancelled on day "+run.day, 500, 240, 44, win ? "#50fa7b" : "#ff5555");
+  text((run.endless ? "depth "+(run.depth||1) : run.bossesBeaten+" / 3 bosses")+"  ·  "+run.kills+" kills  ·  "+run.cult+" $CULT", 500, 288, 24, "#eaeaea", "normal");
   text("DRIP", 500, 366, 18, "#666"); text(String(drip), 500, 438, 76, "#f1fa8c");
-  const charted = (run.candles||[]).length>0;
+  const charted = chartCandles(run).length>0;
   { // each switched-on synergy as its icon and a count: names ran off the edge of the card
     const on = setRows(run.relics).filter(r=>r.on.length).sort((a,b)=>b.c-a.c);
     const [x0, y0, px, room] = charted ? [500, 326, 22, 222] : [720, 420, 28, 440], step = px + (px<26 ? 26 : 32);
@@ -5577,7 +5692,7 @@ async function shareCard(run, win, drip){
     const icons = await Promise.all(shown.map(r=>loadImg("data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' width='64' height='64'>"+(SET_SVG[r.t.id]||"").replace(/currentColor/g, r.t.color)+"</svg>")).catch(()=>null)));
     shown.forEach((r,i)=>{ const x = x0+i*step; if(icons[i]) cx.drawImage(icons[i], x, y0-px+3, px, px); text(String(r.c), x+px+3, y0, px<26 ? 18 : 22, "#eaeaea"); });
   }
-  if(charted){ drawCandles(cx, 730, 326, 420, 126, run.candles, 1.15); cx.textAlign = "left"; }
+  if(charted){ drawCandles(cx, 730, 326, 420, 126, chartCandles(run), 1.15); cx.textAlign = "left"; }
   // relics
   const ims = await Promise.all(run.relics.map(id=>loadImg(ICONS[id]).catch(()=>null)));
   ims.forEach((im,i)=>{
@@ -5598,16 +5713,19 @@ function leaveRun(){
 /* ---------- avatar screen ---------- */
 let AVA = null, avaTok = 0;
 /* names end up inside HTML in the feed and dialogs, so keep them to plain characters */
-const PICK = { tribe:"", heat:0, daily:"", seed:"" }; // what the avatar screen is setting up
+const PICK = { tribe:"", heat:0, daily:"", seed:"", endless:false }; // what the avatar screen is setting up
 /* The daily turns over at midnight Eastern (New York), wherever the player is. */
 const DAILY_TZ = "America/New_York";
 const today = () => { try{ return new Intl.DateTimeFormat("en-CA", {timeZone:DAILY_TZ, year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()); }
   catch(e){ return new Date(Date.now()-5*3600e3).toISOString().slice(0,10); } }; // no time zone data: fixed UTC-5
 function renderPicks(){ // the character screen is only about the character: tribe and heat are chosen once the run has loaded
   if(!TRIBES.some(t=>t.id===PICK.tribe)) PICK.tribe = META.tribe || TRIBES[Math.floor(Math.random()*TRIBES.length)].id; // no favorite yet: don't always hand out the first one
-  PICK.heat = PICK.daily||PICK.seed ? 0 : clamp(PICK.heat, 0, META.heat||0);
+  PICK.heat = PICK.daily||PICK.seed||PICK.endless ? 0 : clamp(PICK.heat, 0, META.heat||0);
   const played = PICK.daily && META.dailyAt && META.dailyAt.date===PICK.daily;
-  $("heat-row").innerHTML = PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
+  const eb = META.endlessBest;
+  $("heat-row").innerHTML = PICK.endless ? "<div class='note bad'>📡 TERMINALLY ONLINE — the night never ends. no bosses, no monsters in the rooms: only Schizoposters, more every night, and they don't go home</div>"
+      + "<div class='note'>find a 🌀 rift to go deeper. score is nights lived through, depth and kills, on a board of its own"+(eb && eb.night ? ". your best: night "+eb.night+(eb.depth>1 ? ", depth "+eb.depth : "") : "")+"</div>"
+    : PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
       + "<div class='note"+(played?" bad":"")+"'>"+(played ? "you've already played today's daily: only that first run counts. this one is practice"
                                                           : "one attempt: only your first run of the day counts on the daily board")+"</div>"
     : PICK.seed ? "<div class='note good'>🔗 MAP "+PICK.seed+" — the same maze as whoever sent you the link</div>" : "";
@@ -5617,19 +5735,19 @@ function renderPicks(){ // the character screen is only about the character: tri
 let setupStep = null; // the picker that must be answered before the run begins
 let startOver = false; // set for the one call that follows "start over" being confirmed
 function beginSetup(){
-  const code = PICK.daily||PICK.seed ? "" : Math.random().toString(36).slice(2,8).padEnd(6,"0");
-  const build = ()=>{ newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed, code }); };
+  const code = PICK.daily||PICK.seed ? "" : Math.random().toString(36).slice(2,8).padEnd(6,"0"), endless = PICK.endless && !PICK.daily && !PICK.seed;
+  const build = ()=>{ newRun(AVA, { tribe:PICK.tribe, heat:PICK.daily||PICK.seed||endless ? 0 : PICK.heat, daily:PICK.daily, seed:PICK.seed, code, endless }); renderLegend(); };
   const backdrop = ()=>{ build(); G.setup = true; show("screen-map"); $("map-log").innerHTML = ""; $("boss-banner").classList.add("hidden"); camSnap = true; renderMap(); };
   const start = ()=>{
     setupStep = null; closeModal(); build();
     show("screen-map");
     $("map-log").innerHTML="";
-    mlog("🌸 <b>"+G.name+"</b> enters the timeline with "+G.cult+" $CULT.", "gold");
+    mlog("🌸 <b>"+G.name+"</b> "+(G.endless ? "drops into the endless night" : "enters the timeline")+" with "+G.cult+" $CULT.", "gold");
     if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
-    mlog("Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
+    mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
-    startDay();
+    if(G.endless) startNight(); else startDay();
     startDaily(G);
     sfx("relic"); saveRun();
     if(!META.calm){ const pl = document.querySelector("#screen-map .play"); pl.classList.remove("boot"); void pl.offsetWidth; pl.classList.add("boot"); setTimeout(()=>pl.classList.remove("boot"), 1300); } // the panels come online
@@ -5637,7 +5755,7 @@ function beginSetup(){
   };
   const pickHeat = ()=>{
     const max = META.heat||0;
-    if(!max || PICK.daily || PICK.seed){ PICK.heat = 0; return start(); }
+    if(!max || PICK.daily || PICK.seed || endless){ PICK.heat = 0; return start(); } // endless has no heat: one board, one set of rules
     setupStep = pickHeat;
     PICK.heat = clamp(PICK.heat, 0, max);
     openModal("<h2>HEAT</h2><div class='note'>you've saved the timeline before. want it worse, for more DRIP?</div>"
@@ -5758,10 +5876,24 @@ function renderTitle(){
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
-  if(save) c.textContent = "CONTINUE · "+save.name+" · day "+save.day;
-  $("btn-start").textContent = save ? "new run" : "ENTER THE TIMELINE";
-  $("btn-start").className = save ? "btn small" : "btn big";
+  if(save) c.textContent = "CONTINUE · "+save.name+(save.endless ? " · 📡 night "+save.day+((save.depth||1)>1 ? " · depth "+save.depth : "") : " · day "+save.day);
+  renderStartButton(!!save);
+  renderEndlessButton(!!save);
   renderDailyButton(); // after the line above, which resets the start button's classes
+}
+/* the way into the timeline: a prompt with a blinking cursor, and your record under it */
+function renderStartButton(small){
+  const b = $("btn-start");
+  b.className = small ? "btn small" : "btn big";
+  if(small){ b.textContent = "new run"; return; }
+  const rec = META.wins>0 ? "your best: timeline saved ×"+META.wins : META.best>0 ? "your best: day "+META.best : "9 days · 3 bosses"; // worded like the red one
+  b.innerHTML = "<b>&gt; enter the timeline<i class='cur' aria-hidden='true'>_</i></b><span class='tl-sub'>"+rec+"</span>";
+}
+function renderEndlessButton(small){ // the red one: steps back with the rest when a run is waiting to be continued
+  const b = $("btn-endless"); if(!b) return;
+  const eb = META.endlessBest;
+  b.classList.toggle("small", small); b.classList.toggle("big", !small);
+  b.innerHTML = "<b>"+(small ? "📡 terminally online" : "📡 TERMINALLY ONLINE")+"</b>"+(small ? "" : "<span>"+(eb && eb.night ? "your best: night "+eb.night+(eb.depth>1 ? " · depth "+eb.depth : "") : "permanent night · they don't stop")+"</span>");
 }
 function renderMenu(){
   // the collections live behind three buttons; each says how far along you are
@@ -5830,8 +5962,8 @@ function runCardHTML(r, i){ // one finished run, as a card: who, which tribe, ho
     + (r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
     + "<div><b>"+esc(r.name)+"</b><span class='badge-row'>"+tribeBadge(r.tribe)+"</span>"
       + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
-      + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
-      + "<span class='dim'>"+(r.daily ? "📅 daily "+esc(r.daily)+" · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
+      + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.endless ? "📡 "+endlessEnd(r)+(r.killedBy && r.killedBy!=="giving up" ? " by "+esc(r.killedBy) : "") : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
+      + "<span class='dim'>"+(r.endless ? "📡 terminally online · " : r.daily ? "📅 daily "+esc(r.daily)+" · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
     + "<div class='king-relics'><u>carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>"
     + "<div class='king-clock'><u>score</u><b>"+r.score+"</b><span>DRIP</span></div></div>";
 }
@@ -6138,19 +6270,20 @@ async function init(){
   };
   $("btn-board").onclick=()=>{ sfx("click"); openBoard("daily"); };
   if(!online()) $("btn-board").remove();
-  $("btn-daily").onclick=()=>{ PICK.daily = today(); PICK.seed = ""; $("btn-start").click(); };
+  $("btn-daily").onclick=()=>{ PICK.daily = today(); PICK.seed = ""; PICK.endless = false; $("btn-start").click(); };
+  $("btn-endless").onclick=()=>{ PICK.daily = ""; PICK.seed = ""; PICK.endless = true; $("btn-start").click(); };
   const link = linkedRun();
   if(link){ // arrived by a shared link: offer that exact map first
     const b = $("btn-link");
     b.textContent = link.daily ? "▶ PLAY THE "+(link.daily===today() ? "DAILY" : link.daily)+" MAP" : "▶ PLAY SHARED MAP "+link.seed;
     b.classList.remove("hidden");
-    b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; $("btn-start").click(); };
+    b.onclick=()=>{ PICK.daily = link.daily||""; PICK.seed = link.seed||""; PICK.endless = false; $("btn-start").click(); };
     $("link-note").textContent = "someone sent you this map — same maze, same bosses, same loot spots";
   }
   renderRn(rnReturn()); syncProfile(true); claimRows();
   $("minimap").onclick=()=>$("minimap").classList.toggle("big");
   $("btn-start").onclick=async(ev)=>{
-    if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; } // a real click on this button is a normal run
+    if(ev && ev.isTrusted){ PICK.daily = ""; PICK.seed = ""; PICK.endless = false; } // a real click on this button is a normal run
     if(lockedOut()) return;
     const saved = loadRun();
     if(saved && !startOver){ // a run is waiting to be continued: starting another throws it away
@@ -6158,11 +6291,11 @@ async function init(){
         body:"You have a run in progress: <b>"+esc(saved.name)+"</b>, day "+saved.day+". Starting a new one throws it away for good"+(saved.daily && !saved.practice ? ", and it was <b>today's daily attempt</b>" : "")+". It counts as giving it up."+quitWarn() },
         ()=>{ closeModal(); noteQuit(); startOver = true; $("btn-start").onclick(); startOver = false; });
     }
-    const label = $("btn-start").textContent;
+    const label = $("btn-start").innerHTML;
     $("btn-start").disabled=true; $("btn-start").textContent="loading assets…";
     try{ await ready; }
     catch(e){ ready = loadAssets().then(renderTitle); ready.catch(()=>{}); $("btn-start").textContent="asset load failed — retry"; $("btn-start").disabled=false; return; }
-    $("btn-start").disabled=false; $("btn-start").textContent=label;
+    $("btn-start").disabled=false; $("btn-start").innerHTML=label;
     sfx("click");
     $("btn-begin").disabled = true;
     show("screen-avatar");

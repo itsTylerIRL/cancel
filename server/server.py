@@ -67,6 +67,10 @@ RE_PATP = re.compile(r"^~(?:[a-z]{3}|[a-z]{6}(?:-[a-z]{6}){0,3})$")
 
 MAX_BODY = 6000
 MAX_SCORE = 3000          # day, boss, kill, objective and (capped) $CULT points with the top heat bonus stay under this
+# Terminally online: the night never ends, so nights, depth and kills have no fixed top. These are generous outer limits;
+# the score itself is still held to what the run's own numbers add up to (ENDLESS_PTS, as the game counts them).
+ENDLESS_MAX = {"day": 999, "depth": 99, "kills": 5000, "score": 200000}
+ENDLESS_PTS = {"night": 20, "depth": 60, "kill": 3}
 POSTS_PER_HOUR = 30       # per client address
 TRIBES = {"hypebeast", "gyaru", "lolita", "harajuku", "prep", "schizoposter", "collector"}
 COLLECTIONS = {"milady", "remilio"}
@@ -229,6 +233,12 @@ def init_db():
             con.execute("ALTER TABLE scores ADD COLUMN card TEXT")  # the share card of the run this row is
         if "handle" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN handle TEXT")  # the RemiliaNET account, when the player signed in
+        if "depth" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
+            con.execute("ALTER TABLE scores ADD COLUMN depth INTEGER")  # endless: how many mazes down the run got (empty for timeline runs)
+        if "endless" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
+            con.execute("ALTER TABLE runs ADD COLUMN endless INTEGER NOT NULL DEFAULT 0")  # endless runs are kept apart when balancing the timeline
+        if "depth" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
+            con.execute("ALTER TABLE runs ADD COLUMN depth INTEGER")  # endless: how deep the run got, for the worldwide total
 
 
 RE_LAYER = re.compile(r"^[A-Za-z -]{1,20}$")
@@ -421,12 +431,16 @@ def parse_run(d):
         player = verified_player(handle)  # the account's one row per board, from any device
     elif player.startswith(("rn", "ur")):
         raise Bad("sign in again")  # an expired or forged session must not write to a verified player's row
-    score = as_int(d.get("score"), 0, MAX_SCORE, "score")
-    day = as_int(d.get("day"), 1, 9, "day")
+    endless = d.get("endless") is True
+    score = as_int(d.get("score"), 0, ENDLESS_MAX["score"] if endless else MAX_SCORE, "score")
+    day = as_int(d.get("day"), 1, ENDLESS_MAX["day"] if endless else 9, "day")
     bosses = as_int(d.get("bosses"), 0, 3, "bosses")
-    kills = as_int(d.get("kills"), 0, 500, "kills")
+    kills = as_int(d.get("kills"), 0, ENDLESS_MAX["kills"] if endless else 500, "kills")
     heat = as_int(d.get("heat", 0), 0, 5, "heat")
     win = bool(d.get("win"))
+    depth = as_int(d.get("depth", 1), 1, ENDLESS_MAX["depth"], "depth") if endless else None
+    if endless and (win or bosses or heat):
+        raise Bad("inconsistent endless run")  # no bosses down there, no timeline to save, and no heat
     # A boss can be called out early, so bosses beaten no longer follow from the day: a run can win on day 4.
     if win and bosses != 3:
         raise Bad("inconsistent win")
@@ -450,8 +464,8 @@ def parse_run(d):
             raise Bad("bad relic")
         out.append([r[0], r[1]])
 
-    boards = ["all"]
-    daily, seed = d.get("daily"), d.get("seed")
+    boards = ["endless"] if endless else ["all"]  # endless has its own board: its scores don't compare with nine days
+    daily, seed = (None, None) if endless else (d.get("daily"), d.get("seed"))
     if daily:
         if not isinstance(daily, str) or not RE_DATE.match(daily):
             raise Bad("bad daily")
@@ -473,14 +487,17 @@ def parse_run(d):
     cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
     candles = None  # $CULT by day, [open, high, low, close] for up to nine days: drawn as a chart on the card
     cs = d.get("candles")
-    if isinstance(cs, list) and 1 <= len(cs) <= 9 and all(
+    if isinstance(cs, list) and 1 <= len(cs) <= 9 and all(  # endless sends its last nine nights
             isinstance(c, list) and len(c) == 4 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 99999 for v in c)
             and c[2] <= min(c[0], c[3]) and c[1] >= max(c[0], c[3]) for c in cs):
         candles = cs
     # The score is the game's own sum, so the most it can honestly be follows from the run: every objective done,
     # and $CULT counted the capped way. Anything above that (an old copy of the game still counting $CULT in full,
     # or a made-up number) is brought down to it.
-    base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 + max(0, 9 - day) * 80 if win else 0) + 75  # a win is worth more for each day it came early
+    if endless:
+        base = day * ENDLESS_PTS["night"] + (depth - 1) * ENDLESS_PTS["depth"] + kills * ENDLESS_PTS["kill"] + cult_points(cult or 0) + 75
+    else:
+        base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 + max(0, 9 - day) * 80 if win else 0) + 75  # a win is worth more for each day it came early
     score = min(score, base + int(base * 0.25 * heat + 0.5))
     run = d.get("run")
     run = run if isinstance(run, str) and RE_RUN.match(run) else None
@@ -490,7 +507,7 @@ def parse_run(d):
         stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
                  and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
     row = dict(candles=candles, run=run, stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
-               player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat,
+               player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat, depth=depth, endless=int(endless),
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
     return boards, row
@@ -536,6 +553,7 @@ def public(row, rank):
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
             "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"],
+            "depth": row["depth"], "endless": row["depth"] is not None,
             # the run's id: its share link is /r/ID and its card image /api/card/ID.png
             "id": row["card"], "share": PUBLIC + "/r/" + row["card"] if row["card"] else None,
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"]) if row["card"] else None}
@@ -554,15 +572,16 @@ def read_board(board, limit, player):
 
 
 def run_stats():
+    """How timeline runs end. Endless runs are left out: they have no day 9 and no bosses to balance against."""
     with db() as con:
-        n, wins, avg_day, avg_score = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), AVG(day), AVG(score) FROM runs").fetchone()
-        by_day = con.execute("SELECT day, COUNT(*) FROM runs WHERE win=0 GROUP BY day ORDER BY day").fetchall()
-        killers = con.execute("SELECT killed_by, COUNT(*) c FROM runs WHERE win=0 AND killed_by<>'' GROUP BY killed_by ORDER BY c DESC LIMIT 12").fetchall()
-        tribes = con.execute("SELECT tribe, COUNT(*), SUM(win), AVG(day) FROM runs GROUP BY tribe").fetchall()
-        bosses = con.execute("SELECT bosses, COUNT(*) FROM runs GROUP BY bosses ORDER BY bosses").fetchall()
-        rows_stats = con.execute("SELECT stats, win FROM runs WHERE stats IS NOT NULL ORDER BY id DESC LIMIT 2000").fetchall()
+        n, wins, avg_day, avg_score = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), AVG(day), AVG(score) FROM runs WHERE endless=0").fetchone()
+        by_day = con.execute("SELECT day, COUNT(*) FROM runs WHERE endless=0 AND win=0 GROUP BY day ORDER BY day").fetchall()
+        killers = con.execute("SELECT killed_by, COUNT(*) c FROM runs WHERE endless=0 AND win=0 AND killed_by<>'' GROUP BY killed_by ORDER BY c DESC LIMIT 12").fetchall()
+        tribes = con.execute("SELECT tribe, COUNT(*), SUM(win), AVG(day) FROM runs WHERE endless=0 GROUP BY tribe").fetchall()
+        bosses = con.execute("SELECT bosses, COUNT(*) FROM runs WHERE endless=0 GROUP BY bosses ORDER BY bosses").fetchall()
+        rows_stats = con.execute("SELECT stats, win FROM runs WHERE endless=0 AND stats IS NOT NULL ORDER BY id DESC LIMIT 2000").fetchall()
         relics = {}
-        for (r,) in con.execute("SELECT relics FROM runs ORDER BY id DESC LIMIT 2000"):
+        for (r,) in con.execute("SELECT relics FROM runs WHERE endless=0 ORDER BY id DESC LIMIT 2000"):
             for rid, _tier in json.loads(r):
                 relics[rid] = relics.get(rid, 0) + 1
     final = {}
@@ -601,9 +620,11 @@ def pulse():
     out = {}
     with db() as con:
         for key, since in (("today", midnight), ("week", midnight - 6 * 86400), ("lifetime", 0)):
-            n, wins, kills = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(kills),0) FROM runs WHERE created>=?", (since,)).fetchone()
-            out[key] = {"games": n, "wins": wins, "kills": kills}
+            n, wins, kills, tl = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(kills),0), COALESCE(SUM(endless=0),0) FROM runs WHERE created>=?", (since,)).fetchone()
+            out[key] = {"games": n, "wins": wins, "kills": kills, "tgames": tl}  # tgames: timeline runs, the ones that could have been saved
         out["players"] = con.execute("SELECT COUNT(*) FROM scores WHERE board='all'").fetchone()[0]
+        n, depth = con.execute("SELECT COUNT(*), COALESCE(SUM(depth),0) FROM runs WHERE endless=1").fetchone()
+        out["endless"] = {"runs": n, "depth": depth}  # every terminally online run ever, and the depth they reached between them
     return out
 
 
@@ -618,7 +639,7 @@ def recent(limit):
                         "win": bool(d.get("win")), "bosses": d.get("bosses"), "kills": d.get("kills", 0), "heat": d.get("heat", 0),
                         "tribe": d.get("tribe"), "cult": d.get("cult"), "killedBy": d.get("killedBy") or "",
                         "collection": d.get("collection"), "token": d.get("token"), "relics": d.get("relics") or [], "look": d.get("look"),
-                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created,
+                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created, "endless": bool(d.get("endless")), "depth": d.get("depth"),
                         "share": "%s/r/%s" % (PUBLIC, cid), "image": "%s/api/card/%s.png" % (PUBLIC, cid)})
     return out
 
@@ -833,6 +854,7 @@ def recent_runs(con, player, n=5):
         st = d.get("stats") or {}
         out.append({"id": r["id"], "at": r["created"], "name": d["name"], "score": d["score"], "day": d["day"], "win": bool(d["win"]),
                     "tribe": d["tribe"], "heat": d.get("heat", 0), "daily": d.get("daily") or "", "killedBy": d.get("killedBy") or "",
+                    "endless": bool(d.get("endless")), "depth": d.get("depth"),
                     "relics": d["relics"], "look": d.get("look"),
                     "stats": {"hp": st.get("hp"), "atk": st.get("atk"), "arm": st.get("arm")} if st else None})
     return out
@@ -940,7 +962,8 @@ def esc(v):
 def share_page(cid, run):
     """What a link preview reads. People are forwarded to the game, onto the same map."""
     to = SITE + ("?daily=" + run["daily"] if run.get("daily") else "?seed=" + run["seed"] if run.get("seed") else "")
-    title = "%s %s · %d drip" % (run["name"], "saved the timeline" if run["win"] else "was cancelled on day %d" % run["day"], run["score"])
+    ended = ("was run down on night %d in terminally online" % run["day"]) if run.get("endless") else "saved the timeline" if run["win"] else "was cancelled on day %d" % run["day"]
+    title = "%s %s · %d drip" % (run["name"], ended, run["score"])
     desc = "THE CANCEL IS COMING, a neochibi roguelite autobattler. " + (
         "Play the same map." if run.get("daily") or run.get("seed") else "9 days. 3 bosses. One timeline.")
     img = "%s/api/card/%s.png" % (PUBLIC, cid)
@@ -1031,7 +1054,7 @@ class Handler(BaseHTTPRequestHandler):
         q = parse_qs(u.query)
         one = lambda k: (q.get(k) or [""])[0]
         if u.path == "/api/health":
-            return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON, "ur": UR_ON})
+            return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON, "ur": UR_ON, "endless": True})
         if u.path == "/api/stats":
             return self.send(200, run_stats())
         if u.path.startswith("/r/"):
@@ -1129,6 +1152,8 @@ class Handler(BaseHTTPRequestHandler):
             if not RE_SEED.match(one("seed")):
                 return self.send(400, {"error": "bad seed"})
             board = "seed:" + one("seed")
+        elif one("endless"):
+            board = "endless"
         else:
             board = "all"
         try:
@@ -1276,11 +1301,11 @@ class Handler(BaseHTTPRequestHandler):
                 # one row per player per board: a new run replaces it only if it ranks higher (a win beats any loss)
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created, look, handle, card)
+                                           relics, killed_by, ip_hash, created, look, handle, card, depth)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card)
+                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card, :depth)
                        ON CONFLICT(board, player) DO UPDATE SET
-                         name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses,
+                         name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses, depth=excluded.depth,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
                          token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card,
                          ip_hash=excluded.ip_hash, created=excluded.created
@@ -1289,15 +1314,15 @@ class Handler(BaseHTTPRequestHandler):
                 total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
             # every finished run is also kept, without the player, so the game can be balanced on how runs really end
-            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats)
-                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats)""",
+            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats, endless, depth)
+                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats, :endless, :depth)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
             # and as a card: what the share link's preview is drawn from
             con.execute("INSERT INTO cards (id, created, data) VALUES (?,?,?)", (share, now, json.dumps({
                 "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]), "bosses": row["bosses"],
                 "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
-                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"],
+                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"], "endless": bool(row["endless"]), "depth": row["depth"],
                 "collection": row["collection"], "token": row["token"],
                 "killedBy": row["killed_by"], "candles": row["candles"],
                 "player": row["player"], "stats": json.loads(row["stats"]) if row["stats"] else None},  # for king of the hill; never sent out

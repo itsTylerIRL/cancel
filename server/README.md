@@ -10,14 +10,14 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 |---|---|
 | `POST /api/score` | a finished run. Keeps each player's best per board: today's daily, all-time, and one per shared map |
 | `POST /api/daily/start` | a daily run has begun. A player's first daily run of the day is the only one that counts on that day's board |
-| `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE` or `?all=1`. Each entry has the run's `id`, its `share` link and its card `image` |
+| `GET /api/board` | a board, with `?daily=YYYY-MM-DD`, `?seed=CODE`, `?endless=1` (Terminally Online) or `?all=1`. Each entry has the run's `id`, its `share` link and its card `image` |
 | `GET /api/king` | this week's king of the hill, their relics, and when the hill (Sunday night, Eastern) and the daily next reset |
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
 | `GET /api/recent` | the latest finished runs, newest first. `?limit=` up to 100, default 50. Each has the same fields as a board entry, plus `at` (when it was posted) |
 | `GET /api/hall` | the best run of every daily map, and whoever held the hill as each past week ended |
 | `POST /api/claim` | on sign-in, runs posted earlier from that browser become the account's. Where both have a row on a board, the better one stays |
 | `POST /api/profile` | a signed-in player's progress and settings, merged with what the account holds. The reply also carries their last five runs (read from the run cards) and their all-time rank, so every machine shows the same thing |
-| `GET /api/pulse` | games and wins today, this week, ever |
+| `GET /api/pulse` | games and wins today, this week, ever, and Terminally Online's runs and total depth |
 | `GET /api/stats` | how runs end, in aggregate. Useful for balancing |
 | `GET /api/token` | a Milady or Remilio token's traits, fetched once and cached |
 | `GET /r/ID` | a run's share link. Link previews get that run's card; people get forwarded to the same map |
