@@ -1686,10 +1686,10 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .king-card .bface.card-face{flex:none;width:auto;aspect-ratio:auto;display:block;line-height:0;}
 .king-card .bface.card-face .bpfp{width:64px;height:64px;}
 .king-card .bface.card-face s{font-size:10px;border-width:2px;padding:3px 4px;line-height:1;}
-/* an endless run that fell short is TERMINATED: a terminal's green on black, straight across, not a rubber stamp */
-.bface.lost.term .bpfp{filter:grayscale(.6) brightness(.6) sepia(.4) hue-rotate(60deg);}
-.bface s.term{transform:translate(-50%,-50%);font-family:var(--mono);font-weight:700;letter-spacing:.12em;color:var(--acid);border:0;border-top:1px solid var(--acid);border-bottom:1px solid var(--acid);border-radius:0;
-  background:rgba(0,10,4,.82);text-shadow:0 0 5px rgba(80,250,123,.8);box-shadow:0 0 10px rgba(80,250,123,.3);}
+/* an endless run that fell short is OBLITERATED: red like CANCELLED, but a bar straight across, not a rubber stamp */
+.bface.lost.term .bpfp{filter:grayscale(.8) brightness(.55) sepia(.5) hue-rotate(-30deg) saturate(2.2);}
+.bface s.term{transform:translate(-50%,-50%);font-family:var(--mono);font-weight:700;letter-spacing:.02em;color:#ff3b3b;border:0;border-top:1px solid #ff3b3b;border-bottom:1px solid #ff3b3b;border-radius:0;
+  background:rgba(20,0,0,.85);text-shadow:0 0 5px rgba(255,40,40,.8);box-shadow:0 0 10px rgba(255,40,40,.35);}
 .king-card .bface.card-face s.term{border-width:2px 0;}
 
 /* banishing from a draft */

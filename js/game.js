@@ -5080,7 +5080,7 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
     + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+"</b>"
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.endless ? "📡 "+endlessEnd(r) : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
-           + "<span class='dim'>"+(r.endless ? "📡 terminally online · " : r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
+           + "<span class='dim'>"+(r.endless ? "📡 endless · " : r.daily ? "📅 daily · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span>"
            : "<span class='dim'>finish a run and it shows up here</span>")+"</div>"
     + "<div class='king-relics you-mid'>"+(r ? "<span class='badge-row tb-top'>"+tribeBadge(r.tribe)+"</span>" : "")+"<span class='wl' title='your record: timelines saved, cancelled, and win rate'><b class='good'>"+wl.w+"W</b><i>·</i><b class='bad'>"+wl.l+"L</b><i>·</i><b>"+(wl.w+wl.l ? Math.round(100*wl.w/(wl.w+wl.l))+"%" : "—")+"</b>"
         + (mySlain && mySlain.pid===playerId() && mySlain.crowns ? "<i>·</i><b class='slain' title='weeks as king: every week you show as king of the hill on the leaderboard'>👑 "+mySlain.crowns+"</b>" : "")
@@ -5666,7 +5666,7 @@ async function openBoard(tab, back, seed, page){
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
           return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 terminally online</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
+            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
             + (e.cult!=null ? "<span>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span>"+(e.kills||0)+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>"; }).join("")+"</div>"
@@ -6021,16 +6021,16 @@ function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
     + "</div>";
 }
 /* The stamp on a finished run's portrait. A timeline run that wasn't won was CANCELLED. An endless run can't be won:
-   one that lasted the nine nights a timeline has isn't stamped at all, and one that fell short was TERMINATED. */
+   one that lasted the nine nights a timeline has isn't stamped at all, and one that fell short was OBLITERATED. */
 const faceEnd = e => e.win || (e.endless && e.day>=10) ? "" : e.endless ? " lost term" : " lost";
-const faceStamp = e => e.win || (e.endless && e.day>=10) ? "" : e.endless ? "<s class='term' aria-hidden='true'>TERMINATED</s>" : "<s aria-hidden='true'>CANCELLED</s>";
+const faceStamp = e => e.win || (e.endless && e.day>=10) ? "" : e.endless ? "<s class='term' aria-hidden='true'>OBLITERATED</s>" : "<s aria-hidden='true'>CANCELLED</s>";
 function runCardHTML(r, i){ // one finished run, as a card: who, which tribe, how it ended, what was carried
   return "<div class='king-card last-card run-card"+(r.win ? " won" : "")+"'>"
     + (r.look ? "<span class='bface card-face"+faceEnd(r)+"'><canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>"+faceStamp(r)+"</span>" : "")
     + "<div><b>"+esc(r.name)+"</b><span class='badge-row'>"+tribeBadge(r.tribe)+"</span>"
       + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.endless ? "📡 "+endlessEnd(r)+(r.killedBy && r.killedBy!=="giving up" ? " by "+esc(r.killedBy) : "") : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
-      + "<span class='dim'>"+(r.endless ? "📡 terminally online · " : r.daily ? "📅 daily "+esc(r.daily)+" · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
+      + "<span class='dim'>"+(r.endless ? "📡 endless · " : r.daily ? "📅 daily "+esc(r.daily)+" · " : "")+(r.heat ? "🔥 heat "+r.heat+" · " : "")+agoText(r.at)+"</span></div>"
     + "<div class='king-relics'><u>carried</u>"+relicStrip(r.relics.filter(x=>relicById(x[0])))+"</div>"
     + "<div class='king-clock'><u>score</u><b>"+r.score+"</b><span>DRIP</span></div></div>";
 }
