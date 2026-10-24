@@ -622,6 +622,8 @@ const nightMoves = () => NIGHT_MOVES - (tribeIs("harajuku") ? 4 : 0) + (G.heat>=
    night, and they don't go home. Each maze has a rift in every district; through one is a fresh maze, deeper and worse.
    moves: extra steps a night lasts. deep: how much tougher every foe is per depth. cap: the most hunting you at once. */
 const ENDLESS = { moves:8, deep:0.12, cap:12, pts:{ night:20, depth:60, kill:3 }, rivergod:10, tenx:8, tenxNights:2 }; // pts: what each night lived through, each maze down and each kill score.
+// Nights and kills are scored as they happen, times the depth you're at (depthOf()): what you do deeper down is worth
+// more, and farming the first maze before diving doesn't multiply what was farmed. depth is paid once per maze down.
 // rivergod, tenx: how many of each a maze holds (4 and 3 on the timeline). tenxNights: a 10x position runs to the end of the night this many after the deposit
 const depthOf = () => (G && G.endless && G.depth) || 1;
 const marketUps = () => G.endless ? depthOf()-1 : G.bossesBeaten; // what prices rise with: bosses beaten, or how deep you are
@@ -688,7 +690,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles","endless","depth"];
+const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles","endless","depth","nightPts","killPts"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -1989,7 +1991,8 @@ function ambush(msg){
 function endPhase(){
   if(G.endless){
     if(G.tenx && G.tenx.until && G.day>=G.tenx.until) tenxRug(); // the night his position ran to is over
-    G.day++; dawnDue(); return startNight(); // no dawn down here: the next night starts where this one ended
+    G.day++; G.nightPts = (G.nightPts||0) + ENDLESS.pts.night*depthOf(); // banked at the depth it was reached
+    dawnDue(); return startNight(); // no dawn down here: the next night starts where this one ended
   }
   if(G.phase==="day") return startNight();
   if(G.bossUnlocked>=0) return bossArrives(); // you didn't go to it, so it comes to you
@@ -2577,6 +2580,7 @@ function openRift(){
   openModal("<h2>🌀 THE RIFT</h2><div class='note'><i>The maze has a hole in it. It goes down.</i></div>"
     + "<div class='note'>Go through and you come out in a <b>new maze</b>, depth "+next+": fresh loot, fresh shops, fresh people. You keep everything you carry, and the ones hunting you here stay here.</div>"
     + "<div class='note bad'>Everything down there is <b>"+Math.round(ENDLESS.deep*100*(next-1))+"% tougher</b> than on the first maze, shops charge more, and more of them come every night.</div>"
+    + "<div class='note good'>Every night and every kill down there scores <b>×"+next+"</b>.</div>"
     + "<div class='row'><button class='btn big' id='rift-go'>GO DEEPER</button><button class='btn small' id='rift-no'>not yet</button></div>");
   $("rift-go").onclick=()=>{ closeModal(); descend(); };
   $("rift-no").onclick=()=>closeModal();
@@ -3955,7 +3959,7 @@ function settleWin(F, opts, log){
     if(gone>0){ if((G.flags.meals = (G.flags.meals||0)+gone) >= 2) achieve("meals"); const m = "🍴 <b>"+relicById(id).name+"</b> was "+(id==="modelo" ? "drunk" : "eaten")+" in that fight. The slot is free again."; log(m, "gold"); mlog(m, "gold"); }
   }
   G.relics = [...F.st.relics]; G.tiers = [...F.st.tiers]; G.cult = F.st.cult; G.memUsed = F.st.memUsed;
-  G.kills++; jot("kill"); if(boss) jot("boss", boss.name); if(opts.elite) jot("elite", (((G.journal||{})[G.day]||{}).elite||0)+1);
+  G.kills++; jot("kill"); if(G.endless) G.killPts = (G.killPts||0) + ENDLESS.pts.kill*depthOf(); if(boss) jot("boss", boss.name); if(opts.elite) jot("elite", (((G.journal||{})[G.day]||{}).elite||0)+1);
   if(you.hp>0 && you.hp<=you.maxhp*0.2) jot("close", 1);
   if(opts.elite && G.day<3) G.flags.eliteEarly = true;
   if(G.phase==="night" && (G.flags.nightWins = (G.flags.nightWins||0)+1) >= 4) achieve("night_owl");
@@ -4393,7 +4397,9 @@ function endRun(win){
   if(win){ achieve("win"); if(G.day<9) achieve("early"); if(!G.flags.rested) achieve("norest"); if(G.heat>=3) achieve("heat3"); }
   document.body.classList.remove("danger"); setDoom();
   const banked = [G.cult+" $CULT banked"+(cultDrip(G.cult)>=CULT_DRIP_MAX ? " (max)" : ""), cultDrip(G.cult)];
-  const parts = G.endless ? [["night "+G.day+" reached", G.day*ENDLESS.pts.night], ["depth "+depthOf(), (depthOf()-1)*ENDLESS.pts.depth], [G.kills+" Schizoposters", G.kills*ENDLESS.pts.kill], banked]
+  const deepNote = depthOf()>1 ? " <small>×depth</small>" : ""; // a save from before depth counted holds no tallies: score it the old way
+  const parts = G.endless ? [["night "+G.day+" reached"+deepNote, G.nightPts!=null ? G.nightPts : G.day*ENDLESS.pts.night], [G.kills+" Schizoposters"+deepNote, G.killPts!=null ? G.killPts : G.kills*ENDLESS.pts.kill],
+      ["depth "+depthOf(), (depthOf()-1)*ENDLESS.pts.depth], banked]
     : [["day "+G.day+" reached", G.day*15], [G.bossesBeaten+" / 3 bosses", G.bossesBeaten*60], [G.kills+" kills", G.kills*2], banked];
   if(win) parts.push(["timeline saved", 300]);
   if(win && G.day<9) parts.push(["saved "+(9-G.day)+" day"+(9-G.day>1?"s":"")+" early", (9-G.day)*EARLY_WIN]); // calling THE CANCEL out and winning beats waiting for it
@@ -5638,7 +5644,7 @@ async function openBoard(tab, back, seed, page){
     }).join("")+"</div>"
     + (pages>1 ? "<div class='pager'><button class='btn small' id='pg-prev'"+(pg ? "" : " disabled")+" aria-label='higher ranks'>◀</button><span>"+(pg*BOARD_PAGE+1)+"–"+(pg*BOARD_PAGE+rows.length)+" <small>of "+res.top.length+"</small></span>"
         + "<button class='btn small' id='pg-next'"+(pg<pages-1 ? "" : " disabled")+" aria-label='lower ranks'>▶</button></div>" : "")
-    + "<div class='note'>"+(tab==="endless" ? "📡 terminally online: the night never ends. ranked by score: nights lived through, how deep you got, and every Schizoposter you took with you" : "👑 saved timelines rank first, then score")+"</div>"
+    + "<div class='note'>"+(tab==="endless" ? "📡 terminally online: the night never ends. ranked by score: every night lived through and every Schizoposter killed, times the depth it happened at" : "👑 saved timelines rank first, then score")+"</div>"
     + "<div class='note'>"+res.total+" player"+(res.total===1?"":"s")+(res.you ? " · you are <b>#"+res.you.rank+"</b> with "+res.you.score : tab==="daily" ? " · play the daily run to get on this board" : tab==="endless" ? " · play terminally online to get on this board" : "")+"</div>";
   openModal(shell(body)); wire();
   if($("pg-prev")){ $("pg-prev").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg-1); }; $("pg-next").onclick = ()=>{ sfx("click"); openBoard(tab, back, seed, pg+1); }; }
@@ -5724,7 +5730,7 @@ function renderPicks(){ // the character screen is only about the character: tri
   const played = PICK.daily && META.dailyAt && META.dailyAt.date===PICK.daily;
   const eb = META.endlessBest;
   $("heat-row").innerHTML = PICK.endless ? "<div class='note bad'>📡 TERMINALLY ONLINE — the night never ends. no bosses, no monsters in the rooms: only Schizoposters, more every night, and they don't go home</div>"
-      + "<div class='note'>find a 🌀 rift to go deeper. score is nights lived through, depth and kills, on a board of its own"+(eb && eb.night ? ". your best: night "+eb.night+(eb.depth>1 ? ", depth "+eb.depth : "") : "")+"</div>"
+      + "<div class='note'>find a 🌀 rift to go deeper: every night and kill scores ×1 up here, ×2 one maze down, ×3 the next. on a board of its own"+(eb && eb.night ? ". your best: night "+eb.night+(eb.depth>1 ? ", depth "+eb.depth : "") : "")+"</div>"
     : PICK.daily ? "<div class='note good'>📅 DAILY MAP "+PICK.daily+" — the same maze, bosses and loot spots for everyone</div>"
       + "<div class='note"+(played?" bad":"")+"'>"+(played ? "you've already played today's daily: only that first run counts. this one is practice"
                                                           : "one attempt: only your first run of the day counts on the daily board")+"</div>"
@@ -5747,7 +5753,7 @@ function beginSetup(){
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
     mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
-    if(G.endless) startNight(); else startDay();
+    if(G.endless){ G.nightPts = ENDLESS.pts.night; G.killPts = 0; startNight(); } else startDay();
     startDaily(G);
     sfx("relic"); saveRun();
     if(!META.calm){ const pl = document.querySelector("#screen-map .play"); pl.classList.remove("boot"); void pl.offsetWidth; pl.classList.add("boot"); setTimeout(()=>pl.classList.remove("boot"), 1300); } // the panels come online

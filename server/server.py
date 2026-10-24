@@ -495,7 +495,8 @@ def parse_run(d):
     # and $CULT counted the capped way. Anything above that (an old copy of the game still counting $CULT in full,
     # or a made-up number) is brought down to it.
     if endless:
-        base = day * ENDLESS_PTS["night"] + (depth - 1) * ENDLESS_PTS["depth"] + kills * ENDLESS_PTS["kill"] + cult_points(cult or 0) + 75
+        # nights and kills score times the depth they happened at, so the most a run can have is all of them at its deepest
+        base = (day * ENDLESS_PTS["night"] + kills * ENDLESS_PTS["kill"]) * depth + (depth - 1) * ENDLESS_PTS["depth"] + cult_points(cult or 0) + 75
     else:
         base = day * 15 + bosses * 60 + kills * 2 + cult_points(cult or 0) + (300 + max(0, 9 - day) * 80 if win else 0) + 75  # a win is worth more for each day it came early
     score = min(score, base + int(base * 0.25 * heat + 0.5))
