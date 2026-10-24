@@ -5133,6 +5133,31 @@ async function loadKing(){
     c.textContent = untilReset(r.resets);
     if(r.resets <= Date.now()/1000){ clearInterval(kingClock); loadKing(); } }, 1000);
 }
+/* The two best runs ever, side by side under the hill: #1 on the all-time board and #1 on the endless one. Each card
+   opens its board. Smaller than the king's, in their own colors: the timeline's lilac, the endless red. */
+async function loadTops(){
+  const el = $("top-box"); if(!el || !online()) return;
+  const card = (k, label, e) => "<div class='top-card "+k+(e ? "" : " empty")+"' role='button' tabindex='0' data-board='"+k+"' title='open the "+(k==="all" ? "all-time" : "endless")+" leaderboard'>"
+    + "<u>"+label+"</u>"
+    + (e ? "<div class='top-row'><canvas class='bpfp' width='4' height='4'></canvas><div><b>"+esc(e.name)+"</b>"+(e.handle ? provTag(e.handle) : "")
+          + "<span class='top-end'>"+(e.endless ? "📡 "+endlessEnd(e) : e.win ? "👑 saved on day "+e.day : "💀 day "+e.day)+"</span></div>"
+          + "<i class='top-score'>"+(e.score||0).toLocaleString("en-US")+"</i></div>"+relicStrip(e.relics||[])
+         : "<div class='top-row'><div><span class='dim'>nobody yet. it's yours to take.</span></div></div>")+"</div>";
+  if(!el.innerHTML.trim()){ // hold the space while the boards answer, like the hill does
+    el.innerHTML = "<div class='phead'>the records</div><div class='top-row2'>"+["all","endless"].map(k=>"<div class='top-card "+k+" skel-wrap' aria-busy='true'><u class='skel'></u><div class='top-row'><i class='bpfp skel'></i><div class='skel-lines'><b class='skel'></b><span class='skel short'></span></div></div></div>").join("")+"</div>";
+    el.classList.remove("hidden");
+  }
+  const [a, b] = await Promise.all([api("/api/board?all=1&limit=1&player="+playerId()), api("/api/board?endless=1&limit=1&player="+playerId())]);
+  if(!a && !b){ if(!el.querySelector(".top-card:not(.skel-wrap)")) el.classList.add("hidden"); return; } // a refresh that fails leaves what is showing alone
+  const top = [a && a.top[0], b && b.top[0]];
+  el.innerHTML = "<div class='phead'>the records</div><div class='top-row2'>"+card("all", "👑 #1 all-time", top[0])+card("endless", "📡 #1 endless", top[1])+"</div>";
+  el.classList.remove("hidden");
+  el.querySelectorAll(".top-card").forEach((c,i)=>{
+    c.onclick = e=>{ if(e.target.closest("a")) return; sfx("click"); openBoard(c.dataset.board); };
+    c.onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); c.click(); } };
+    const cv = c.querySelector("canvas"); if(cv && top[i]) drawLook(cv, top[i].look, top[i].relics||[]).catch(()=>{});
+  });
+}
 function openMeme(run, win, back){
   const top0 = win ? "posted through it" : "got cancelled", bot0 = win ? "timeline saved" : "by "+(run.killedBy||"the timeline")+" on day "+run.day;
   const o = run.memeOpts = run.memeOpts || { top:top0, bottom:bot0, level:2, eyes:true, emoji:false, bulge:false };
@@ -5935,7 +5960,7 @@ function renderDailyButton(){
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing(); loadDaily(); renderLast(); loadRank(); renderInstall(); loadHomeHall();
+  loadPulse(); loadKing(); loadTops(); loadDaily(); renderLast(); loadRank(); renderInstall(); loadHomeHall();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);

@@ -2145,3 +2145,28 @@ a.vtag:hover b{text-decoration:underline;}
 @keyframes crtflicker{0%,96%,100%{opacity:1;} 97%{opacity:.86;} 98%{opacity:.97;} 99%{opacity:.9;}}
 #combat-log>div:last-child{animation:crtin .18s ease-out;} @keyframes crtin{from{opacity:0;filter:brightness(2.2) blur(1px);}}
 body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{animation:none!important;}
+
+/* the records: #1 all-time and #1 endless, two smaller cards in a row under the hill */
+.top-box{margin:-4px auto 12px;max-width:560px;}
+.top-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.top-card{--c:189,147,249;display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left;cursor:pointer;border:1px solid rgba(var(--c),.45);border-radius:6px;background:rgba(var(--c),.05);padding:8px 10px;transition:border-color .2s,background .2s,box-shadow .2s;}
+.top-card.endless{--c:255,42,61;}
+.top-card:hover,.top-card:focus-visible{border-color:rgba(var(--c),.85);background:rgba(var(--c),.09);box-shadow:0 0 16px rgba(var(--c),.22);outline:none;}
+.top-card>u{text-decoration:none;font-family:var(--label);text-transform:uppercase;letter-spacing:.14em;font-size:9px;color:rgb(var(--c));}
+.top-card.endless>u{color:#ff4a57;}
+.top-row{display:flex;align-items:center;gap:9px;min-width:0;}
+.top-row>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.top-row b{font-size:13px;color:#f3edff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.top-card.endless .top-row b{color:#ffe3e5;}
+.top-row .bpfp{flex:none;width:44px;height:44px;border-color:rgba(var(--c),.7);}
+.top-row .vtag{align-self:flex-start;max-width:100%;}
+.top-end{font-size:10.5px;color:var(--dim);line-height:1.3;}
+.top-score{flex:none;font-style:normal;font-family:var(--mono);font-weight:700;font-size:17px;color:var(--gold);text-shadow:0 0 12px rgba(241,250,140,.35);}
+.top-card.endless .top-score{color:#ff8b94;text-shadow:0 0 14px rgba(255,42,61,.55);}
+.top-card .duel-relics{justify-content:flex-start;gap:3px;margin:0;flex-wrap:wrap;} .top-card .duel-relics .relic-ico{width:20px;height:20px;}
+.top-card.empty{cursor:default;}
+.top-card.skel-wrap{cursor:default;} .top-card.skel-wrap>u.skel{display:block;height:9px;width:90px;} .top-card.skel-wrap .bpfp.skel{display:block;border:0;}
+@media (max-width:520px){ /* still side by side on a phone: the score drops under the face and the name */
+  .top-row2{gap:6px;} .top-card{padding:7px 8px;gap:5px;} .top-row{flex-wrap:wrap;gap:4px 7px;} .top-row .bpfp{width:34px;height:34px;}
+  .top-row b{font-size:12px;} .top-end{font-size:10px;} .top-row .vtag{overflow:hidden;} .top-row .vtag b{overflow:hidden;text-overflow:ellipsis;}
+  .top-score{flex-basis:100%;font-size:15px;} .top-card .duel-relics .relic-ico{width:18px;height:18px;} }
