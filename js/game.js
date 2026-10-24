@@ -1885,7 +1885,7 @@ function busy(){
 function pump(){
   if(!G || G.over) return;
   while(G.queue.length && !busy()) G.queue.shift()();
-  if(!busy()){ checkObjectives(); renderMap(); saveRun(); }
+  if(!busy()){ checkObjectives(); renderMap(); saveRun(); if(travelGoal && !travelTimer) travelTimer = setTimeout(walkOn, 260); } // a walk interrupted along the way carries on
 }
 /* Side objectives. true = done, false = can no longer be done, undefined = still open. */
 const OBJ_TEST = {
@@ -1938,24 +1938,30 @@ function tryMove(x,y){
   renderMap();
   pump();
 }
-/* click any explored tile to walk there: follows the shortest explored route and stops at anything that needs you */
-let travelTimer = null;
-function stopTravel(){ clearTimeout(travelTimer); travelTimer = null; }
+/* click any explored tile to walk there. The route goes through whatever is in the way (a shop, a foe, a Schizoposter)
+   if going round would be too far: each thing on the way happens as you reach it, and once it is dealt with the walk
+   carries on. A new night, or a step that doesn't go where it should, ends the walk. */
+const PATH_COST = { thing:6, hunter:10 }; // extra steps a detour may take to keep clear of something on the tile, or of a Schizoposter
+let travelTimer = null, travelGoal = null;
+function stopTravel(){ clearTimeout(travelTimer); travelTimer = null; travelGoal = null; }
 function pathTo(tx, ty){
   if(G.fog[ty][tx] || !isFloor(tx,ty)) return null;
-  const prev = {[G.px+","+G.py]:null}, q = [[G.px,G.py]];
-  for(let i=0;i<q.length;i++){
-    const [x,y] = q[i];
+  const from = G.px+","+G.py, cost = {[from]:0}, prev = {[from]:null}, buckets = [[[G.px,G.py]]];
+  for(let c=0; c<buckets.length; c++) for(const [x,y] of buckets[c]||[]){
+    const k = x+","+y;
+    if(cost[k]!==c) continue; // reached cheaper another way
     if(x===tx && y===ty){
-      const path = []; let c = [x,y];
-      while(prev[c[0]+","+c[1]]){ path.unshift(c); c = prev[c[0]+","+c[1]]; }
+      const path = []; let p = [x,y];
+      while(prev[p[0]+","+p[1]]){ path.unshift(p); p = prev[p[0]+","+p[1]]; }
       return path;
     }
-    // only walk through plain explored floor; the destination itself can be anything
-    if((x!==G.px || y!==G.py) && (G.map[y][x]!==T.EMPTY || G.hunters.some(h=>h.x===x&&h.y===y))) continue;
     for(const [dx,dy] of DIRS4){
-      const nx=x+dx, ny=y+dy, k=nx+","+ny;
-      if(isFloor(nx,ny) && !G.fog[ny][nx] && !(k in prev)){ prev[k]=[x,y]; q.push([nx,ny]); }
+      const nx=x+dx, ny=y+dy, nk=nx+","+ny;
+      if(!isFloor(nx,ny) || G.fog[ny][nx]) continue;
+      const end = nx===tx && ny===ty; // the destination itself costs no more than a step
+      const nc = c + 1 + (end ? 0 : (G.map[ny][nx]!==T.EMPTY ? PATH_COST.thing : 0) + (G.hunters.some(h=>h.x===nx&&h.y===ny) ? PATH_COST.hunter : 0));
+      if(cost[nk]!=null && cost[nk]<=nc) continue;
+      cost[nk] = nc; prev[nk] = [x,y]; (buckets[nc] = buckets[nc]||[]).push([nx,ny]);
     }
   }
   return null;
@@ -1964,17 +1970,21 @@ function travelTo(tx, ty){
   if(!G || G.over || busy() || G.queue.length) return;
   const path = pathTo(tx,ty);
   if(!path || !path.length) return;
-  const step = ()=>{
-    travelTimer = null;
-    if(!path.length || G.over || busy() || G.queue.length) return;
-    const [nx,ny] = path.shift(), phase = G.phase;
-    if(G.hunters.some(h=>h.x===nx&&h.y===ny)) return; // never auto-walk into a demon
-    tryMove(nx,ny);
-    if(G.px!==nx || G.py!==ny || busy() || G.queue.length || G.phase!==phase) return;
-    if(G.hunters.some(h=>Math.abs(h.x-G.px)+Math.abs(h.y-G.py)<=3 && !G.fog[h.y][h.x])) return; // something is close: your call
-    if(path.length) travelTimer = setTimeout(step, 110);
-  };
-  step();
+  travelGoal = { x:tx, y:ty, when:G.day+G.phase };
+  walkOn();
+}
+function walkOn(){ // one step toward travelGoal, worked out afresh from where you stand: the Schizoposters have moved, and what you passed is gone
+  travelTimer = null;
+  const g = travelGoal;
+  if(!g || !G || G.over) return stopTravel();
+  if(busy() || G.queue.length) return; // something on the way is being dealt with: pump() picks the walk back up
+  if(G.day+G.phase!==g.when || (G.px===g.x && G.py===g.y)) return stopTravel();
+  const path = pathTo(g.x, g.y);
+  if(!path || !path.length) return stopTravel();
+  const [nx,ny] = path[0];
+  tryMove(nx,ny);
+  if(G.px!==nx || G.py!==ny) return stopTravel();
+  if(!busy() && !G.queue.length && travelGoal){ clearTimeout(travelTimer); travelTimer = setTimeout(walkOn, 110); } // tryMove's pump() may have queued one already
 }
 function advanceTime(){
   G.movesLeft--;
@@ -2625,6 +2635,7 @@ function openRift(){
   $("rift-no").onclick=()=>closeModal();
 }
 function descend(){
+  stopTravel(); // wherever you were walking is in the maze above
   G.depth = depthOf()+1;
   for(const k of ["foes","shops","armory","altars","marks","pins","lit"]) G[k] = {};
   G.hunters = []; G.late = []; G.seedDug = false; G.seedKnown = false; G.sel = "";
