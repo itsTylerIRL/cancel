@@ -24,6 +24,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `GET /api/card/ID.png` | the card itself |
 | `GET /api/auth/login`, `/callback` | Sign in with RemiliaNET |
 | `GET /api/auth/urbit/login`, `/callback` | Sign in with Urbit, through the owner's ship |
+| `/api/net/…` | [the network is growing](https://clicker.tylerirl.com)'s saves and boards, on the same sign-in. Its own module, `network_api.py`, kept in that game's repo (`server/`): copy it and its `net_spec.json` here and the routes appear. Without it, nothing changes |
 
 Boards rank every run that saved the timeline above every run that was cancelled, then by score, then by who got there first. A player's row is replaced only by a run that ranks higher.
 
@@ -89,6 +90,8 @@ Settings: `CANCEL_UR_ON=1`, `CANCEL_UR_PUBLIC` (the ship's web address), `CANCEL
 | `CANCEL_RN_ON`, `CANCEL_RN_CLIENT`, `CANCEL_RN_REDIRECT` | RemiliaNET sign-in |
 | `CANCEL_RN_SECRET` | only if the RemiliaNET client is a confidential one |
 | `CANCEL_DEV=1` | also accept localhost origins, for testing |
+
+For the network is growing, `CANCEL_ORIGINS` also needs `https://clicker.tylerirl.com`, and nginx a bigger request size for `/api/net/` (see `nginx-cancel-api.conf`).
 
 Point the game at your service with `API_DEFAULT` in `js/game.js`.
 

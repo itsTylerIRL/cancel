@@ -35,6 +35,11 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+try:  # the network is growing (clicker.tylerirl.com) keeps its saves and boards here too, on the same sign-in. Its own repo.
+    import network_api
+except ImportError:
+    network_api = None
+
 DB = os.environ.get("CANCEL_DB", "/var/lib/cancel-api/scores.db")
 PORT = int(os.environ.get("CANCEL_PORT", "8787"))
 SALT = os.environ.get("CANCEL_SALT", "dev-salt")
@@ -1054,6 +1059,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         q = parse_qs(u.query)
         one = lambda k: (q.get(k) or [""])[0]
+        if network_api and u.path.startswith("/api/net/"):
+            return network_api.handle_get(self, u.path, one)
         if u.path == "/api/health":
             return self.send(200, {"ok": True, "today": utc_today().isoformat(), "rn": RN_ON, "ur": UR_ON, "endless": True})
         if u.path == "/api/stats":
@@ -1250,6 +1257,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send(code, body)
 
     def do_POST(self):
+        if network_api and urlparse(self.path).path.startswith("/api/net/"):
+            return network_api.handle_post(self, urlparse(self.path).path)
         if urlparse(self.path).path == "/api/king/challenge":
             if not self.allowed_origin():
                 return self.send(403, {"error": "origin not allowed"})
@@ -1336,5 +1345,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     init_db()
+    if network_api:
+        network_api.setup({"db": db, "read_session": read_session, "verified_player": verified_player, "rate_ok": rate_ok,
+                           "rn_on": RN_ON, "ur_on": UR_ON})
     print("cancel-api on 127.0.0.1:%d, db %s" % (PORT, DB), flush=True)
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
