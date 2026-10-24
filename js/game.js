@@ -5076,7 +5076,7 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
   const u = rnUser(), rk = myRank && myRank.pid===playerId() ? myRank : null, num = n => (n||0).toLocaleString("en-US");
   const wl = { w:META.wins||0, l:Math.max(0, (META.runs||0)-(META.wins||0)) };
   el.innerHTML = "<div class='phead'>you</div><div class='king-card last-card you-card"+(r && r.win ? " won" : "")+"' id='you-card' role='button' tabindex='0' title='open your page: record and recent runs'>"
-    + (r && r.look || u ? "<span class='pcol'>"+(r && r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")+(u ? provTag(u.handle) : "")+"</span>" : "")
+    + (r && r.look || u ? "<span class='pcol'>"+(r && r.look ? "<span class='bface card-face"+faceEnd(r)+"'><canvas class='bpfp big' width='4' height='4'></canvas>"+faceStamp(r)+"</span>" : "")+(u ? provTag(u.handle) : "")+"</span>" : "")
     + "<div><b>"+esc(u ? u.name : (r ? r.name : "anon"))+"</b>"
       + (r && r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + (r ? "<span class='"+(r.win ? "good" : "bad")+"'>last run: "+(r.endless ? "📡 "+endlessEnd(r) : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+" · <b class='lscore'>"+r.score+"</b></span>"
@@ -5614,7 +5614,7 @@ async function openBoard(tab, back, seed, page){
     const detail = id => { const e = item(id), king = id && id[0]==="k";
       if(!e) return "<div class='cal-none'>"+(id && id>h.today ? "this day hasn't happened yet" : id===h.today ? "nobody has played today's map yet. it's open." : "nobody played this day's map")+"</div>";
       return "<div class='cal-det"+(king ? " king" : e.win ? "" : " fell")+"'>"
-        + "<span class='hface bface"+(king || e.win ? "" : " lost")+"'><canvas class='bpfp' data-det='1' width='4' height='4'></canvas>"+(king || e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>"
+        + "<span class='hface bface"+(king ? "" : faceEnd(e))+"'><canvas class='bpfp' data-det='1' width='4' height='4'></canvas>"+(king ? "" : faceStamp(e))+"</span>"
         + "<div class='cal-info'><u>"+(king ? "week of "+fmt(e.week, {month:"long", day:"numeric"}) : id===h.today ? "today · "+fmt(id, {weekday:"long", month:"long", day:"numeric"}) : fmt(id, {weekday:"long", month:"long", day:"numeric"}))+"</u>"
         + who(e)+tribeBadge(e.tribe)
         + (king ? "<em>👑 king of the hill</em><span class='hres'>"+(e.live ? "holding the hill now · " : "held it when the week ended · ")+(e.defences ? e.defences+" challenger"+(e.defences===1?"":"s")+" beaten" : "unchallenged")+"</span>"
@@ -5665,7 +5665,7 @@ async function openBoard(tab, back, seed, page){
     openModal(shell(!got ? "<div class='note bad'>the feed can't be reached right now</div>" : !all.length ? "<div class='note'>nobody has finished a run yet.</div>"
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
-          return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+          return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
             + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 terminally online</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
@@ -5692,7 +5692,7 @@ async function openBoard(tab, back, seed, page){
   else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+(e.win ? "" : " lost")+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+(e.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
         + "<span class='btribe'>"+tribeBadge(e.tribe)+"</span>"
         + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(tab==="endless" ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
             : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
@@ -6020,9 +6020,13 @@ function recordHTML(){ // your record, as the leaderboard's "you" tab shows it
     + line("longest daily streak", (META.streak||{}).best ? META.streak.best+" day"+(META.streak.best===1?"":"s") : "—")
     + "</div>";
 }
+/* The stamp on a finished run's portrait. A timeline run that wasn't won was CANCELLED. An endless run can't be won:
+   one that lasted the nine nights a timeline has isn't stamped at all, and one that fell short was TERMINATED. */
+const faceEnd = e => e.win || (e.endless && e.day>=10) ? "" : e.endless ? " lost term" : " lost";
+const faceStamp = e => e.win || (e.endless && e.day>=10) ? "" : e.endless ? "<s class='term' aria-hidden='true'>TERMINATED</s>" : "<s aria-hidden='true'>CANCELLED</s>";
 function runCardHTML(r, i){ // one finished run, as a card: who, which tribe, how it ended, what was carried
   return "<div class='king-card last-card run-card"+(r.win ? " won" : "")+"'>"
-    + (r.look ? "<span class='bface card-face"+(r.win ? "" : " lost")+"'><canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>"+(r.win ? "" : "<s aria-hidden='true'>CANCELLED</s>")+"</span>" : "")
+    + (r.look ? "<span class='bface card-face"+faceEnd(r)+"'><canvas class='bpfp big' data-run='"+i+"' width='4' height='4'></canvas>"+faceStamp(r)+"</span>" : "")
     + "<div><b>"+esc(r.name)+"</b><span class='badge-row'>"+tribeBadge(r.tribe)+"</span>"
       + (r.stats ? "<span>"+si("❤️ "+r.stats.hp+" · ⚔️ "+r.stats.atk+" · 🛡️ "+r.stats.arm)+"</span>" : "")
       + "<span class='"+(r.win ? "good" : "bad")+"'>"+(r.endless ? "📡 "+endlessEnd(r)+(r.killedBy && r.killedBy!=="giving up" ? " by "+esc(r.killedBy) : "") : r.win ? "👑 saved the timeline on day "+r.day : "💀 cancelled on day "+r.day+(r.killedBy ? " by "+esc(r.killedBy) : ""))+"</span>"
