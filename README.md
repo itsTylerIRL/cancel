@@ -4,6 +4,8 @@ A neochibi roguelite autobattler. Nine days, three bosses, one timeline.
 
 **Play it: [cancel.tylerirl.com](https://cancel.tylerirl.com)**
 
+Its companion is **[the network is growing](https://clicker.tylerirl.com)**, an idle clicker with the same Miladys. It keeps growing while you play this, and each links to the other.
+
 ![a Milady in a 9/11 hat holding a katana, next to the game's title](assets/preview.png)
 
 You are a Milady (or a Remilio) dropped into a maze with a hundred $CULT and a bad feeling. Loot what you can during the day. Find a campfire before night, because that's when the schizoposters come out. On day 3 something arrives to end you. Same on day 6. On day 9 it's THE CANCEL, and it does not negotiate.

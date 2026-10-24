@@ -6159,6 +6159,7 @@ function openTutorial(full){
     + row("⚖️", "No one stat wins", "Enemies are guarded: one hit takes at most half an enemy's health, a quarter of a boss's. Crit past 100% becomes crit damage. Burn, bleed, poison and companions grow stronger every day.")
     + row("📈", "The timeline pushes back", "Once the first boss is down, an elite or boss your build would walk through comes at you stronger, and pays more.")
     + row("📅", "The daily", "One map a day, the same for everyone, and only your first run counts. Beat THE CANCEL and you can challenge the king of the hill.")
+    + row("🌸", "The other game", "Want something slower? <a href='https://clicker.tylerirl.com/'>the network is growing</a> is this one's companion: an idle clicker with the same miladys. It keeps growing while you play this.")
     + "<div class='note'>the codex on the title screen has every relic, enemy, boss and place</div>"
     + "<div class='row'><button class='btn small' id='tut-ok'>close</button></div>");
   $("tut-ok").onclick=()=>{ sfx("click"); closeModal(); };
@@ -6346,6 +6347,8 @@ async function init(){
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
   $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
   $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
+  // off to the companion game: write the run out on the way (it only saves when the map is idle, so a fight in progress isn't)
+  document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest('a[href*="clicker.tylerirl.com"]')){ saveRun(); saveMeta(); } }, true);
   let ready = loadAssets().then(renderTitle); // start loading right away so ENTER is instant
   ready.then(()=>{ // achievements added later that a long-time player has already met: theirs without doing it again
     const st = META.streak||{}, seen = Object.keys(META.seen||{}).length;

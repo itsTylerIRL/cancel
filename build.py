@@ -54,6 +54,8 @@ html = swap(html, '<link rel="stylesheet" href="css/style.css">',
             "<style>\n" + (ROOT / "css/style.css").read_text("utf8") + "</style>")
 html = swap(html, '<script src="js/data.js"></script>\n', "")
 html = swap(html, '<script src="js/game.js"></script>', "<script>\n" + script + "\n</script>")
+sister = "assets/img/clicker.png"  # the companion game's badge, on the title screen and in the header
+html = swap(html, 'src="%s"' % sister, 'src="%s"' % data_uri(sister))
 coin = "assets/img/cult_coin.png"
 html = swap(html, 'src="%s"' % coin, 'src="%s"' % data_uri(coin))
 html = swap(html, 'href="%s"' % coin, 'href="%s"' % data_uri(coin))
