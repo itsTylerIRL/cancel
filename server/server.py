@@ -623,8 +623,8 @@ def pulse():
             n, wins, kills, tl = con.execute("SELECT COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(kills),0), COALESCE(SUM(endless=0),0) FROM runs WHERE created>=?", (since,)).fetchone()
             out[key] = {"games": n, "wins": wins, "kills": kills, "tgames": tl}  # tgames: timeline runs, the ones that could have been saved
         out["players"] = con.execute("SELECT COUNT(*) FROM scores WHERE board='all'").fetchone()[0]
-        n, depth = con.execute("SELECT COUNT(*), COALESCE(SUM(depth),0) FROM runs WHERE endless=1").fetchone()
-        out["endless"] = {"runs": n, "depth": depth}  # every terminally online run ever, and the depth they reached between them
+        n, depth, kills = con.execute("SELECT COUNT(*), COALESCE(SUM(depth),0), COALESCE(SUM(kills),0) FROM runs WHERE endless=1").fetchone()
+        out["endless"] = {"runs": n, "depth": depth, "kills": kills}  # every terminally online run ever: the depth they reached and the Schizoposters they took, between them
     return out
 
 

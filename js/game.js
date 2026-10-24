@@ -5416,7 +5416,7 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
       + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
     el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
       + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)
-      + tile("endless", "endless", "total depth", "", false).replace("class='pcell'", "class='pcell terminal' title='every terminally online run ever, and how deep they went between them'")+"</div>"
+      + tile("endless", "endless kills", "per run", "depth", false).replace(" · <i data-n='endless.c'", "<br><i data-n='endless.c'").replace("class='pcell'", "class='pcell terminal' title='terminally online: every Schizoposter killed down there, the average per run, and how deep every run went between them'")+"</div>"
       + "<div class='pfeed' id='pulse-feed' aria-live='off' role='button' tabindex='0' title='see every recent run'></div>";
     el.classList.remove("hidden"); PULSE.built = true;
     const pf = $("pulse-feed"); pf.onclick = ()=>{ sfx("click"); openBoard("recent"); }; pf.onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); pf.click(); } };
@@ -5427,7 +5427,7 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
     set(k+".a", d.games); set(k+".b", d.wins);
     const bar = el.querySelector(".pcell[data-t='"+k+"'] .pbar"); if(bar){ bar.querySelector("s").style.width = pct(d)+"%"; bar.querySelector("em").textContent = pct(d)+"% saved"; } }
   set("players.a", p.players); set("players.b", p.lifetime.kills);
-  set("endless.a", (p.endless||{}).runs||0); set("endless.b", (p.endless||{}).depth||0);
+  { const e = p.endless||{}; set("endless.a", e.kills||0); set("endless.b", e.runs ? Math.round((e.kills||0)/e.runs) : 0); set("endless.c", e.depth||0); }
   const now = $("pulse-now"); if(now){ now.parentElement.classList.toggle("hidden", !p.now); if(p.now && +now.textContent!==p.now){ now.textContent = p.now; now.classList.remove("bump"); void now.offsetWidth; now.classList.add("bump"); } }
   if(rec && rec.runs && rec.runs.length){
     const top = rec.runs[0].id, changed = top!==PULSE.newest, had = !!PULSE.newest;
