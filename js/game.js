@@ -763,7 +763,7 @@ function dropRelicAt(i){ G.relics.splice(i,1); G.tiers.splice(i,1); }
    stat bonuses scaled in computeStats, or a flat bonus per tier if they have no numbers at all */
 const TIER_IN_FIGHT = ["network_spirituality","jesus_tank","cookie","cult_robe","lollipop","snakebites","pikachu","remilio_friend","tails","dino",
   "evil_eye","trucker","cat_ears","birthday_hat","maid","strawberry","silver_coin","blood_splatter","cigarette","fbi_cap","bonkler",
-  "cia","gnome","juicebox","sleepyhead","flower_clip","burger_earring","mcdonalds"];
+  "cia","gnome","juicebox","sleepyhead","flower_clip","burger_earring","mcdonalds","hunter_friend","flame_emoji","hikki_hoodie"];
 /* A relic's text at a given worth (1 normal, 2 gold, 4 diamond): the same numbers the engine uses, so the
    description always says what the item in that slot really gives. */
 const STAT_RX = /\+(\d+)(%? ?)(ATK|ARM|SPD|max HP|crit chance|dodge)/g, DODGE_RX = /^(\d+)(% dodge chance)/;
@@ -772,8 +772,9 @@ const FIGHT_RX = { network_spirituality:/(an? )(\d+)( HP shield)/, jesus_tank:/(
   birthday_hat:HEAL_RX, maid:HEAL_RX, strawberry:HEAL_RX, cat_ears:HEAL_RX, snakebites:/(poison: )(\d+)/, pikachu:/(shock for )(\d+)/,
   remilio_friend:/(strikes for )(\d+)/, tails:/(hit for )(\d+)/, dino:/(bites for )(\d+)/, evil_eye:/(Reflect )(\d+)/, trucker:/(heal you for )(\d+)/,
   silver_coin:/(\+)(\d+)( \$CULT)/, blood_splatter:/(\+)(\d+)( ATK)/, cigarette:/(deal \+)(\d+)/, fbi_cap:/(deals )(\d+)( less)/, bonkler:/^()(\d+)(%)/,
-  cia:/(strikes for )(\d+)/, gnome:/(heals you )(\d+)/, juicebox:/(heals you )(\d+)/, sleepyhead:HEAL_RX, flower_clip:HEAL_RX, burger_earring:/(heal )(\d+)/, mcdonalds:/(heal )(\d+)/ };
-const hasStatText = r => r.id!=="blood_splatter" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
+  cia:/(strikes for )(\d+)/, gnome:/(heals you )(\d+)/, juicebox:/(heals you )(\d+)/, sleepyhead:HEAL_RX, flower_clip:HEAL_RX, burger_earring:/(heal )(\d+)/, mcdonalds:/(heal )(\d+)/,
+  hunter_friend:/(strikes for )(\d+)/, flame_emoji:/(\+)(\d+)( ATK)/, hikki_hoodie:/(heals you )(\d+)/ };
+const hasStatText = r => r.id!=="blood_splatter" && r.id!=="flame_emoji" && (new RegExp(STAT_RX.source).test(r.desc) || DODGE_RX.test(r.desc));
 const flatTier = r => !hasStatText(r) && !TIER_IN_FIGHT.includes(r.id); // nothing numeric to scale: +2 ATK, +6 max HP per extra copy's worth
 /* A relic that has been used up shows it. The MiladyStation Memory Card loads its save once a run; after that the
    card you are holding is corrupted, and looks it, so nobody counts on it twice. */
@@ -879,7 +880,8 @@ function relicPool(){
     if(r.tags.includes("blackmarket") && !(perk("blackmarket") && !(G && G.daily))) return false;
     if(LOCKED[r.id] && !META.ach[LOCKED[r.id]] && !(G && G.daily)) return false; // on the daily everyone draws from the same pool, whatever they have unlocked
     if(G && G.banished && G.banished.includes(r.id)) return false; // banished this run: it won't be offered again
-    if(G && G.rivergod && r.tags.includes("gun")) return false; // guns have one dealer now: they are not in chests, drops or the marts
+    if(G && G.rivergod && r.tags.includes("gun")) return false;
+    if(G && G.daily && G.daily < ONLINE_FROM && r.tags.includes("online")) return false; // the endless relics arrived mid-day: earlier daily maps keep the loot their players already saw // guns have one dealer now: they are not in chests, drops or the marts
     return true;
   });
 }
@@ -924,6 +926,8 @@ function rawStats(relics, setsAs){
   if(R("drip_score")) s.atk += 2*relics.length;
   if(R("post_authorship")) s.atk += Math.min(10, G.kills);
   if(R("cancelversary")) s.atk += 4*G.bossesBeaten;
+  if(R("tattoo_sheet") && G) s.atk += Math.min(10, Math.floor((G.fudKills||0)/5));
+  if(R("bat")) s.atk+=3;
   if(R("atf_cap")){ s.atk+=2; s.arm+=3; }
   if(R("pistol")){ s.atk+=5; s.spd+=1; }
   if(R("newports")) s.atk+=2;
@@ -932,7 +936,7 @@ function rawStats(relics, setsAs){
   if(R("goth_headband")) s.atk+=2;
   if(R("pickaxe")){ s.atk+=5; s.arm+=2; }
   if(R("hk416")){ s.atk+=7; s.arm+=2; }
-  if(G && G.phase==="night"){ if(R("crescent")) s.atk+=4; if(S("night",2)) s.atk+=3; }
+  if(G && G.phase==="night"){ if(R("crescent")) s.atk+=4; if(S("night",2)) s.atk+=3; if(R("kossphones")) s.spd+=2; }
   if(tribeIs("schizoposter") && G.phase) s.atk += G.phase==="night" ? 4 : -1;
   if(S("armed",2)) s.atk+=4;
   if(R("ss_drip")) s.atk *= 1.5;
@@ -958,8 +962,10 @@ function rawStats(relics, setsAs){
   if(R("flower_clip")) s.maxhp+=10;
   if(R("cherry")) s.maxhp+=6;
   if(R("sandwich")) s.maxhp+=10;
+  if(R("astronaut") && G) s.maxhp += 12*marketUps(); // bosses beaten on the timeline, mazes down in endless
   if(R("mushroom") && G) s.maxhp += Math.min(30, Math.floor((G.tilesSeen||0)/12));
   if(R("airtag")) s.spd+=2;
+  if(R("dont_dial")) s.spd+=1;
   if(R("black_niqab")) s.spd+=2;
   if(S("grass",2)) s.maxhp+=10;
   if(S("food",2)) s.maxhp+=15;
@@ -972,6 +978,8 @@ function rawStats(relics, setsAs){
   if(R("moteiga")) s.arm+=5;
   if(R("hypebeast")) s.arm+=6;
   if(S("bonkler",2)) s.arm+=3;
+  if(R("bp_vest")) s.arm+=4;
+  if(R("terminator") && G) s.arm += Math.min(15, G.fudKills||0);
   if(R("punisher")) s.atk += Math.floor(Math.max(0, s.arm)/2); // after every source of ARM
   if(tribeIs("prep")) s.maxhp += Math.max(0, s.arm-10); // WARTIME POSTER: armor past 10 is health too
   s.atk = Math.round(s.atk); s.spd = Math.max(1, s.spd); s.maxhp = Math.max(10, s.maxhp);
@@ -981,7 +989,7 @@ function rawStats(relics, setsAs){
     + (tribeIs("hypebeast") ? 5*(relics.length - new Set(relics).size) : 0);
   s.cultMult = (R("eth_necklace")?1.5:1) * (R("crown")?2:1) * (S("degen",2)?1.3:1);
   s.dodge = (R("cobain_glasses")?15:0) + (R("lain")?25:0) + (R("moteiga")?12:0) + (R("cat_ears")?6:0) + (R("matrix")?12:0) + (S("schizo",2)?10:0) + (tb.dodge||0)
-    + (R("bluetooth")?8:0) + (R("goth_headband")?6:0) + (R("black_niqab")?12:0) + (R("safety_glasses")?5:0) + (G && G.phase==="night" && S("night",2) ? 10 : 0)
+    + (R("bluetooth")?8:0) + (R("goth_headband")?6:0) + (R("black_niqab")?12:0) + (R("safety_glasses")?5:0) + (R("deal_with_it")?6:0) + (G && G.phase==="night" && S("night",2) ? 10 : 0)
     + (tribeIs("schizoposter") && G.phase==="night" ? 15 : 0);
   s.dodgeRaw = s.dodge;
   s.shopDisc = (tribeIs("gyaru") ? 1.15 : tribeIs("collector") ? 1.25 : 1) * (R("platinum")?0.7:1) * (R("hypebeast")?1.15:1) * (S("degen",3)?0.75:1) * (G && G.heat>=2 ? 1.25 : 1);
@@ -1135,7 +1143,7 @@ function genMap(){
    rest of the maze without him. Any of the people (and the fountain and altars) standing within SPREAD steps of another
    of its kind trades rooms with an ordinary encounter far from all of them. No dice are rolled, so nothing else about
    a seed's map moves. Daily maps from before this rule keep the layout their players already saw. */
-const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12", TENX_FROM = "2026-10-12", DRBABY_FROM = "2026-10-12";
+const SPREAD = 12, SPREAD_FROM = "2026-10-12", RIVERGOD_FROM = "2026-10-12", ETHCHAN_FROM = "2026-10-12", TENX_FROM = "2026-10-12", DRBABY_FROM = "2026-10-12"; const ONLINE_FROM = "2026-10-25";
 function spreadOut(rooms){
   if(G.daily && G.daily < SPREAD_FROM) return;
   const far = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
@@ -1563,7 +1571,7 @@ const relicPulseAt = {}; // relic id -> when it last did something on the map
 function pulseRelic(id){ relicPulseAt[id] = Date.now(); setTimeout(()=>{ if(G && !G.over && $("screen-map").classList.contains("active")) renderHUD(); }, 30); }
 function relicState(id){
   if(MEALS[id]) return " <i class='rstate meal' title='a meal: used once, then gone'>🍴 "+MEALS[id]+"</i>";
-  if(id==="crescent") return G.phase==="night" ? " <i class='rstate on'>🌙 awake</i>" : " <i class='rstate'>🌙 waits for night</i>";
+  if(id==="crescent" || id==="kossphones" || id==="hikki_hoodie") return G.phase==="night" ? " <i class='rstate on'>🌙 awake</i>" : " <i class='rstate'>🌙 waits for night</i>";
   return "";
 }
 let tileEl = {}; // "x,y" -> its element, for the tiles currently drawn
@@ -1970,6 +1978,7 @@ function travelTo(tx, ty){
 }
 function advanceTime(){
   G.movesLeft--;
+  if(G.phase==="night" && hasRelic("hikki_hoodie") && G.stats.hp<G.stats.maxhp){ G.stats.hp = Math.min(G.stats.maxhp, G.stats.hp+tm("hikki_hoodie")); pulseRelic("hikki_hoodie"); }
   // hunters stalk at night
   if(G.phase==="night" && [G.movesLeft%2===0, G.movesLeft%3!==0, G.movesLeft%4!==0][nightTier()]){ // every 2nd step, then 2 of every 3, then 3 of every 4
     const dist = walkDist(G.px,G.py);
@@ -1996,11 +2005,29 @@ function endPhase(){
     G.day++; G.nightPts = (G.nightPts||0) + ENDLESS.pts.night*depthOf(); // banked at the depth it was reached
     dawnDue(); startNight(); // no dawn down here: the next night starts where this one ended
     if(BOSS_DAYS.includes(G.day)) endlessTribute();
+    endlessAch();
     return;
   }
   if(G.phase==="day") return startNight();
   if(G.bossUnlocked>=0) return bossArrives(); // you didn't go to it, so it comes to you
   G.day++; startDay();
+}
+/* The endless achievements: how many Schizoposters (this run, and in every endless run), how many nights, how deep. */
+const E_KILLS = [[25,"e_kills25"],[100,"e_kills100"],[250,"e_kills250"]], E_TOTAL = [[500,"e_total500"],[1000,"e_total1000"]];
+function endlessKill(){
+  if(!G.endless) return;
+  META.endlessKills = (META.endlessKills||0)+1; saveMeta();
+  for(const [n,id] of E_KILLS) if(G.fudKills>=n) achieve(id);
+  for(const [n,id] of E_TOTAL) if(META.endlessKills>=n) achieve(id);
+  if(G.hunters.length >= ENDLESS.cap-1) achieve("e_dogpile"); // the one you just beat had left the trail to fight you
+}
+function endlessAch(){ // as each night starts, and on the way down a rift
+  if(!G.endless) return;
+  if(G.day>=15) achieve("e_night15");
+  if(G.day>=25) achieve("e_night25");
+  if(G.day>=9 && !G.flags.rested) achieve("e_norest");
+  if(depthOf()>=3){ achieve("e_depth3"); if(G.day<6) achieve("e_speedrun"); }
+  if(depthOf()>=6) achieve("e_depth6");
 }
 /* endless has no bosses, so the nights they would come on pay what beating one does: a relic slot and a tribute mint.
    Nights 3, 6 and 9, like the timeline; after that the build is what you made it. */
@@ -2608,6 +2635,7 @@ function descend(){
   mlog("🌀 <b>DEPTH "+G.depth+".</b> A new maze, and it already knows you're here.", "bad");
   splash("🌀 DEPTH "+G.depth+"<small>deeper, and worse</small>", "boss");
   startNight(); // a new maze is a new night
+  endlessAch();
 }
 
 /* ---------- boss gate ---------- */
@@ -3568,7 +3596,7 @@ function fightEngine(foeDef, opts, io){
   you.swings = 0; you.block = act("hobbes") ? 1 : 0; you.sure = false; you.hard = 0;
   you.guard = tribe==="prep" ? 1 : 0; you.opener = tribe==="harajuku"; you.bail = tribe==="gyaru";
   const hunter = foe.id==="fud";
-  you.helmet = act("bike_helmet"); you.stored = 0;
+  you.helmet = act("bike_helmet"); you.stored = 0; you.bat = act("bat");
   if(set("agency",3)) you.sure = true;
   if(set("night",2) && G && G.phase==="night") syn("night");
   if(G && G.phase==="night" && (act("crescent") || set("night",2))) io.log("🌙 Night: "+[act("crescent") && "Crescent +4 ATK", set("night",2) && "NIGHT SHIFT +3 ATK, +10% dodge"].filter(Boolean).join(" · ")+" for you.", "heal");
@@ -3607,6 +3635,8 @@ function fightEngine(foeDef, opts, io){
   if(set("cult",2)) syn("cult");
   if(act("cookie") && you.hp<you.maxhp) heal(tv("cookie",14), false, "🍪 Cookie");
   if(act("vibe_shift")){ foe.stun=1; io.log("🌀 Vibe shift. "+foe.name+" is caught off guard.", "good"); }
+  if(act("flame_emoji") && G){ const n = (G.hunters||[]).length + (hunter ? 1 : 0); // the one you're fighting has already left the trail
+    if(n){ const b = tv("flame_emoji",2)*n; you.atk += b; io.log("🔥 Flame Emoji: "+n+" Schizoposter"+(n>1?"s":"")+" after you. <b>+"+b+" ATK</b> this fight.", "good"); } }
 
   let notes = [], math = []; // what changed the blow being worked out, for its line in the log; and all the working, for its details
   function dmgCalc(att, def, isYou){
@@ -3623,6 +3653,7 @@ function fightEngine(foeDef, opts, io){
     if(!isYou && def===you){ atk *= 1 - 0.08*foe.chill; if(foe.chill>0) notes.push("chilled −"+8*foe.chill+"%"); if(foe.burn>0 && set("flame",3)){ atk *= 0.8; notes.push("burning −20%"); } }
     if(!isYou && act("beetleposting")){ atk *= 0.8; math.push("−20% Beetleposting"); }
     if(!isYou && act("atf_agent") && (opts.elite || hunter)){ atk *= 0.85; math.push("−15% ATF Agent"); }
+    if(!isYou && act("bp_vest") && hunter){ atk *= 0.75; math.push("−25% Bulletproof Vest"); }
     if(!isYou && att.puppet){ // already past armor and crits on the other side: only what you carry can soften it now
       const cap = Math.ceil(you.maxhp * BAL.guardDuel);
       let d = Math.min(Math.max(1, Math.round(atk)), cap); // guarded: a duel is never one round long
@@ -3678,6 +3709,7 @@ function fightEngine(foeDef, opts, io){
       if(act("matrix") || tribe==="schizoposter") you.sure = true;
       if(set("schizo",4)){ syn("schizo"); const d = Math.max(1, you.atk-foe.arm); foe.hp-=d; credit("📡 strike back", d); io.log("📡 You strike back for "+d+".", "good"); io.hit("foe",d,false); }
       else { const d = counterDmg(you, foe); foe.hp-=d; credit("💨 counters", d); io.log("💨 You slip it and counter for "+d+".", "good"); io.hit("foe",d,false); } // every dodge answers back
+      if(act("deal_with_it")){ const d = Math.max(1, Math.round((foe.puppet ? foe.nextDmg||0 : foe.atk)/2)); foe.hp-=d; credit("😎 Deal With It", d); io.log("😎 Deal with it. The hit goes back for "+d+".", "good"); io.hit("foe",d,false); }
       return;
     }
     if(!isYou){ // armor bites back: a swing that reaches you costs the attacker a quarter of your ARM
@@ -3720,6 +3752,7 @@ function fightEngine(foeDef, opts, io){
       }
     }
     if(isYou && crit && act("trucker")) heal(tv("trucker",7), true, nm("trucker"));
+    if(isYou && you.bat){ you.bat = false; if(!def.stun){ def.stun = 1; io.log("🏏 Bat: "+dn+" is stunned!", "good"); } }
     if(isYou && crit && act("golden_axe") && !def.stun){ def.stun=1; io.log("🪓 "+dn+" is stunned!", "good"); }
     if(!isYou && act("evil_eye")){ const e = tv("evil_eye",3); foe.hp-=e; credit("🧿 Evil Eye", e); io.log("🧿 Evil Eye reflects "+e+".", "good"); }
     if(!isYou && foe.trait==="thief" && st.cult>0){ const n=Math.min(st.cult,8); st.cult-=n; foe.stolen+=n; io.log("💸 "+foe.name+" pockets "+n+" $CULT.", "bad"); }
@@ -3821,6 +3854,7 @@ function fightEngine(foeDef, opts, io){
       if(act("remilio_friend") && you.compTick%3===0) companion(grow(tv("remilio_friend",5)), "🧸 Remilio Friend strikes");
       if(act("tails") && rnd()<0.3) companion(grow(tv("tails",4)), "🦊 Tails spins in");
       if(act("dino") && you.compTick%2===0) companion(grow(tv("dino",3)), "🦖 Dino bites");
+      if(act("hunter_friend") && you.compTick%2===0) companion(grow(tv("hunter_friend",4))*(hunter ? 2 : 1), "🏹 Hunter strikes");
       if(act("cia") && you.compTick%2===0){ companion(grow(tv("cia",4)), "🕴️ CIA strikes"); if(foe.arm>0){ foe.arm--; io.log("<span class='dbg'>🕴️ CIA: "+foe.name+" ARM "+(foe.arm+1)+" → "+foe.arm+"</span>", "dbg", "you"); } }
       if(act("amogus") && !boss && !foe.king && foe.hp>0 && rnd()<0.2){
         foe.hp=0; io.log("👽 AMOGUS was the impostor. Instant kill.", "crit");
@@ -3828,9 +3862,9 @@ function fightEngine(foeDef, opts, io){
     }
     if(foe.hp<=0) return done(true);
     if(lethalCheck()) return done(false);
-    const order = tribe==="harajuku" || you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true]; // ACCELERATIONIST always goes first
+    const order = tribe==="harajuku" || (hunter && act("dont_dial")) || you.spd >= foe.spd-(act("square_diamond") ? foe.chill : 0) ? [true,false] : [false,true]; // ACCELERATIONIST always goes first
     if(!foe.puppet && F.first!==order[0]){ // who swings first, said when the fight opens and whenever it changes
-      const why = tribe==="harajuku" ? "ACCELERATIONIST" : "SPD "+you.spd+" vs "+foe.spd+(act("square_diamond") && foe.chill ? " (−"+foe.chill+" chill)" : "")+(you.spd===foe.spd ? ", ties go to you" : "");
+      const why = tribe==="harajuku" ? "ACCELERATIONIST" : hunter && act("dont_dial") ? "We Don't Dial 911" : "SPD "+you.spd+" vs "+foe.spd+(act("square_diamond") && foe.chill ? " (−"+foe.chill+" chill)" : "")+(you.spd===foe.spd ? ", ties go to you" : "");
       io.log((order[0] ? "⏩ You move first" : "⏩ "+foe.name+" moves first")+(F.first!=null ? " now" : "")+". <i class='nt'>"+why+"</i>", "sub", "sys"); F.first = order[0]; }
     for(const isYou of order){
       const att = isYou?you:foe, def = isYou?foe:you;
@@ -3981,11 +4015,11 @@ function settleWin(F, opts, log){
   achieve("first");
   if(foe.id==="kumicho") achieve("shark");
   if(F.dodges>=5) achieve("dodge");
-  if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); tenxKill(log); }
+  if(foe.id==="fud"){ G.fudKills=(G.fudKills||0)+1; if(G.fudKills>=3) achieve("fud"); tenxKill(log); endlessKill(); }
   if(boss) achieve(["allegations","bonkler911","win"][G.bossIds.indexOf(boss.id)]);
   let c = randi(foe.cult[0], foe.cult[1]);
   const dbl = G.flags.payDouble>0; if(dbl) G.flags.payDouble--; // ABUNDANCE MINDSET: what you gave comes back
-  c = Math.round(c * (dbl ? 2 : 1) * (tribeIs("schizoposter") && foe.id==="fud" ? 2 : 1) * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
+  c = Math.round(c * (dbl ? 2 : 1) * (tribeIs("schizoposter") && foe.id==="fud" ? 2 : 1) * (hasRelic("info_wars") && foe.id==="fud" ? 2 : 1) * (G.stats.cultMult||1) * (districtAt(G.px,G.py)===1 ? 1.5 : 1) * (opts.elite?1.5:1) * ((opts.elite||boss) && hasRelic("remilionaire") ? 2 : 1));
   if(hasRelic("no_meme") && rnd()<0.2){ c*=3; log("💌 There is no meme. I love you. The floor triples.", "crit"); }
   G.cult += c + foe.stolen;
   if(dbl) log("🌾 Abundance: this one paid double."+(G.flags.payDouble ? " "+G.flags.payDouble+" more to come." : ""), "good");
@@ -5989,7 +6023,7 @@ const runHistory = () => (META.history && META.history.length ? META.history : M
 /* ---------- achievements ---------- */
 let achShowDone = false; // the list opens on what is still to do; earned ones are a toggle away
 function openAchievements(){
-  const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length, cats = ["the run","fights","builds","the maze","the timeline","career"];
+  const done = ACHIEVEMENTS.filter(a=>META.ach[a.id]).length, cats = ["the run","fights","builds","the maze","the timeline","endless","career"];
   const row = a=>{
     const r = relicById(a.relic), on = !!META.ach[a.id];
     return "<div class='ach"+(on?" on":"")+"'>"+(ICONS[r.id] ? "<img class='relic-ico "+r.rar+"' src='"+ICONS[r.id]+"' alt=''>" : "<div class='relic-ico unknown'>?</div>")

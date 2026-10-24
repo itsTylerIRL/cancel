@@ -189,6 +189,19 @@ const RELICS = [
  {id:"plaster", name:"Plaster", rar:"common", set:["war"], desc:"Heal 2 HP every time you are hit.", icon:["Remilio", "Weapon", "Plaster"], tags:[]},
  {id:"pickaxe", name:"Minecraft Pickaxe", rar:"rare", set:["war", "armed"], desc:"+5 ATK, +2 ARM.", icon:["Remilio", "Weapon", "Minecraft Pickaxe"], tags:[]},
  {id:"hk416", name:"HK416", rar:"rare", set:["war", "armed"], desc:"+7 ATK, +2 ARM.", icon:["Remilio", "Weapon", "HK416"], tags:["gun"]},
+ // TERMINALLY ONLINE: the endless achievements unlock these. They are about Schizoposters, nights and going deeper, and work on the timeline too
+ {id:"info_wars", name:"Info Wars", rar:"common", set:["schizo"], desc:"Schizoposters pay double $CULT.", icon:["Remilio", "Shirt", "Info Wars"], tags:["online"]},
+ {id:"tattoo_sheet", name:"Tattoo Sheet", rar:"rare", set:["blood"], desc:"+1 ATK for every 5 Schizoposters you have killed this run (max +10).", icon:["Remilio", "Shirt", "Tattoo Sheet"], tags:["online"]},
+ {id:"terminator", name:"Terminator", rar:"legendary", set:["bonkler", "war"], desc:"+1 ARM for every Schizoposter you have killed this run (max +15).", icon:["Bonkler", "Armor", "Terminator"], tags:["online"]},
+ {id:"hunter_friend", name:"Hunter", rar:"rare", set:["squad"], desc:"Companion: strikes for 4 every 2nd tick, twice as hard against Schizoposters.", icon:["Remilio", "Friend", "Hunter"], tags:["online"]},
+ {id:"flame_emoji", name:"Flame Emoji", rar:"rare", set:["flame"], desc:"+2 ATK in a fight for every Schizoposter hunting you.", icon:["Bonkler", "Head", "Flame Emoji"], tags:["online"]},
+ {id:"astronaut", name:"Astronaut", rar:"rare", set:["agency"], desc:"+12 max HP for every boss you have beaten or maze you have gone down.", icon:["Remilio", "Costume", "Astronaut"], tags:["online"]},
+ {id:"bp_vest", name:"Bulletproof Vest", rar:"rare", set:["war"], desc:"+4 ARM. Schizoposters deal 25% less to you.", icon:["Remilio", "Shirt", "Bulletproof Vest"], tags:["online"]},
+ {id:"kossphones", name:"Kossphones", rar:"common", set:["night"], desc:"At night: +2 SPD.", icon:["Milady", "Hat", "Kossphones"], tags:["online"]},
+ {id:"hikki_hoodie", name:"Hikki Hoodie", rar:"rare", set:["night", "kawaii"], desc:"At night, every move heals you 1 HP.", icon:["Remilio", "Costume", "Hikki Hoodie"], tags:["online"]},
+ {id:"dont_dial", name:"We Don't Dial 911", rar:"common", set:["agency"], desc:"+1 SPD. You always strike first against Schizoposters.", icon:["Remilio", "Hat", "We Don't Dial 911"], tags:["online"]},
+ {id:"deal_with_it", name:"Deal With It", rar:"rare", set:["schizo"], desc:"+6% dodge. A hit you dodge is thrown back for half its ATK.", icon:["Bonkler", "Face", "Deal With It"], tags:["online"]},
+ {id:"bat", name:"Bat", rar:"common", set:["armed"], desc:"+3 ATK. Your first hit of every fight stuns.", icon:["Remilio", "Weapon", "Bat"], tags:["online"]},
 ];
 
 /* Synergies: hold enough relics of a set (relic.set) and its tiers switch on. tiers: [count, effect]. */
@@ -464,10 +477,22 @@ const ACHIEVEMENTS = [
  {id:"heat3", name:"Feel the Heat", desc:"Beat THE CANCEL on heat 3 or higher.", relic:"firefighter", cat:"the timeline"},
  {id:"king", name:"Long Live the King", desc:"Claim or take the hill.", relic:"airtag", cat:"the timeline"},
  {id:"streak3", name:"Regular", desc:"Play the daily 3 days in a row.", relic:"sandwich", cat:"career"},
- {id:"streak7", name:"Terminally Online", desc:"Play the daily 7 days in a row.", relic:"juicebox", cat:"career"},
+ {id:"streak7", name:"Chronically Online", desc:"Play the daily 7 days in a row.", relic:"juicebox", cat:"career"},
  {id:"collector2", name:"Archivist", desc:"Discover 70 different relics.", relic:"bluetooth", cat:"career"},
  {id:"veteran", name:"Lifer", desc:"Finish 25 runs.", relic:"burger_earring", cat:"career"},
  {id:"wins5", name:"Serial Poster", desc:"Save the timeline 5 times.", relic:"mcdonalds", cat:"career"},
+ {id:"e_kills25", name:"Thread Killer", desc:"Kill 25 Schizoposters in one Terminally Online run.", relic:"info_wars", cat:"endless"},
+ {id:"e_kills100", name:"Ratioed", desc:"Kill 100 Schizoposters in one Terminally Online run.", relic:"tattoo_sheet", cat:"endless"},
+ {id:"e_kills250", name:"Jannie", desc:"Kill 250 Schizoposters in one Terminally Online run.", relic:"terminator", cat:"endless"},
+ {id:"e_total500", name:"Blocklist", desc:"Kill 500 Schizoposters in Terminally Online, across every run.", relic:"hunter_friend", cat:"endless"},
+ {id:"e_total1000", name:"Mass Report", desc:"Kill 1000 Schizoposters in Terminally Online, across every run.", relic:"flame_emoji", cat:"endless"},
+ {id:"e_depth3", name:"Rabbit Hole", desc:"Reach depth 3.", relic:"astronaut", cat:"endless"},
+ {id:"e_depth6", name:"Deep Web", desc:"Reach depth 6.", relic:"bp_vest", cat:"endless"},
+ {id:"e_night15", name:"Doomscroller", desc:"Live to night 15 in Terminally Online.", relic:"kossphones", cat:"endless"},
+ {id:"e_night25", name:"Never Logged Off", desc:"Live to night 25 in Terminally Online.", relic:"hikki_hoodie", cat:"endless"},
+ {id:"e_norest", name:"Cold Turkey", desc:"Live to night 9 in Terminally Online without resting at a campfire.", relic:"dont_dial", cat:"endless"},
+ {id:"e_dogpile", name:"Dogpiled", desc:"Beat a Schizoposter with 11 more still hunting you.", relic:"deal_with_it", cat:"endless"},
+ {id:"e_speedrun", name:"Speedrun the Abyss", desc:"Reach depth 3 before night 6.", relic:"bat", cat:"endless"},
 ];
 
 /* Side objectives: each run rolls three. Done = $CULT now and 25 DRIP at the end. The test for each id is in game.js. */
