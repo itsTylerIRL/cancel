@@ -5095,7 +5095,7 @@ function netStrip(){
   return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
     (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : "")
     +"</span><span class='net-cheese'>"+(lv ? "🧀 cheese patron, level "+lv+" · +"+Math.round(10*Math.sqrt(lv))+" $CULT a run (not the daily)"
-      : "🧀 late game there: give cheese to CHEESEWORLD for a patron badge and $CULT here"), "play");
+      : "🧀 find CHEESEWORLD in your network for cheese"), "play");
 }
 let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
