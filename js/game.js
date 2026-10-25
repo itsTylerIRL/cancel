@@ -672,7 +672,7 @@ function newRun(ava, opt){
   G.bossIds = [0,1,2].map(slot=>choice(BOSSES.filter(b=>b.slot===slot)).id);
   G.keys = pk("key1") ? 1 : 0;
   G.banished = []; G.banishes = tribe.id==="collector" ? BANISH_COLLECTOR : BANISH_START;
-  G.perks = { hp:pk("hp2") ? 20 : pk("hp1") ? 10 : 0, reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
+  G.perks = { hp:(pk("hp2") ? 20 : pk("hp1") ? 10 : 0) + (opt.daily ? 0 : cheeseHp()), // a cheese patron's too, not on the daily reroll:pk("reroll1"), freeRoll:pk("reroll2"), shop:pk("shop1"), shopMul:pk("shop2") ? 0.8 : pk("shop1") ? 0.9 : 1,
     vault:pk("key2") ? 250 : 100, night:pk("night1") ? 1 : 0, chest:pk("chest1") ? 1 : 0,
     }; // fixed for the run (the frame isn't kept here: it is whatever is switched on in settings)
   G.flags = {}; G.curses = {}; G.altars = {}; youLeft = false; // a new run starts looking right
@@ -5076,13 +5076,15 @@ async function loadNet(){
   if($("screen-title").classList.contains("active")) renderLast();
 }
 /* cheese patrons: cheese given to CHEESEWORLD in the network is growing shows here as a badge, and (outside the
-   daily, like the unlocks) as a little more $CULT to start: ten times the root of the level. A run carries the level
-   it started with, so its badge on the boards is the one it was played with, not whatever the player has now. */
+   daily, like the unlocks) as a stronger start: +50 $CULT and +5 max HP for every square root of the week's level. It
+   takes a whole network to get there, so it's worth having; the root, and the weekly reset, keep it in check. A run
+   carries the level it started with, so its badge on the boards is the one it was played with. */
 const cheeseTag = lv => lv ? " <u class='cheese-tag' title='cheese patron, level "+lv+": cheese given to CHEESEWORLD in the network is growing'>🧀 "+lv+"</u>" : "";
 const cheeseLv = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.cheese||0) : 0; // this week's: the levels start again with the hill
 const beetles = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.beetles||0) : 0; // every level given, in weeks gone
 const beetleTag = n => n ? " <u class='cheese-tag beetle' title='beetles: every cheese level given in CHEESEWORLD, week after week'>🪲 "+n+"</u>" : "";
-const cheeseCult = () => Math.round(10*Math.sqrt(cheeseLv()));
+const cheeseCult = (lv = cheeseLv()) => Math.round(50*Math.sqrt(lv));
+const cheeseHp = (lv = cheeseLv()) => Math.round(5*Math.sqrt(lv));
 /* the way over to the network wears your face from there, once you have one; until then, and signed out, the milady */
 const netIcon = () => rnUser() && netFace && netFace.pid===playerId() ? netFace.url : localFile("assets/img/clicker.png");
 function netIcons(){ const src = netIcon(); document.querySelectorAll("img.net-ico").forEach(i=>{ if(i.getAttribute("src")!==src) i.src = src; }); }
@@ -5096,7 +5098,7 @@ function netStrip(){
   const lv = +n.cheese||0, bt = +n.beetles||0; // cheese: made late in the network, given to CHEESEWORLD there, worn here for the week; beetles for the weeks gone
   return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
     (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : "")
-    +"</span><span class='net-cheese'>"+(lv ? "🧀 level "+lv+" this week · +"+Math.round(10*Math.sqrt(lv))+" $CULT a run"
+    +"</span><span class='net-cheese'>"+(lv ? "🧀 level "+lv+" this week · +"+cheeseCult(lv)+" $CULT +"+cheeseHp(lv)+" HP a run"
       : "🧀 find CHEESEWORLD in your network for cheese")+(bt ? " · 🪲 "+bt : ""), "play");
 }
 let youReady = false, youBoot = null;
@@ -5877,7 +5879,7 @@ function beginSetup(){
     mlog("🌸 <b>"+G.name+"</b> "+(G.endless ? "drops into the endless night" : "enters the timeline")+" with "+G.cult+" $CULT.", "gold");
     if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
-    if(!G.daily && cheeseCult()) mlog("🧀 Cheese patron, level "+cheeseLv()+": <b>+"+cheeseCult()+" $CULT</b> from CHEESEWORLD.", "gold");
+    if(!G.daily && cheeseLv()) mlog("🧀 Cheese patron, level "+cheeseLv()+" this week: <b>+"+cheeseCult()+" $CULT</b> and <b>+"+cheeseHp()+" max HP</b> from CHEESEWORLD.", "gold");
     mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper. Nights 3, 6 and 9 pay tribute: a relic slot and a mint." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     if(G.endless){ G.nightPts = ENDLESS.pts.night; G.killPts = 0; startNight(); } else startDay();
