@@ -5060,18 +5060,29 @@ async function loadRank(){
   if($("screen-title").classList.contains("active")) renderLast();
 }
 /* The network is growing keeps its saves on the same service, under the same account: the card says how yours is doing. */
-let netInfo = null, netBusy = false;
+let netInfo = null, netBusy = false, netFace = null; // netFace: who you play as there, drawn once ({ pid, key, url })
 async function loadNet(){
   if(!rnUser() || netBusy) return;
-  netBusy = true; const pid = playerId(), res = await api("/api/net/summary?player="+pid); netBusy = false;
+  netBusy = true; const pid = playerId(), res = await api("/api/net/summary?player="+pid);
+  const look = res && res.look, key = look ? JSON.stringify(look) : "";
+  if(!look && res) netFace = null; // no character there yet: the milady stands in
+  else if(look && !(netFace && netFace.pid===pid && netFace.key===key)){
+    const cv = document.createElement("canvas"); await drawLook(cv, look, []).catch(()=>{});
+    netFace = cv.classList.contains("ready") ? { pid, key, url:cv.toDataURL() } : null;
+  }
+  netBusy = false;
   netInfo = { pid, s:res }; // null: the service doesn't carry the other game, so the card leaves it out
+  netIcons();
   if($("screen-title").classList.contains("active")) renderLast();
 }
+/* the way over to the network wears your face from there, once you have one; until then, and signed out, the milady */
+const netIcon = () => rnUser() && netFace && netFace.pid===playerId() ? netFace.url : localFile("assets/img/clicker.png");
+function netIcons(){ const src = netIcon(); document.querySelectorAll("img.net-ico").forEach(i=>{ if(i.getAttribute("src")!==src) i.src = src; }); }
 function netStrip(){
   const n = netInfo && netInfo.pid===playerId() ? netInfo.s : undefined;
   if(n===null) return "";
   const go = (head, sub, cta) => "<a class='net-strip' href='https://clicker.tylerirl.com/' title='the network is growing: the idle clicker with the same miladys, on the same account'>"
-    + "<img src='"+localFile("assets/img/clicker.png")+"' alt=''><div>"+head+"<span>"+sub+"</span></div><b class='net-go'>"+cta+" ↗</b></a>";
+    + "<img class='net-ico' src='"+netIcon()+"' alt=''><div>"+head+"<span>"+sub+"</span></div><b class='net-go'>"+cta+" ↗</b></a>";
   if(n===undefined) return go("<b>your network: …</b>", "&nbsp;", "play");
   if(!n.started) return go("<b>grow your network 🌸</b>", "the idle clicker with the same miladys. it keeps growing while you play this", "start");
   return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
@@ -5079,6 +5090,7 @@ function netStrip(){
 }
 let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
+  netIcons(); // the way over wears whoever is signed in now
   const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
   if(!r && !(META.runs>0)){ el.classList.add("hidden"); return; }
   if(!youReady){ // first load: the same outline the king's card holds, until your face is built and your rank is in

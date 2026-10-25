@@ -1668,6 +1668,7 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .net-strip span{font-size:var(--fs-label);color:#b8c7cc;line-height:1.4;}
 .net-strip .net-go{flex:none;color:var(--pink);font-size:12px;letter-spacing:.04em;white-space:nowrap;}
 .last-box:has(.net-strip) .king-card{border-radius:6px 6px 0 0;}
+img.net-ico{background:rgba(255,121,198,.18);object-fit:cover;}
 @media (max-width:600px){ .card-pitch{flex-direction:column;align-items:stretch;} .pitch-btns{flex-direction:row;} .pitch-btns .btn{flex:1;} }
 /* add to home screen */
 .install-box{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(139,233,253,.05);text-align:left;}
