@@ -32,6 +32,7 @@ for folder in ("Schizo", "Radbro", "Radcat", "Pixelady", "Survivor", "Cig", "npc
     for p in sorted((ROOT / "assets/img" / folder).glob("*.webp")):
         rel = "assets/img/%s/%s" % (folder, p.name)
         files[rel] = data_uri(rel)
+files["assets/img/clicker.png"] = data_uri("assets/img/clicker.png")  # the companion game's badge, on your card too
 
 script = "\n".join([
     "window.INLINE_ASSET_INDEX=" + json.dumps(index, separators=(",", ":")) + ";",

@@ -5059,6 +5059,24 @@ async function loadRank(){
   myRank = res.you ? { rank:res.you.rank, score:res.you.score, total:res.total, pid:playerId() } : { rank:0, total:res.total, pid:playerId() };
   if($("screen-title").classList.contains("active")) renderLast();
 }
+/* The network is growing keeps its saves on the same service, under the same account: the card says how yours is doing. */
+let netInfo = null, netBusy = false;
+async function loadNet(){
+  if(!rnUser() || netBusy) return;
+  netBusy = true; const pid = playerId(), res = await api("/api/net/summary?player="+pid); netBusy = false;
+  netInfo = { pid, s:res }; // null: the service doesn't carry the other game, so the card leaves it out
+  if($("screen-title").classList.contains("active")) renderLast();
+}
+function netStrip(){
+  const n = netInfo && netInfo.pid===playerId() ? netInfo.s : undefined;
+  if(n===null) return "";
+  const go = (head, sub, cta) => "<a class='net-strip' href='https://clicker.tylerirl.com/' title='the network is growing: the idle clicker with the same miladys, on the same account'>"
+    + "<img src='"+localFile("assets/img/clicker.png")+"' alt=''><div>"+head+"<span>"+sub+"</span></div><b class='net-go'>"+cta+" ↗</b></a>";
+  if(n===undefined) return go("<b>your network: …</b>", "&nbsp;", "play");
+  if(!n.started) return go("<b>grow your network 🌸</b>", "the idle clicker with the same miladys. it keeps growing while you play this", "start");
+  return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
+    (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : ""), "play");
+}
 let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
   const el = $("last-box"), r = META.lastRun && TRIBES.some(t=>t.id===META.lastRun.tribe) ? META.lastRun : null; if(!el) return;
@@ -5091,8 +5109,10 @@ function renderLast(){ // your card, above the king's: the same shape, in the in
     + (!u && rnOn && (rnOn.rn || rnOn.ur) ? "<div class='card-pitch'><div><b>this card only exists in this browser.</b><span>sign in and it follows you: "
         + (META.drip>0 ? "spend your <u>"+num(META.drip)+" DRIP</u> on unlocks, " : "unlocks, ")+"a verified name on the boards, your record and achievements on every device"
         + (META.pid ? ", and the runs you've already posted move to your account" : "")+".</span></div>"
-        + "<div class='pitch-btns'>"+(rnOn.rn ? "<button class='btn small' id='pitch-rn'>Remilia SSO</button>" : "")+(rnOn.ur ? "<button class='btn small' id='pitch-ur'>Urbit ID</button>" : "")+"</div></div>" : "");
+        + "<div class='pitch-btns'>"+(rnOn.rn ? "<button class='btn small' id='pitch-rn'>Remilia SSO</button>" : "")+(rnOn.ur ? "<button class='btn small' id='pitch-ur'>Urbit ID</button>" : "")+"</div></div>" : "")
+    + (u ? netStrip() : "");
   el.classList.remove("hidden");
+  if(u && !(netInfo && netInfo.pid===playerId())) loadNet();
   $("you-card").onclick = e=>{ if(e.target.closest("a")) return; sfx("click"); openBoard("me"); }; // the card is the way in to your page
   $("you-card").onkeydown = e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); e.stopPropagation(); $("you-card").click(); } };
   if($("pitch-rn")) $("pitch-rn").onclick = ()=>$("rn-in") && $("rn-in").click();
@@ -5960,7 +5980,7 @@ function renderDailyButton(){
 function renderTitle(){
   checkVersion(); retryPending(); syncProfile();
   renderDailyButton();
-  loadPulse(); loadKing(); loadTops(); loadDaily(); renderLast(); loadRank(); renderInstall(); loadHomeHall();
+  loadPulse(); loadKing(); loadTops(); loadDaily(); renderLast(); loadRank(); loadNet(); renderInstall(); loadHomeHall();
   renderMenu();
   const save = loadRun(), c = $("btn-continue");
   c.classList.toggle("hidden", !save);
