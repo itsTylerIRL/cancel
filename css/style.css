@@ -1666,6 +1666,7 @@ body.calm .skel,body.calm .skel-wrap .skel>*{animation:none;}
 .net-strip img{width:28px;height:28px;border-radius:50%;flex:none;}
 .net-strip>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;} .net-strip>div>b{color:var(--pink);font-size:var(--fs-body);} .net-strip u{text-decoration:none;color:#fff;}
 .net-strip span{font-size:var(--fs-label);color:#b8c7cc;line-height:1.4;}
+.net-strip span.net-cheese{color:#ffd75e;}
 .net-strip .net-go{flex:none;color:var(--pink);font-size:12px;letter-spacing:.04em;white-space:nowrap;}
 .last-box:has(.net-strip) .king-card{border-radius:6px 6px 0 0;}
 img.net-ico{background:rgba(255,121,198,.18);object-fit:cover;}

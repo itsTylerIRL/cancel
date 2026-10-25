@@ -5091,8 +5091,11 @@ function netStrip(){
     + "<img class='net-ico' src='"+netIcon()+"' alt=''><div>"+head+"<span>"+sub+"</span></div><b class='net-go'>"+cta+" ↗</b></a>";
   if(n===undefined) return go("<b>your network: …</b>", "&nbsp;", "play");
   if(!n.started) return go("<b>grow your network 🌸</b>", "the idle clicker with the same miladys. it keeps growing while you play this", "start");
+  const lv = +n.cheese||0; // cheese: made late in the network, given to CHEESEWORLD there, worn here
   return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
-    (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : ""), "play");
+    (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : "")
+    +"</span><span class='net-cheese'>"+(lv ? "🧀 cheese patron, level "+lv+" · +"+Math.round(10*Math.sqrt(lv))+" $CULT a run (not the daily)"
+      : "🧀 late game there: give cheese to CHEESEWORLD for a patron badge and $CULT here"), "play");
 }
 let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
