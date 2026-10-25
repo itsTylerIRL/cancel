@@ -240,6 +240,8 @@ def init_db():
             con.execute("ALTER TABLE scores ADD COLUMN handle TEXT")  # the RemiliaNET account, when the player signed in
         if "depth" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
             con.execute("ALTER TABLE scores ADD COLUMN depth INTEGER")  # endless: how many mazes down the run got (empty for timeline runs)
+        if "cheese" not in [r[1] for r in con.execute("PRAGMA table_info(scores)")]:
+            con.execute("ALTER TABLE scores ADD COLUMN cheese INTEGER NOT NULL DEFAULT 0")  # the cheese patron level the run started with
         if "endless" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
             con.execute("ALTER TABLE runs ADD COLUMN endless INTEGER NOT NULL DEFAULT 0")  # endless runs are kept apart when balancing the timeline
         if "depth" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
@@ -512,7 +514,12 @@ def parse_run(d):
     if isinstance(st, dict):
         stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
                  and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
+    # the cheese patron level the run started with (the network is growing): its badge on the boards. Held to what
+    # the account has given there, so a run can't claim more; a run that isn't signed in has none
+    cheese = as_int(d.get("cheese", 0), 0, 100000, "cheese")
+    cheese = min(cheese, network_api.cheese_of(player)) if handle and network_api and hasattr(network_api, "cheese_of") else 0
     row = dict(candles=candles, run=run, stats=json.dumps(stats, separators=(",", ":")) if stats else None, cult=cult, card_daily=daily if daily else None, card_seed=seed if seed and not daily else None,
+               cheese=cheese,
                player=player, name=name, score=score, day=day, win=int(win), bosses=bosses, kills=kills, heat=heat, depth=depth, endless=int(endless),
                tribe=tribe, collection=collection, token=token, relics=json.dumps(out, separators=(",", ":")),
                killed_by=clean_text(d.get("killedBy"), 30), look=parse_look(d.get("look")), handle=handle)
@@ -559,7 +566,7 @@ def public(row, rank):
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
             "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"],
-            "depth": row["depth"], "endless": row["depth"] is not None,
+            "depth": row["depth"], "endless": row["depth"] is not None, "cheese": row["cheese"] or 0,
             # the run's id: its share link is /r/ID and its card image /api/card/ID.png
             "id": row["card"], "share": PUBLIC + "/r/" + row["card"] if row["card"] else None,
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"]) if row["card"] else None}
@@ -645,7 +652,7 @@ def recent(limit):
                         "win": bool(d.get("win")), "bosses": d.get("bosses"), "kills": d.get("kills", 0), "heat": d.get("heat", 0),
                         "tribe": d.get("tribe"), "cult": d.get("cult"), "killedBy": d.get("killedBy") or "",
                         "collection": d.get("collection"), "token": d.get("token"), "relics": d.get("relics") or [], "look": d.get("look"),
-                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created, "endless": bool(d.get("endless")), "depth": d.get("depth"),
+                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created, "endless": bool(d.get("endless")), "depth": d.get("depth"), "cheese": d.get("cheese") or 0,
                         "share": "%s/r/%s" % (PUBLIC, cid), "image": "%s/api/card/%s.png" % (PUBLIC, cid)})
     return out
 
@@ -1311,13 +1318,13 @@ class Handler(BaseHTTPRequestHandler):
                 # one row per player per board: a new run replaces it only if it ranks higher (a win beats any loss)
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created, look, handle, card, depth)
+                                           relics, killed_by, ip_hash, created, look, handle, card, depth, cheese)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card, :depth)
+                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card, :depth, :cheese)
                        ON CONFLICT(board, player) DO UPDATE SET
                          name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses, depth=excluded.depth,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
-                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card,
+                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card, cheese=excluded.cheese,
                          ip_hash=excluded.ip_hash, created=excluded.created
                        WHERE excluded.win > scores.win OR (excluded.win = scores.win AND excluded.score > scores.score)""",
                     dict(row, board=board, ip_hash=key, created=now))
@@ -1332,7 +1339,7 @@ class Handler(BaseHTTPRequestHandler):
                 "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]), "bosses": row["bosses"],
                 "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
-                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"], "endless": bool(row["endless"]), "depth": row["depth"],
+                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"], "endless": bool(row["endless"]), "depth": row["depth"], "cheese": row["cheese"],
                 "collection": row["collection"], "token": row["token"],
                 "killedBy": row["killed_by"], "candles": row["candles"],
                 "player": row["player"], "stats": json.loads(row["stats"]) if row["stats"] else None},  # for king of the hill; never sent out

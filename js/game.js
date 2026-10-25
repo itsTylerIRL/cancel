@@ -654,7 +654,7 @@ function newRun(ava, opt){
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
     endless: !!opt.endless, depth: 1,
     runId: Array.from(crypto.getRandomValues(new Uint8Array(8)), b=>b.toString(16).padStart(2,"0")).join(""), // this run, for the daily's one-attempt rule
-    cult: startCult,
+    cult: startCult, cheese: cheeseLv(), // the cheese patron level this run started with: its badge on the boards
     relics: [],
     maxSlots: 4 + (pk("slot1")?1:0) + (tribe.id==="collector"?1:0) - (heat>=5?1:0),
     day: 1, phase: opt.endless ? "night" : "day", movesLeft: DAY_MOVES - (tribe.id==="harajuku" ? 6 : 0),
@@ -690,7 +690,7 @@ function newRun(ava, opt){
 
 /* ---------- autosave: the run is written out whenever the map is idle ---------- */
 const RUN_KEY = "tcc_run_v4";
-const RUN_FIELDS = ["name","base","cult","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles","endless","depth","nightPts","killPts"];
+const RUN_FIELDS = ["name","base","cult","cheese","relics","maxSlots","day","phase","movesLeft","px","py","map","fog","gate","hunters","shops","seen","bonus","bossesBeaten","bossUnlocked","kills","tilesSeen","newSeen","lit","seed","seedDug","seedKnown","fudKills","newAch","tribe","heat","daily","bossIds","memUsed","gates","tiers","seedCode","linked","keys","flags","objectives","well","late","pins","rerolls","watchDay","runId","practice","curses","altars","marks","perks","calls","rivergod","armory","setBoost","tenx","banished","banishes","journal","candles","endless","depth","nightPts","killPts"];
 function saveRun(){
   if(!G || G.over || busy() || G.queue.length) return;
   const d = { v:4, rng:SEED, hp:G.stats.hp, log:$("map-log").innerHTML, foes:{}, boss:G.bossLook.map(l=>l.picks) };
@@ -5075,15 +5075,10 @@ async function loadNet(){
   netIcons();
   if($("screen-title").classList.contains("active")) renderLast();
 }
-/* cheese patrons: cheese given to CHEESEWORLD in the network is growing shows here as a badge beside a verified
-   name, and (outside the daily, like the unlocks) as a little more $CULT to start: ten times the root of the level */
-let cheeseMap = null, cheeseAt = 0;
-async function loadCheese(){
-  if(Date.now() - cheeseAt < 300000) return; cheeseAt = Date.now();
-  const r = await api("/api/net/cheese"); if(r && r.patrons) cheeseMap = r.patrons;
-}
-const cheeseTag = h => { const lv = h && cheeseMap && cheeseMap[h];
-  return lv ? " <u class='cheese-tag' title='cheese patron, level "+lv+": cheese given to CHEESEWORLD in the network is growing'>🧀 "+lv+"</u>" : ""; };
+/* cheese patrons: cheese given to CHEESEWORLD in the network is growing shows here as a badge, and (outside the
+   daily, like the unlocks) as a little more $CULT to start: ten times the root of the level. A run carries the level
+   it started with, so its badge on the boards is the one it was played with, not whatever the player has now. */
+const cheeseTag = lv => lv ? " <u class='cheese-tag' title='cheese patron, level "+lv+": cheese given to CHEESEWORLD in the network is growing'>🧀 "+lv+"</u>" : "";
 const cheeseLv = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.cheese||0) : 0;
 const cheeseCult = () => Math.round(10*Math.sqrt(cheeseLv()));
 /* the way over to the network wears your face from there, once you have one; until then, and signed out, the milady */
@@ -5503,6 +5498,7 @@ async function submitRun(run, win, drip){
     candles: chartCandles(run).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
     stats: run.stats ? { hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm, spd:run.stats.spd, crit:Math.round(run.stats.crit), dodge:Math.round(run.stats.dodge||0),
       batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
+    cheese: run.cheese||0, // the level it started with; the service holds it to what the account really has
     session: rnUser() ? rnUser().token : undefined,
   };
   if(run.endless && !(await apiHas("endless"))){ META.pending = body; saveMeta(); return null; } // sent once the service can take it
@@ -5634,7 +5630,6 @@ function drawHomeHall(){
 let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
-  if(!cheeseMap) await loadCheese(); else loadCheese(); // the badges: the first time, before anything's drawn
   const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"],["endless","📡 endless"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
@@ -5644,7 +5639,7 @@ async function openBoard(tab, back, seed, page){
   };
   if(tab==="me"){ // personal: your record, where you stand, and your last few runs
     const runs = runHistory(), rk = myRank && myRank.pid===playerId() ? myRank : null, u = rnUser();
-    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle)+cheeseTag(u.handle) : "")+"</b>"
+    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle)+cheeseTag(cheeseLv()) : "")+"</b>"
         + "<span>"+(rk ? (rk.rank ? "all-time <u>#"+rk.rank+"</u> of "+rk.total+" · best "+rk.score : "not on the all-time board yet") : "")+"</span></div>"
       + recordHTML()
       + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"
@@ -5735,7 +5730,7 @@ async function openBoard(tab, back, seed, page){
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
           return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-            + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.handle)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
+            + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.cheese)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
             + (e.cult!=null ? "<span>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span>"+(e.kills||0)+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>"; }).join("")+"</div>"
@@ -5762,7 +5757,7 @@ async function openBoard(tab, back, seed, page){
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-        + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.handle)+"</span>"
+        + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.cheese)+"</span>"
         + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(tab==="endless" ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
             : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
         + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
