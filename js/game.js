@@ -648,7 +648,7 @@ function newRun(ava, opt){
   SEED = seedFrom((opt.endless ? "tcc-endless-" : "tcc-")+code);
   const kit = ava.picks.kit || {};
   const pk = id => !opt.daily && perk(id); // the daily is the same for everyone: unlocks that change the game are switched off there
-  const startCult = 100 + (pk("cult3")?400:pk("cult2")?250:pk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0);
+  const startCult = 100 + (pk("cult3")?400:pk("cult2")?250:pk("cult1")?100:0) + (tribe.cult||0) + (kit.cult||0) + (opt.daily ? 0 : cheeseCult()); // a cheese patron's, not on the daily
   G = {
     name: ava.name, base: ava.picks, avatar: ava.canvas, face: faceToken(ava.canvas),
     tribe: tribe.id, heat, daily: opt.daily||"", seedCode: opt.daily ? "" : code, linked: !!opt.seed,
@@ -5075,6 +5075,17 @@ async function loadNet(){
   netIcons();
   if($("screen-title").classList.contains("active")) renderLast();
 }
+/* cheese patrons: cheese given to CHEESEWORLD in the network is growing shows here as a badge beside a verified
+   name, and (outside the daily, like the unlocks) as a little more $CULT to start: ten times the root of the level */
+let cheeseMap = null, cheeseAt = 0;
+async function loadCheese(){
+  if(Date.now() - cheeseAt < 300000) return; cheeseAt = Date.now();
+  const r = await api("/api/net/cheese"); if(r && r.patrons) cheeseMap = r.patrons;
+}
+const cheeseTag = h => { const lv = h && cheeseMap && cheeseMap[h];
+  return lv ? " <u class='cheese-tag' title='cheese patron, level "+lv+": cheese given to CHEESEWORLD in the network is growing'>🧀 "+lv+"</u>" : ""; };
+const cheeseLv = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.cheese||0) : 0;
+const cheeseCult = () => Math.round(10*Math.sqrt(cheeseLv()));
 /* the way over to the network wears your face from there, once you have one; until then, and signed out, the milady */
 const netIcon = () => rnUser() && netFace && netFace.pid===playerId() ? netFace.url : localFile("assets/img/clicker.png");
 function netIcons(){ const src = netIcon(); document.querySelectorAll("img.net-ico").forEach(i=>{ if(i.getAttribute("src")!==src) i.src = src; }); }
@@ -5623,6 +5634,7 @@ function drawHomeHall(){
 let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
+  if(!cheeseMap) await loadCheese(); else loadCheese(); // the badges: the first time, before anything's drawn
   const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"],["endless","📡 endless"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
   const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
@@ -5632,7 +5644,7 @@ async function openBoard(tab, back, seed, page){
   };
   if(tab==="me"){ // personal: your record, where you stand, and your last few runs
     const runs = runHistory(), rk = myRank && myRank.pid===playerId() ? myRank : null, u = rnUser();
-    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle) : "")+"</b>"
+    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle)+cheeseTag(u.handle) : "")+"</b>"
         + "<span>"+(rk ? (rk.rank ? "all-time <u>#"+rk.rank+"</u> of "+rk.total+" · best "+rk.score : "not on the all-time board yet") : "")+"</span></div>"
       + recordHTML()
       + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"
@@ -5723,7 +5735,7 @@ async function openBoard(tab, back, seed, page){
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
           return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-            + "<span class='btribe'>"+tribeBadge(e.tribe)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
+            + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.handle)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
             + (e.cult!=null ? "<span>"+e.cult.toLocaleString("en-US")+" $CULT</span>" : "")+"<span>"+(e.kills||0)+" kill"+(e.kills===1?"":"s")+"</span>"+(e.heat ? "<u class='bheat' title='heat "+e.heat+"'>🔥"+e.heat+"</u>" : "")+"</div></div>"; }).join("")+"</div>"
@@ -5750,7 +5762,7 @@ async function openBoard(tab, back, seed, page){
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
       return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
-        + "<span class='btribe'>"+tribeBadge(e.tribe)+"</span>"
+        + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.handle)+"</span>"
         + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(tab==="endless" ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
             : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
         + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won' title='timeline saved'" : "")+">"+e.score+(e.win ? " <i>👑</i>" : "")+"</em>"
@@ -5865,6 +5877,7 @@ function beginSetup(){
     mlog("🌸 <b>"+G.name+"</b> "+(G.endless ? "drops into the endless night" : "enters the timeline")+" with "+G.cult+" $CULT.", "gold");
     if(G.care) mlog("📦 Care Package: you start with <b>"+relicById(G.care).name+"</b>.", "good");
     if(G.daily && rnUser() && Object.keys(META.unlocks||{}).some(k=>!k.startsWith("frame"))) mlog("📅 The daily is the same for everyone: <b>your unlocks are switched off</b> on this map.", "");
+    if(!G.daily && cheeseCult()) mlog("🧀 Cheese patron, level "+cheeseLv()+": <b>+"+cheeseCult()+" $CULT</b> from CHEESEWORLD.", "gold");
     mlog(G.endless ? "📡 <b>TERMINALLY ONLINE.</b> It never gets light. They keep coming, more every night. Campfires heal you, nothing more; a 🌀 rift takes you deeper. Nights 3, 6 and 9 pay tribute: a relic slot and a mint." : "Explore. Loot. Build. <b>THE CANCEL is coming on day 9.</b>", "");
     mlog("<i>Rumor on Miladycraft: a seed phrase is buried somewhere near spawn.</i>", "");
     if(G.endless){ G.nightPts = ENDLESS.pts.night; G.killPts = 0; startNight(); } else startDay();

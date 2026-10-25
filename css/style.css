@@ -2191,3 +2191,5 @@ body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{ani
 .sister-pill img{width:24px;height:24px;border-radius:50%;}
 @media (max-width:820px){ .sister-pill span{display:none;} .sister-pill{padding:0 8px 0 4px;} }
 .shop-row .sinfo a{color:var(--pink);}
+/* a cheese patron (cheese given to CHEESEWORLD in the network is growing) */
+.cheese-tag{text-decoration:none;font-size:10px;padding:0 6px;border-radius:999px;border:1px solid rgba(255,215,94,.6);color:#ffd75e;background:rgba(255,215,94,.08);white-space:nowrap;font-weight:400;}
