@@ -5079,7 +5079,9 @@ async function loadNet(){
    daily, like the unlocks) as a little more $CULT to start: ten times the root of the level. A run carries the level
    it started with, so its badge on the boards is the one it was played with, not whatever the player has now. */
 const cheeseTag = lv => lv ? " <u class='cheese-tag' title='cheese patron, level "+lv+": cheese given to CHEESEWORLD in the network is growing'>🧀 "+lv+"</u>" : "";
-const cheeseLv = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.cheese||0) : 0;
+const cheeseLv = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.cheese||0) : 0; // this week's: the levels start again with the hill
+const beetles = () => rnUser() && netInfo && netInfo.pid===playerId() && netInfo.s ? (+netInfo.s.beetles||0) : 0; // every level given, in weeks gone
+const beetleTag = n => n ? " <u class='cheese-tag beetle' title='beetles: every cheese level given in CHEESEWORLD, week after week'>🪲 "+n+"</u>" : "";
 const cheeseCult = () => Math.round(10*Math.sqrt(cheeseLv()));
 /* the way over to the network wears your face from there, once you have one; until then, and signed out, the milady */
 const netIcon = () => rnUser() && netFace && netFace.pid===playerId() ? netFace.url : localFile("assets/img/clicker.png");
@@ -5091,11 +5093,11 @@ function netStrip(){
     + "<img class='net-ico' src='"+netIcon()+"' alt=''><div>"+head+"<span>"+sub+"</span></div><b class='net-go'>"+cta+" ↗</b></a>";
   if(n===undefined) return go("<b>your network: …</b>", "&nbsp;", "play");
   if(!n.started) return go("<b>grow your network 🌸</b>", "the idle clicker with the same miladys. it keeps growing while you play this", "start");
-  const lv = +n.cheese||0; // cheese: made late in the network, given to CHEESEWORLD there, worn here
+  const lv = +n.cheese||0, bt = +n.beetles||0; // cheese: made late in the network, given to CHEESEWORLD there, worn here for the week; beetles for the weeks gone
   return go("<b>your network: <u>"+n.miladys.toLocaleString("en-US")+" milad"+(n.miladys===1 ? "y" : "ys")+"</u></b>",
     (n.online ? "🌐 the new internet is on" : "🌐 new internet "+n.stage+"/7")+" · 🌱 touched grass "+n.runs+"×"+(n.saved ? " · synced "+agoText(n.saved*1000) : "")
-    +"</span><span class='net-cheese'>"+(lv ? "🧀 cheese patron, level "+lv+" · +"+Math.round(10*Math.sqrt(lv))+" $CULT a run (not the daily)"
-      : "🧀 find CHEESEWORLD in your network for cheese"), "play");
+    +"</span><span class='net-cheese'>"+(lv ? "🧀 level "+lv+" this week · +"+Math.round(10*Math.sqrt(lv))+" $CULT a run"
+      : "🧀 find CHEESEWORLD in your network for cheese")+(bt ? " · 🪲 "+bt : ""), "play");
 }
 let youReady = false, youBoot = null;
 function renderLast(){ // your card, above the king's: the same shape, in the interface's color instead of gold, and about you
@@ -5642,7 +5644,7 @@ async function openBoard(tab, back, seed, page){
   };
   if(tab==="me"){ // personal: your record, where you stand, and your last few runs
     const runs = runHistory(), rk = myRank && myRank.pid===playerId() ? myRank : null, u = rnUser();
-    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle)+cheeseTag(cheeseLv()) : "")+"</b>"
+    openModal(shell("<div class='me-head'><b>"+esc(u ? u.name : "you")+(u ? " "+whoTag(u.handle)+cheeseTag(cheeseLv())+beetleTag(beetles()) : "")+"</b>"
         + "<span>"+(rk ? (rk.rank ? "all-time <u>#"+rk.rank+"</u> of "+rk.total+" · best "+rk.score : "not on the all-time board yet") : "")+"</span></div>"
       + recordHTML()
       + "<div class='ach-cat'><u>your last runs</u><em>"+runs.length+(runs.length===5 ? " most recent" : "")+"</em></div>"

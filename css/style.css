@@ -2194,3 +2194,4 @@ body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{ani
 .shop-row .sinfo a{color:var(--pink);}
 /* a cheese patron (cheese given to CHEESEWORLD in the network is growing) */
 .cheese-tag{text-decoration:none;font-size:10px;padding:0 6px;border-radius:999px;border:1px solid rgba(255,215,94,.6);color:#ffd75e;background:rgba(255,215,94,.08);white-space:nowrap;font-weight:400;}
+.cheese-tag.beetle{border-color:rgba(80,250,123,.55);color:#9ff5b8;background:rgba(80,250,123,.07);}
