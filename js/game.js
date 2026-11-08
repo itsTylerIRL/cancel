@@ -5719,15 +5719,21 @@ async function openStats(tab, scope){
 }
 /* A wanted poster's face: the head off one of that enemy's looks, drawn the way the map draws it and kept, so the
    posters don't change face every time the panel opens. A night hunter's harder names are still the Schizoposter. */
-const wantedFaces = {};
+const wantedFaces = {}, wantedToks = {}; // each poster's face, and the tokens already on a poster, by collection
 function wantedFace(name){
   if(wantedFaces[name]) return wantedFaces[name];
   const def = BOSSES.find(b=>b.name===name) || ENEMIES.find(e=>e.name===name) || (/schizoposter$/i.test(name) ? ENEMIES.find(e=>e.id==="fud") : null);
   if(!def) return Promise.resolve("");
+  // enemies from one collection (the Schizoposter's three names, the Cigawrettes…) each get a token the others don't
+  // have. Picked here, before anything is awaited, so posters drawn side by side can't pick the same one
+  let tok = 0;
+  if(def.nft){ const used = wantedToks[def.nft] = wantedToks[def.nft] || new Set(), max = NFT[def.nft].max;
+    const free = [...Array(max)].map((_, i)=>i+1).filter(t=>!used.has(t));
+    tok = free.length ? free[Math.floor(Math.random()*free.length)] : 1+Math.floor(Math.random()*max); used.add(tok); }
   return wantedFaces[name] = (async ()=>{
     const picks = cosmetic(()=>pinnedPicks(def));
     let cv;
-    if(def.nft) cv = await foePortrait(def, picks, cosmetic(()=>randi(1, NFT[def.nft].max)));
+    if(def.nft) cv = await foePortrait(def, picks, tok);
     else { cv = await compositePortrait(def.cfg, picks); if(PORTRAIT_FX[def.fx]) cv = PORTRAIT_FX[def.fx](cv, def); cv.cfg = def.cfg; } // not foePortrait: on the home page there's no run, so no collection to keep away from
     return faceToken(cv, def.cfg);
   })().catch(()=>"");
