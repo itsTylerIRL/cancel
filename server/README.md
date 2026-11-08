@@ -15,6 +15,7 @@ Python standard library and SQLite, plus Pillow for drawing cards. It listens on
 | `POST /api/king/challenge` | a run that beat THE CANCEL claims an empty hill, takes it, or loses. One challenge per winning run |
 | `GET /api/recent` | the latest finished runs, newest first. `?limit=` up to 100, default 50. Each has the same fields as a board entry, plus `at` (when it was posted) |
 | `GET /api/hall` | the best run of every daily map, and whoever held the hill as each past week ended |
+| `GET /api/popular` | the stats window, worldwide or with `?player=` for one player's own runs: who claims the most runs (giving up left out), tribes, collections and relics played, how timeline runs end day by day, heat, when people play, and the records |
 | `POST /api/claim` | on sign-in, runs posted earlier from that browser become the account's. Where both have a row on a board, the better one stays |
 | `POST /api/profile` | a signed-in player's progress and settings, merged with what the account holds. The reply also carries their last five runs (read from the run cards) and their all-time rank, so every machine shows the same thing |
 | `GET /api/pulse` | games and wins today, this week, ever, and Terminally Online's runs, kills and total depth |

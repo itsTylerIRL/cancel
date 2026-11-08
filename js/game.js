@@ -5644,6 +5644,94 @@ function drawHomeHall(){
     hallState = { today:h.today, month, sel:b.dataset.day || "k"+b.dataset.king, filter:"" }; openBoard("hall"); }; });
   (async ()=>{ for(const cv of [...el.querySelectorAll("canvas")]){ if(!cv.isConnected) return; const e = cv.dataset.hd ? days[cv.dataset.hd] : kings[cv.dataset.hk]; try{ await drawLook(cv, e.look, e.relics); }catch(err){} } })();
 }
+/* The stats window, from the stats button on the title screen: most wanted (what claims the most runs, as wanted
+   posters; giving up isn't anyone's kill), most played (tribes by their names now, collections, relics), and the
+   numbers (how timeline runs go, heat, when people play, the records). One read feeds every tab. */
+let statsGot = { all:{ data:null, at:0 }, me:{ data:null, at:0 } }, statsScope = "all", statsTok = 0;
+async function openStats(tab, scope){
+  tab = tab || "wanted"; scope = statsScope = scope || statsScope; const tok = ++statsTok, me = scope==="me", got = statsGot[scope];
+  const tabs = [["wanted","🎯 most wanted"],["played","🎮 most played"],["numbers","📈 the numbers"]];
+  const shell = body => "<h2>stats</h2><div class='st-scope' role='radiogroup' aria-label='whose runs'>"+[["all","🌐 everyone"],["me","👤 you"]].map(([k,l])=>"<button role='radio' aria-checked='"+(k===scope)+"' class='"+(k===scope ? "on" : "")+"' data-ss='"+k+"'>"+l+"</button>").join("")+"</div>"
+    + "<div class='pick-row stats-tabs'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-st='"+k+"'>"+l+"</button>").join("")+"</div>"
+    + "<div class='stats-body'>"+body+"</div><div class='row'><button class='btn small' id='stats-close'>close</button></div>";
+  const wire = ()=>{
+    $("modal-panel").querySelectorAll("[data-st]").forEach(b=>{ b.onclick = ()=>{ sfx("click"); openStats(b.dataset.st, scope); }; });
+    $("modal-panel").querySelectorAll("[data-ss]").forEach(b=>{ b.onclick = ()=>{ if(b.dataset.ss===scope) return; sfx("click"); openStats(tab, b.dataset.ss); }; });
+    $("stats-close").onclick = ()=>{ sfx("click"); closeModal(); };
+  };
+  const fetchStats = async ()=>{ const p = await api("/api/popular"+(me ? "?player="+playerId() : "")); if(p) statsGot[scope] = { data:p, at:Date.now() }; return p; };
+  if(!got.data){ // the first time, it waits for them; after that it shows what it has and reads again behind it
+    openModal(shell("<div class='dim pop-none'>"+(online() ? (me ? "reading your runs…" : "reading every run…") : "stats need the game online")+"</div>")); wire();
+    const ok = await fetchStats(); if(tok!==statsTok) return; // the window moved on to another tab or scope while it read
+    if(!ok){ const el = $("stats-close") && $("modal-panel").querySelector(".stats-body"); if(el && online()) el.innerHTML = "<div class='dim pop-none'>the stats couldn't be reached. try again in a bit</div>"; return; }
+    if($("modal").classList.contains("hidden") || !$("stats-close")) return; // closed, or something else opened, while it read
+  } else if(Date.now()-got.at > 60000) fetchStats();
+  const p = statsGot[scope].data, pc = (a, b) => b ? Math.round(100*a/b) : 0, num = n => (n||0).toLocaleString("en-US");
+  const plural = (n, one, many) => num(n)+" "+(n===1 ? one : many||one+"s");
+  const bar = (n, of, tc) => "<span class='pop-bar'"+(tc ? " style='--tc:"+tc+"'" : "")+"><s style='width:"+(n ? Math.max(2, pc(n, of)) : 0)+"%'></s></span>";
+  const sub = t => "<div class='pop-sub'>"+t+"</div>";
+  let body = "";
+  if(me && !p.runs){
+    body = "<div class='dim pop-none'>none of your runs have been posted yet. finish one with the game online and it starts counting here</div>";
+  } else if(tab==="wanted"){
+    body = p.wanted.length ? "<div class='note stats-lede'>"+(me ? "what cancels you, out of "+plural(p.deaths, "run")+" of yours" : "what cancels runs, out of "+plural(p.deaths, "run"))+" cut short. giving up isn't anyone's kill</div><div class='wanted-grid'>"+p.wanted.map((w, i)=>{ const boss = BOSSES.some(b=>b.name===w.name);
+        return "<div class='wposter"+(boss ? " boss" : "")+"' style='--r:"+[-2,1.5,-1,2,-1.5][i%5]+"deg' title='"+esc(w.name+" · "+plural(w.runs, "run")+" claimed, "+pc(w.runs, p.deaths)+"% of every run that was cut short"+(w.endless ? " · "+w.endless+" of them terminally online" : ""))+"'>"
+          + "<u>#"+(i+1)+"</u><h4>wanted</h4><div class='wp-face'><img alt='' data-wf='"+i+"'>"+(boss ? "<i class='wp-stamp'>boss</i>" : "")+"</div>"
+          + "<b>"+esc(w.name)+"</b><span>claimed <em>"+num(w.runs)+"</em> "+(w.runs===1 ? "run" : "runs")+"</span><small>"+pc(w.runs, p.deaths)+"% of deaths"+(w.avgDay ? " · strikes ~day "+Math.round(w.avgDay) : "")+"</small></div>"; }).join("")+"</div>"
+      : "<div class='dim pop-none'>nobody's been cancelled yet</div>";
+  } else if(tab==="played"){
+    const row = (lead, n, of, tc, pct, right, tip) => "<div class='pop-row' title='"+esc(tip)+"'>"+lead+bar(n, of, tc)+"<em>"+pct+"%</em><span class='dim'>"+right+"</span></div>";
+    const winTxt = x => x.timeline ? pc(x.wins, x.timeline)+"% won" : "—";
+    const relRows = (list, of, what) => "<div class='pop-list'>"+list.filter(([id])=>relicById(id)).map(([id, n], i)=>{ const r = relicById(id);
+        return row("<u>"+(i+1)+"</u><b>"+(ICONS[id] ? "<img class='relic-ico' src='"+ICONS[id]+"' alt=''>" : "")+esc(r.name)+"</b>", n, of, "", pc(n, of), what, r.name+": "+r.desc+" · held at the end of "+num(n)+" of "+plural(of, "run")); }).join("")+"</div>";
+    body = sub("tribes · share of "+(me ? "your " : "")+plural(p.runs, "run"))+"<div class='pop-list'>"+p.tribes.filter(t=>TRIBES.some(x=>x.id===t.id)).map(t=>
+        row(tribeBadge(t.id), t.runs, p.runs, TRIBE_COLOR[t.id], pc(t.runs, p.runs), winTxt(t), plural(t.runs, "run")+", "+pc(t.runs, p.runs)+"% of all"+(t.timeline ? " · saved the timeline in "+num(t.wins)+" of "+num(t.timeline)+" ("+pc(t.wins, t.timeline)+"%)" : ""))).join("")+"</div>"
+      + sub(me ? "you played as" : "played as")+"<div class='pop-list'>"+(p.collections||[]).map(c=>
+        row("<b class='pop-coll'>"+esc(c.id)+"</b>", c.runs, p.runs, "", pc(c.runs, p.runs), winTxt(c), plural(c.runs, "run")+" as a "+c.id+(c.timeline ? " · saved the timeline in "+num(c.wins)+" of "+num(c.timeline) : ""))).join("")+"</div>"
+      + sub(me ? "your top relics · held at the end of your runs" : "top relics · held at the end of a run")+relRows(p.relics, p.relicRuns, "of runs")
+      + (p.wonWith && p.wonWith.length ? sub(me ? "what you carry when you win" : "what winners carry · held when the timeline was saved")+relRows(p.wonWith, p.wonRuns, "of wins") : "");
+  } else {
+    const t = p.timeline, r = p.records||{}, e = p.endless||{};
+    const tile = (v, l, tip) => "<div class='st-tile' title='"+esc(tip||l)+"'><b>"+v+"</b><span>"+l+"</span></div>";
+    body = "<div class='st-tiles'>"+tile(num(p.runs), me ? "runs you've posted" : "runs posted")+tile(num(t.wins), "timelines saved")+tile(pc(t.wins, t.runs)+"%", "win rate", "of "+plural(t.runs, "timeline run"))
+        + tile(t.avgDay ? t.avgDay.toFixed(1) : "—", "average day reached")+tile(num(t.avgScore), "average score")+tile(num(Math.round(t.avgKills)), "kills a run")+"</div>";
+    { const b = p.bosses, all = b.reduce((a, c)=>a+c, 0), past = k => b.slice(k).reduce((a, c)=>a+c, 0);
+      const steps = [["started a timeline", all], ["beat the first boss", past(1)], ["beat the second boss", past(2)], ["beat THE CANCEL", b[3]]];
+      body += sub("the gauntlet · how far "+(me ? "your " : "")+"timeline runs get")+"<div class='pop-list'>"+steps.map(([l, n])=>"<div class='pop-row gaunt' title='"+esc(num(n)+" of "+num(all)+" runs "+l)+"'><b>"+l+"</b>"+bar(n, all)+"<em>"+pc(n, all)+"%</em><span class='dim'>"+num(n)+"</span></div>").join("")+"</div>"; }
+    { const top = Math.max(1, ...p.ends.map(d=>d[0]+d[1]+d[2]));
+      body += sub(me ? "the day your runs end on" : "the day runs end on")+"<div class='st-cols st-days' role='img' aria-label='runs ending on each day'>"+p.ends.map((d, i)=>{ const n = d[0]+d[1]+d[2];
+          return "<div class='st-col' title='"+esc("day "+(i+1)+": "+num(d[0])+" cancelled, "+num(d[1])+" gave up, "+num(d[2])+" saved the timeline")+"'><div class='st-stack' style='height:"+pc(n, top)+"%'>"
+            + (d[2] ? "<s class='won' style='flex:"+d[2]+"'></s>" : "")+(d[1] ? "<s class='quit' style='flex:"+d[1]+"'></s>" : "")+(d[0] ? "<s class='lost' style='flex:"+d[0]+"'></s>" : "")+"</div><u>"+(i+1)+"</u></div>"; }).join("")+"</div>"
+        + "<div class='st-key'><span><i class='lost'></i>cancelled</span><span><i class='quit'></i>gave up</span><span><i class='won'></i>saved</span></div>"; }
+    if(p.heat && p.heat.length){ const all = p.heat.reduce((a, h)=>a+h.runs, 0);
+      body += sub("heat · share of "+(me ? "your " : "")+"timeline runs, and how often each is won")+"<div class='pop-list'>"+p.heat.map(h=>"<div class='pop-row' title='"+esc("heat "+h.heat+": "+plural(h.runs, "run")+", "+num(h.wins)+" saved ("+pc(h.wins, h.runs)+"%)")+"'><b>🔥 heat "+h.heat+"</b>"+bar(h.runs, all, "#ffb86c")+"<em>"+pc(h.runs, all)+"%</em><span class='dim'>"+pc(h.wins, h.runs)+"% won</span></div>").join("")+"</div>"; }
+    { const off = Math.round(-new Date().getTimezoneOffset()/60), hrs = [...Array(24)].map((_, h)=>p.hours[((h-off)%24+24)%24]||0), top = Math.max(1, ...hrs);
+      const lbl = h => h===0 ? "12a" : h===12 ? "12p" : h<12 ? h+"a" : (h-12)+"p";
+      body += sub(me ? "when you play" : "when people play · your time")+"<div class='st-cols st-hours' role='img' aria-label='runs posted by hour of the day'>"+hrs.map((n, h)=>"<div class='st-col' title='"+esc(lbl(h)+": "+plural(n, "run"))+"'><div class='st-stack' style='height:"+pc(n, top)+"%'><s style='flex:1'></s></div><u>"+(h%6===0 ? lbl(h) : "")+"</u></div>").join("")+"</div>"; }
+    body += sub(me ? "your records" : "records")+"<div class='st-tiles rec'>"+tile(num(r.score), "top score")+tile(r.fastest ? "day "+r.fastest : "—", "fastest save", r.fastest ? plural(r.fastestRuns||0, me ? "of your runs" : "run", me ? "of your runs" : "runs")+" saved the timeline on day "+r.fastest : me ? "you haven't saved it yet" : "nobody has saved it yet")
+        + tile(num(r.kills), "most kills in a run")+tile(num(r.maxHeatWins), "heat 5 wins")
+        + tile(num(r.nights), "📡 longest run, nights", "terminally online: the most nights "+(me ? "you've" : "anyone has")+" lasted")+tile(num(r.depth), "📡 deepest depth")+tile(num(r.endlessKills), "📡 most kills")
+        + tile(e.avgNights ? e.avgNights.toFixed(1) : "—", "📡 nights, on average", plural(e.runs||0, "terminally online run"))+"</div>";
+  }
+  openModal(shell(body)); wire();
+  if(tab==="wanted") $("modal-panel").querySelectorAll("img[data-wf]").forEach(im=>{ const w = p.wanted[+im.dataset.wf];
+    wantedFace(w.name).then(src=>{ if(src && im.isConnected){ im.src = src; im.classList.add("in"); } }); });
+}
+/* A wanted poster's face: the head off one of that enemy's looks, drawn the way the map draws it and kept, so the
+   posters don't change face every time the panel opens. A night hunter's harder names are still the Schizoposter. */
+const wantedFaces = {};
+function wantedFace(name){
+  if(wantedFaces[name]) return wantedFaces[name];
+  const def = BOSSES.find(b=>b.name===name) || ENEMIES.find(e=>e.name===name) || (/schizoposter$/i.test(name) ? ENEMIES.find(e=>e.id==="fud") : null);
+  if(!def) return Promise.resolve("");
+  return wantedFaces[name] = (async ()=>{
+    const picks = cosmetic(()=>pinnedPicks(def));
+    let cv;
+    if(def.nft) cv = await foePortrait(def, picks, cosmetic(()=>randi(1, NFT[def.nft].max)));
+    else { cv = await compositePortrait(def.cfg, picks); if(PORTRAIT_FX[def.fx]) cv = PORTRAIT_FX[def.fx](cv, def); cv.cfg = def.cfg; } // not foePortrait: on the home page there's no run, so no collection to keep away from
+    return faceToken(cv, def.cfg);
+  })().catch(()=>"");
+}
 let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
@@ -6402,6 +6490,7 @@ async function init(){
   document.querySelectorAll(".gear").forEach(b=>{ b.onclick=()=>{ sfx("click"); openSettings(); }; });
   $("menu-codex").onclick=()=>{ sfx("click"); openCodex(); };
   $("menu-ach").onclick=()=>{ sfx("click"); openAchievements(); };
+  $("menu-stats").onclick=()=>{ sfx("click"); openStats(); };
   $("menu-unlocks").onclick=()=>{ sfx("click"); openUnlocks(); };
   $("menu-help").onclick=()=>{ sfx("click"); openTutorial(true); };
   // off to the companion game: write the run out on the way (it only saves when the map is idle, so a fight in progress isn't)

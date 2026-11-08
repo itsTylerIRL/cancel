@@ -249,6 +249,16 @@ def init_db():
             con.execute("ALTER TABLE runs ADD COLUMN endless INTEGER NOT NULL DEFAULT 0")  # endless runs are kept apart when balancing the timeline
         if "depth" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
             con.execute("ALTER TABLE runs ADD COLUMN depth INTEGER")  # endless: how deep the run got, for the worldwide total
+        if "player" not in [r[1] for r in con.execute("PRAGMA table_info(runs)")]:
+            con.execute("ALTER TABLE runs ADD COLUMN player TEXT")  # whose run it was, for the stats window's "you"
+            # runs from before this have no player, but the run cards (about 90 days of them) do: each card was written
+            # in the same moment as its run, with the same score, day and tribe
+            for created, data in con.execute("SELECT created, data FROM cards").fetchall():
+                d = json.loads(data)
+                if d.get("player"):
+                    con.execute("""UPDATE runs SET player=? WHERE id=(SELECT id FROM runs WHERE player IS NULL AND created=? AND score=?
+                                   AND day=? AND tribe=? LIMIT 1)""", (d["player"], created, d.get("score"), d.get("day"), d.get("tribe")))
+        con.execute("CREATE INDEX IF NOT EXISTS runs_player ON runs(player)")
 
 
 RE_LAYER = re.compile(r"^[A-Za-z -]{1,20}$")
@@ -621,6 +631,76 @@ def run_stats():
             "relicsHeldAtEnd": sorted(relics.items(), key=lambda x: -x[1])[:25], "finalStats": final}
 
 
+_popular = {"at": 0, "data": None}
+_popular_lock = threading.Lock()
+
+
+def popular(player=None):
+    """The stats window, over every run posted: what claims runs most (giving up isn't anyone's kill), which tribes,
+    collections and relics are played, how timeline runs go day by day, when people play, and the records.
+    With a player, the same over that player's runs alone. The worldwide one is kept for a minute between reads."""
+    if not player:
+        with _popular_lock:
+            if _popular["data"] and time.time() - _popular["at"] < 60:
+                return _popular["data"]
+    R = "(SELECT * FROM runs WHERE player=:p) runs" if player else "runs"  # every query reads from this
+    P = {"p": player}
+    killed = "win=0 AND killed_by NOT IN ('', 'giving up')"
+    with db() as con:
+        q = lambda sql, a=None: con.execute(sql, dict(P, **(a or {})))
+        one = lambda sql, a=None: q(sql, a).fetchone()
+        deaths = one("SELECT COUNT(*) FROM " + R + " WHERE " + killed)[0]
+        killers = q("SELECT killed_by, COUNT(*) c, COALESCE(SUM(endless),0), AVG(CASE WHEN endless=0 THEN day END) FROM " + R + " WHERE " + killed
+                              + " GROUP BY killed_by ORDER BY c DESC LIMIT 10").fetchall()
+        n = one("SELECT COUNT(*) FROM " + R + "")[0]
+        tribes = q("SELECT tribe, COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(endless=0),0) FROM " + R + " GROUP BY tribe ORDER BY 2 DESC").fetchall()
+        colls = q("SELECT collection, COUNT(*), COALESCE(SUM(win),0), COALESCE(SUM(endless=0),0) FROM " + R + " GROUP BY collection ORDER BY 2 DESC").fetchall()
+        tl, wins, avg_day, avg_score, avg_kills, dailies = one(
+            "SELECT COUNT(*), COALESCE(SUM(win),0), AVG(day), AVG(score), AVG(kills), COALESCE(SUM(daily),0) FROM " + R + " WHERE endless=0")
+        ends = {d: [0, 0, 0] for d in range(1, 10)}  # by day: cancelled, gave up, saved
+        for day, win, quit_, c in q("SELECT day, win, killed_by='giving up', COUNT(*) FROM " + R + " WHERE endless=0 GROUP BY 1, 2, 3"):
+            if day in ends:
+                ends[day][2 if win else 1 if quit_ else 0] += c
+        bosses = [0, 0, 0, 0]
+        for b, c in q("SELECT bosses, COUNT(*) FROM " + R + " WHERE endless=0 GROUP BY bosses"):
+            if 0 <= b <= 3:
+                bosses[b] = c
+        heat = [{"heat": h, "runs": c, "wins": w} for h, c, w in q("SELECT heat, COUNT(*), COALESCE(SUM(win),0) FROM " + R + " WHERE endless=0 GROUP BY heat ORDER BY heat")]
+        hours = [0] * 24  # by hour, UTC: the page moves it to the reader's own clock
+        for h, c in q("SELECT (created % 86400) / 3600, COUNT(*) FROM " + R + " GROUP BY 1"):
+            hours[int(h) % 24] += c
+        e_runs, e_nights, e_depth, e_kills = one("SELECT COUNT(*), AVG(day), MAX(depth), MAX(kills) FROM " + R + " WHERE endless=1")
+        records = {"score": one("SELECT MAX(score) FROM " + R + " WHERE endless=0")[0],
+                   "kills": one("SELECT MAX(kills) FROM " + R + " WHERE endless=0")[0],
+                   "fastest": one("SELECT MIN(day) FROM " + R + " WHERE endless=0 AND win=1")[0],
+                   "maxHeatWins": one("SELECT COUNT(*) FROM " + R + " WHERE endless=0 AND win=1 AND heat=5")[0],
+                   "nights": one("SELECT MAX(day) FROM " + R + " WHERE endless=1")[0], "depth": e_depth, "endlessKills": e_kills,
+                   "endlessScore": one("SELECT MAX(score) FROM " + R + " WHERE endless=1")[0]}
+        if records["fastest"]:
+            records["fastestRuns"] = one("SELECT COUNT(*) FROM " + R + " WHERE endless=0 AND win=1 AND day=:d", {"d": records["fastest"]})[0]
+        relics, won_with, seen, seen_won = {}, {}, 0, 0
+        for r, win in q("SELECT relics, win FROM " + R + " ORDER BY id DESC LIMIT 5000"):  # the latest 5000: enough to rank them
+            seen += 1
+            seen_won += win
+            for rid in {x[0] for x in json.loads(r)}:  # a duplicate is still one run holding it
+                relics[rid] = relics.get(rid, 0) + 1
+                if win:
+                    won_with[rid] = won_with.get(rid, 0) + 1
+    top = lambda d: [[k, c] for k, c in sorted(d.items(), key=lambda x: -x[1])[:10]]
+    data = {"runs": n, "deaths": deaths,
+            "wanted": [{"name": k, "runs": c, "endless": e, "avgDay": round(d, 1) if d else None} for k, c, e, d in killers],
+            "tribes": [{"id": t, "runs": c, "wins": w, "timeline": t2} for t, c, w, t2 in tribes],
+            "collections": [{"id": k, "runs": c, "wins": w, "timeline": t2} for k, c, w, t2 in colls],
+            "relicRuns": seen, "relics": top(relics), "wonRuns": seen_won, "wonWith": top(won_with),
+            "timeline": {"runs": tl, "wins": wins, "avgDay": round(avg_day or 0, 2), "avgScore": round(avg_score or 0), "avgKills": round(avg_kills or 0, 1), "daily": dailies},
+            "ends": [ends[d] for d in range(1, 10)], "bosses": bosses, "heat": heat, "hours": hours,
+            "endless": {"runs": e_runs, "avgNights": round(e_nights or 0, 1)}, "records": records}
+    if not player:
+        with _popular_lock:
+            _popular.update(at=time.time(), data=data)
+    return data
+
+
 # Who is here right now. Nothing is stored: a browser says "here" once a minute, and anyone heard from in the last
 # two and a half minutes counts. Kept in memory only, keyed by a hash, and forgotten on restart.
 _here = {}
@@ -912,6 +992,7 @@ def claim_rows(anon, player, handle):
             con.execute("INSERT OR IGNORE INTO attempts (date, player, run, created) VALUES (?,?,?,?)", (a["date"], player, a["run"], a["created"]))
         con.execute("DELETE FROM attempts WHERE player=?", (anon,))
         con.execute("UPDATE hill SET player=? WHERE player=?", (player, anon))
+        con.execute("UPDATE runs SET player=? WHERE player=?", (player, anon))  # and every run, for their stats
     return moved, dropped
 
 
@@ -1155,6 +1236,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dict(pulse(), now=here(one("here"), self.client_key())))
         if u.path == "/api/hall":
             return self.send(200, hall(120))
+        if u.path == "/api/popular":  # ?player= for that player's own runs
+            if one("player"):
+                return self.send(200, popular(one("player"))) if RE_PLAYER.match(one("player")) else self.send(400, {"error": "bad player"})
+            return self.send(200, popular())
         if u.path == "/api/recent":
             try:
                 limit = max(1, min(100, int(one("limit") or 50)))
@@ -1342,9 +1427,10 @@ class Handler(BaseHTTPRequestHandler):
                     dict(row, board=board, ip_hash=key, created=now))
                 total = con.execute("SELECT COUNT(*) FROM scores WHERE board=?", (board,)).fetchone()[0]
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
-            # every finished run is also kept, without the player, so the game can be balanced on how runs really end
-            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats, endless, depth)
-                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats, :endless, :depth)""",
+            # every finished run is also kept, so the game can be balanced on how runs really end; the player is kept
+            # only so the stats window can show someone their own runs
+            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats, endless, depth, player)
+                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats, :endless, :depth, :player)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
             # and as a card: what the share link's preview is drawn from
             con.execute("INSERT INTO cards (id, created, data) VALUES (?,?,?)", (share, now, json.dumps({
