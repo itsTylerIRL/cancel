@@ -416,10 +416,13 @@ def render(run, seed="x"):
     text(line, 500, 156, 24, "#bdbdbd", "Regular")
     endless = run.get("endless")
     text("run down on night %d" % run["day"] if endless else "timeline saved" if run["win"] else "cancelled on day %d" % run["day"], 500, 240, 44, "#50fa7b" if run["win"] else "#ff5555")
-    stats = ("depth %d" % (run.get("depth") or 1) if endless else "%d / 3 bosses" % run["bosses"]) + "  ·  %d kills" % run["kills"] + ("  ·  %d $CULT" % run["cult"] if run.get("cult") is not None else "")
-    text(stats, 500, 288, 24, "#eaeaea", "Regular")
+    stats = ("depth {:,}".format(run.get("depth") or 1) if endless else "%d / 3 bosses" % run["bosses"]) + "  ·  {:,} kills".format(run["kills"]) + ("  ·  {:,} $CULT".format(run["cult"]) if run.get("cult") is not None else "")
+    text(stats, 500, 288, 24 if d.textlength(stats, font=f24) <= 650 else 20, "#eaeaea", "Regular")
     text("DRIP", 500, 366, 18, "#666")
-    text(str(run["score"]), 500, 438, 76, "#f1fa8c")
+    score, spx = str(run["score"]), 76
+    while spx > 36 and d.textlength(score, font=font(spx)) > 220:  # a long endless score shrinks to fit beside the chart
+        spx -= 4
+    text(score, 500, 438, spx, "#f1fa8c")
     sets = set_line(relic_ids)
     cs = run.get("candles") or []
     if sets:  # each switched-on synergy as its icon and a count: names ran off the edge of the card

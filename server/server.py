@@ -72,9 +72,12 @@ RE_PATP = re.compile(r"^~(?:[a-z]{3}|[a-z]{6}(?:-[a-z]{6}){0,3})$")
 
 MAX_BODY = 6000
 MAX_SCORE = 3000          # day, boss, kill, objective and (capped) $CULT points with the top heat bonus stay under this
-# Terminally online: the night never ends, so nights, depth and kills have no fixed top. These are generous outer limits;
-# the score itself is still held to what the run's own numbers add up to (ENDLESS_PTS, as the game counts them).
-ENDLESS_MAX = {"day": 999, "depth": 99, "kills": 5000, "score": 200000}
+# Terminally online: the night never ends, so nights, depth and kills have no fixed top (the game makes every night past
+# 30 compound, so a run ends, but a great one runs long). These are outer limits a run is brought down to, never refused
+# for; the score itself is still held to what the run's own numbers add up to (ENDLESS_PTS, as the game counts them).
+ENDLESS_MAX = {"day": 99999, "depth": 9999, "kills": 10000000, "score": 2000000000}
+CULT_MAX = 999999999      # the most $CULT a run (or a day of its chart) is filed with; the game sends no more
+STAT_MAX = 1000000000
 ENDLESS_PTS = {"night": 20, "depth": 60, "kill": 3}
 POSTS_PER_HOUR = 30       # per client address
 TRIBES = {"hypebeast", "gyaru", "lolita", "harajuku", "prep", "schizoposter", "collector"}
@@ -426,6 +429,13 @@ def as_int(v, lo, hi, what):
     return v
 
 
+def clamp_int(v, lo, hi, what):
+    """as_int, but a number past the top is brought down to it instead of turning the run away."""
+    if isinstance(v, bool) or not isinstance(v, int) or v < lo:
+        raise Bad("bad " + what)
+    return min(v, hi)
+
+
 def parse_run(d):
     """Validate a submitted run; returns (boards, row) or raises Bad."""
     if not isinstance(d, dict):
@@ -439,13 +449,14 @@ def parse_run(d):
     elif player.startswith(("rn", "ur")):
         raise Bad("sign in again")  # an expired or forged session must not write to a verified player's row
     endless = d.get("endless") is True
-    score = as_int(d.get("score"), 0, ENDLESS_MAX["score"] if endless else MAX_SCORE, "score")
-    day = as_int(d.get("day"), 1, ENDLESS_MAX["day"] if endless else 9, "day")
+    num = clamp_int if endless else as_int  # an endless run that went further than anyone planned for still posts
+    score = num(d.get("score"), 0, ENDLESS_MAX["score"] if endless else MAX_SCORE, "score")
+    day = num(d.get("day"), 1, ENDLESS_MAX["day"] if endless else 9, "day")
     bosses = as_int(d.get("bosses"), 0, 3, "bosses")
-    kills = as_int(d.get("kills"), 0, ENDLESS_MAX["kills"] if endless else 500, "kills")
+    kills = num(d.get("kills"), 0, ENDLESS_MAX["kills"] if endless else 500, "kills")
     heat = as_int(d.get("heat", 0), 0, 5, "heat")
     win = bool(d.get("win"))
-    depth = as_int(d.get("depth", 1), 1, ENDLESS_MAX["depth"], "depth") if endless else None
+    depth = clamp_int(d.get("depth", 1), 1, ENDLESS_MAX["depth"], "depth") if endless else None
     if endless and (win or bosses or heat):
         raise Bad("inconsistent endless run")  # no bosses down there, no timeline to save, and no heat
     # A boss can be called out early, so bosses beaten no longer follow from the day: a run can win on day 4.
@@ -491,11 +502,12 @@ def parse_run(d):
         boards.append("seed:" + seed)
 
     cult = d.get("cult")  # an older copy of the game doesn't send it: leave it off the card rather than print 0
-    cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult <= 99999 else None
+    cult = cult if isinstance(cult, int) and not isinstance(cult, bool) and 0 <= cult else None
+    cult = min(cult, CULT_MAX) if cult is not None else None
     candles = None  # $CULT by day, [open, high, low, close] for up to nine days: drawn as a chart on the card
     cs = d.get("candles")
     if isinstance(cs, list) and 1 <= len(cs) <= 9 and all(  # endless sends its last nine nights
-            isinstance(c, list) and len(c) == 4 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 99999 for v in c)
+            isinstance(c, list) and len(c) == 4 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= CULT_MAX for v in c)
             and c[2] <= min(c[0], c[3]) and c[1] >= max(c[0], c[3]) for c in cs):
         candles = cs
     # The score is the game's own sum, so the most it can honestly be follows from the run: every objective done,
@@ -513,7 +525,7 @@ def parse_run(d):
     stats = None
     if isinstance(st, dict):
         stats = {k: v for k, v in st.items() if k in ("hp", "atk", "arm", "spd", "crit", "dodge", "batk", "bhp", "bspd")
-                 and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= 9999}
+                 and isinstance(v, int) and not isinstance(v, bool) and -999 <= v <= STAT_MAX}
     # the cheese patron level the run started with (the network is growing): its badge on the boards. Held to what
     # the account has given there, so a run can't claim more; a run that isn't signed in has none
     cheese = as_int(d.get("cheese", 0), 0, 100000, "cheese")

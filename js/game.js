@@ -621,11 +621,15 @@ const nightMoves = () => NIGHT_MOVES - (tribeIs("harajuku") ? 4 : 0) + (G.heat>=
 /* TERMINALLY ONLINE: the night never ends. No bosses, no monsters in the rooms: only Schizoposters, more of them every
    night, and they don't go home. Each maze has a rift in every district; through one is a fresh maze, deeper and worse.
    moves: extra steps a night lasts. deep: how much tougher every foe is per depth. cap: the most hunting you at once. */
-const ENDLESS = { moves:8, deep:0.12, cap:12, pts:{ night:20, depth:60, kill:3 }, rivergod:10, tenx:8, tenxNights:2 }; // pts: what each night lived through, each maze down and each kill score.
+const ENDLESS = { moves:8, deep:0.12, cap:12, pts:{ night:20, depth:60, kill:3 }, rivergod:10, tenx:8, tenxNights:2, press:{ from:30, rate:0.06 } }; // pts: what each night lived through, each maze down and each kill score.
 // Nights and kills are scored as they happen, times the depth you're at (depthOf()): what you do deeper down is worth
 // more, and farming the first maze before diving doesn't multiply what was farmed. depth is paid once per maze down.
 // rivergod, tenx: how many of each a maze holds (4 and 3 on the timeline). tenxNights: a 10x position runs to the end of the night this many after the deposit
 const depthOf = () => (G && G.endless && G.depth) || 1;
+// press: past night press.from the night stops being a slope. Every night after it, the Schizoposters hit and hold
+// rate harder than the night before, compounding (about 6× by night 60, 60× by 100, 1,000× by 150), so a run ends
+// however good the build is. What they drop stops growing there too, so $CULT can't snowball to outpace it.
+const pressOf = () => G && G.endless ? Math.pow(1+ENDLESS.press.rate, Math.max(0, G.day-ENDLESS.press.from)) : 1;
 const marketUps = () => G.endless ? depthOf()-1 : G.bossesBeaten; // what prices rise with: bosses beaten, or how deep you are
 /* Unlocks belong to an account: they are bought, kept and switched on only while signed in. */
 const perk = id => !!(rnUser() && META.unlocks[id]);
@@ -1362,20 +1366,22 @@ function renderTimeline(){
   $("doom").innerHTML = !nb ? "" : "<b>"+nb.name+"</b> "+(left>0 ? "arrives in "+left+" day"+(left>1?"s":"") : G.phase==="day" ? "arrives at dawn" : "arrives when this night ends")
     + " <span class='callhint'>· "+(TOUCH && !PAD.on ? "tap to call it out" : "<kbd>"+padGlyph("C")+"</kbd> call it out")+"</span>";
 }
+const pressText = () => { const p = pressOf(); return (p<10 ? p.toFixed(1) : Math.round(p).toLocaleString("en-US"))+"×"; };
 /* endless: the same track, sliding along with you. The nights where they get worse are marked in red. */
 function renderEndlessTrack(){
   const from = Math.max(1, G.day-4);
   let h = "";
   for(let d=from; d<from+9; d++){
-    const surge = d>1 && (d-1)%3===0 && Math.floor((d-1)/3)+depthOf()-1<=2; // the nights the hunters' tier goes up
+    const press = d===ENDLESS.press.from+1; // the night the compounding starts
+    const surge = press || (d>1 && (d-1)%3===0 && Math.floor((d-1)/3)+depthOf()-1<=2); // the nights the hunters' tier goes up
     const gift = BOSS_DAYS.includes(d); // the nights that pay tribute (endlessTribute)
-    const title = [gift && (d<=G.day ? "paid tribute: +1 relic slot and a mint" : "pays tribute: +1 relic slot and a mint"), surge && "they get worse from this night"].filter(Boolean).join(" · ");
+    const title = [gift && (d<=G.day ? "paid tribute: +1 relic slot and a mint" : "pays tribute: +1 relic slot and a mint"), surge && (press ? "from this night every night is "+Math.round(ENDLESS.press.rate*100)+"% worse than the last" : "they get worse from this night")].filter(Boolean).join(" · ");
     h += "<div class='day"+(d<G.day?" past":"")+(d===G.day?" now night":"")+(surge?" surge":"")+(gift?" gift":"")+"'"+(title?" title='"+title+"'":"")+"><span>"+(gift && d>G.day ? "🎁" : d)+"</span></div>";
   }
   $("timeline").innerHTML = h;
   const out = G.hunters.length;
   $("doom").title = "";
-  $("doom").innerHTML = "<b>TERMINALLY ONLINE</b> · night "+G.day+" · depth "+depthOf()+" · "+(out ? out+" hunting you" : "nobody on your trail, for now");
+  $("doom").innerHTML = "<b>TERMINALLY ONLINE</b> · night "+G.day+" · depth "+depthOf()+(pressOf()>1 ? " · <b>"+pressText()+"</b>" : "")+" · "+(out ? out+" hunting you" : "nobody on your trail, for now");
 }
 /* ---------- one icon language ----------
    The six stats and the seventeen sets are drawn, like the things on the map, so they look the same on every device.
@@ -2091,6 +2097,8 @@ function startNight(){
     const out = G.hunters.length;
     mlog("📡 <b>NIGHT "+G.day+"</b>"+(depthOf()>1 ? " · depth "+depthOf() : "")+". "+["They're out there.", "They're bolder now: tougher, and quicker.", "They're everywhere, and they are fast."][nightTier()]
       +(out ? " <b>"+out+"</b> still on your trail." : ""), "bad");
+    if(G.day===ENDLESS.press.from+1) mlog("📈 <b>The night stops being a slope.</b> From here every night is "+Math.round(ENDLESS.press.rate*100)+"% worse than the last, and it compounds. Nothing down here pays more for it.", "bad");
+    else if(G.day>ENDLESS.press.from+1 && (G.day-ENDLESS.press.from)%10===0) mlog("📈 They are <b>"+pressText()+"</b> what they were on night "+ENDLESS.press.from+".", "bad");
     splash("NIGHT "+G.day+"<small>"+NIGHT.mood[nightTier()]+"</small>", "night");
   } else {
     mlog("<b>NIGHT falls.</b> "+["Schizoposters are hunting.", "The schizoposters are bolder tonight: tougher, and quicker.", "The schizoposters are everywhere, and they are fast."][nightTier()]+" Find a campfire.", "bad");
@@ -2174,7 +2182,7 @@ function adaptLevel(def){
   if(!G || !G.stats) return 0;
   const boss = BOSSES.find(b=>b.id===def.id) || null, s = G.stats;
   if(!boss && def.tier!=="elite" && def.tier!=="hunter") return 0;
-  if(!G.bossesBeaten) return 0; // not until the first boss is down: the opening days are for finding your feet
+  if(!G.bossesBeaten && !(G.endless && G.day>BOSS_DAYS[2])) return 0; // not until the first boss is down: the opening days are for finding your feet. In endless, once the tributes are paid
   const key = [def.id, G.day, G.phase, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40))].join("|");
   if(key in adaptCache) return adaptCache[key];
   const keepSeed = SEED, hp = s.hp, base = foeBase(def), cap = boss ? ADAPT.boss : ADAPT.foe;
@@ -2210,11 +2218,12 @@ function foeBase(def){
   const ck = tribeIs("harajuku") ? 0.5 : 1; // ACCELERATIONIST: rushing costs half
   const rush = (1 + CALL.world*ck*(G.calls||0)) * (boss && G.calling ? 1 + ck*(CALL.boss*((G.calls||0)+1) + CALL.day*G.calling) : 1);
   const deep = 1 + ENDLESS.deep*(depthOf()-1); // endless: every maze down is worse
-  const hpx = lvl * rush * deep * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
-  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * deep * (boss && G.heat>=4 ? 1.2 : 1);
+  const press = pressOf(), pd = Math.min(d, ENDLESS.press.from-1), pay = G.endless ? 1 + pd*0.1 + pd*pd*0.006 : lvl; // endless, past press.from: compounding, and the pay stops climbing
+  const hpx = lvl * rush * deep * press * (boss ? (G.heat>=4?1.2:1) : (G.heat>=1?1.15:1));
+  const atx = (boss ? 1 + d*BOSS_ATK_PER_DAY : lvl) * rush * deep * press * (boss && G.heat>=4 ? 1.2 : 1);
   return { ...def, hp:Math.round(def.hp*hpx), maxhp:Math.round(def.hp*hpx),
     atk:Math.round(def.atk*atx), arm:def.arm + (boss ? 0 : Math.floor(d/3)), spd:def.spd, lck:def.lck,
-    cult:def.cult.map(c=>Math.round(c*lvl*deep)) };
+    cult:def.cult.map(c=>Math.round(c*pay*deep)) };
 }
 
 /* ---------- relic mint ---------- */
@@ -5487,6 +5496,7 @@ async function retryPending(){
   if(META.pending.endless && !(await apiHas("endless"))) return;
   postScore({...META.pending, session: rnUser() ? rnUser().token : META.pending.session});
 }
+const CULT_SEND_MAX = 999999999; // the most $CULT the service files (server.py CULT_MAX)
 async function submitRun(run, win, drip){
   const nft = run.base.nft;
   // kept in this browser too, for the "your last run" card on the title screen
@@ -5500,9 +5510,9 @@ async function submitRun(run, win, drip){
     player: playerId(), name: run.name, score: drip, day: run.day, win, bosses: run.bossesBeaten, kills: run.kills, heat: run.heat||0,
     tribe: run.tribe, collection: nft ? nft.kind : run.base && run.base.token ? run.base.token.cfg.toLowerCase() : "milady", token: nft ? nft.id : null,
     relics: run.relics.slice(0,8).map((id,i)=>[id, (run.tiers||[])[i]||1]), killedBy: win ? "" : (run.killedBy||""),
-    daily: run.daily||null, seed: run.daily || run.endless ? null : (run.seedCode||null), cult: Math.max(0, Math.min(99999, Math.round(run.cult||0))), look: lookOf(run.base),
+    daily: run.daily||null, seed: run.daily || run.endless ? null : (run.seedCode||null), cult: Math.max(0, Math.min(CULT_SEND_MAX, Math.round(run.cult||0))), look: lookOf(run.base),
     endless: !!run.endless, depth: run.endless ? run.depth||1 : undefined, // endless has a board of its own
-    candles: chartCandles(run).map(c=>c.map(v=>Math.max(0, Math.min(99999, Math.round(v))))), // $CULT by day, for the chart on the share card
+    candles: chartCandles(run).map(c=>c.map(v=>Math.max(0, Math.min(CULT_SEND_MAX, Math.round(v))))), // $CULT by day, for the chart on the share card
     stats: run.stats ? { hp:run.stats.maxhp, atk:run.stats.atk, arm:run.stats.arm, spd:run.stats.spd, crit:Math.round(run.stats.crit), dodge:Math.round(run.stats.dodge||0),
       batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
     cheese: run.cheese||0, // the level it started with; the service holds it to what the account really has
