@@ -5557,9 +5557,9 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
   const first = !PULSE.built, pct = d => { const n = d.tgames!=null ? d.tgames : d.games; return n ? Math.round(100*d.wins/n) : 0; }; // endless runs can't save the timeline, so the share saved is of timeline runs
   if(first){
     const tile = (k, label, sub1, sub2, bar) => "<div class='pcell' data-t='"+k+"'><u>"+label+"</u><b data-n='"+k+".a' data-main='1'>0</b><span><i data-n='"+k+".b'>0</i> "+sub1+(sub2 ? " · <i data-n='"+k+".c'>0</i> "+sub2 : "")+"</span>"
-      + (bar ? "<div class='pbar' title='share of games that saved the timeline'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
+      + (bar ? "<div class='pbar' title='share of timeline runs that saved it (endless runs aren&#39;t counted)'><s></s><em data-p='"+k+"'>0%</em></div>" : "<div class='pbar ghost'></div>")+"</div>";
     el.innerHTML = "<div class='phead'>the timeline, worldwide <span class='pnow"+(p.now ? "" : " hidden")+"' title='players with the game open in the last couple of minutes'><i></i><b id='pulse-now'>"+(p.now||0)+"</b> playing now</span></div>"
-      + "<div class='pgrid'>"+tile("today", "games today", "saved", "", true)+tile("week", "this week", "saved", "", true)+tile("lifetime", "all time", "saved", "", true)+tile("players", "players", "kills", "", false)
+      + "<div class='pgrid'>"+["today:games today","week:this week","lifetime:all time"].map(x=>{ const [k, label] = x.split(":"); return tile(k, label, "", "", true).replace(/<span>.*?<\/span>/, "<span title='endless runs can&#39;t save the timeline, so only timeline runs count here'><i data-n='"+k+".b'>0</i> of <i data-n='"+k+".c'>0</i> saved</span>"); }).join("")+tile("players", "players", "kills", "", false)
       + tile("endless", "endless kills", "per run", "depth", false).replace(" · <i data-n='endless.c'", "<br><i data-n='endless.c'").replace("class='pcell'", "class='pcell terminal' title='terminally online: every Schizoposter killed down there, the average per run, and how deep every run went between them'")+"</div>"
       + "<div class='pfeed' id='pulse-feed' aria-live='off' role='button' tabindex='0' title='see every recent run'></div>";
     el.classList.remove("hidden"); PULSE.built = true;
@@ -5568,7 +5568,7 @@ async function loadPulse(){ // everyone's games and wins, on the title screen
   }
   const set = (k, v) => pulseRoll(el.querySelector("[data-n='"+k+"']"), v, first);
   for(const k of ["today","week","lifetime"]){ const d = p[k];
-    set(k+".a", d.games); set(k+".b", d.wins);
+    set(k+".a", d.games); set(k+".b", d.wins); set(k+".c", d.tgames!=null ? d.tgames : d.games);
     const bar = el.querySelector(".pcell[data-t='"+k+"'] .pbar"); if(bar){ bar.querySelector("s").style.width = pct(d)+"%"; bar.querySelector("em").textContent = pct(d)+"% saved"; } }
   set("players.a", p.players); set("players.b", p.lifetime.kills);
   { const e = p.endless||{}; set("endless.a", e.kills||0); set("endless.b", e.runs ? Math.round((e.kills||0)/e.runs) : 0); set("endless.c", e.depth||0); }
