@@ -1877,7 +1877,7 @@ function show(id){
   document.body.classList.toggle("on-title", id==="screen-title");
   setTimeout(setDoom, 0);
   if(id==="screen-map") camSnap = true; // a hidden screen loses its scroll position: jump, don't glide
-  window.scrollTo(0,0);
+  window.scrollTo(0,0); $(id).scrollTop = 0; // the home screen scrolls in its own box past phone width
   if(id==="screen-avatar") navBegin = true;
   navRefresh();
 }
