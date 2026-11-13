@@ -1511,10 +1511,10 @@ body.calm #screen-combat::after,body.calm #combo,body.calm #finish-word{display:
 /* the title screen floats in the middle of the window, whatever its size or zoom */
 #screen-title.active{display:flex;flex-direction:column;justify-content:safe center;min-height:100vh;min-height:100dvh;}
 #screen-title .title-wrap{padding-top:0;width:100%;}
-/* past phone width the home screen scrolls inside the corner brackets: its own scroll box from just under the top pair to
-   just over the bottom pair, fading out at each end, so nothing slides across them and the outer edge stays empty */
+/* past phone width the home screen scrolls inside the corner brackets: its own scroll box from the top pair's outer edge to
+   the bottom pair's, fading out at each end, so nothing slides past them and the edge of the window stays empty */
 @media (min-width:521px){
-  #screen-title.active{position:fixed;left:0;right:0;top:64px;bottom:64px;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  #screen-title.active{position:fixed;left:0;right:0;top:15px;bottom:15px;min-height:0;overflow-y:auto;overscroll-behavior:contain;
     -webkit-mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);}
   #screen-title .title-wrap{max-width:1060px;margin:0 auto;}
 }
