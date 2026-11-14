@@ -870,14 +870,33 @@ function achieve(id){
   if(G && !G.over && $("screen-map").classList.contains("active")) mlog("🏆 <b>"+a.name+"</b> — "+r.name+" unlocked for every future run.", "gold");
 }
 /* what equipping r would do to the numbers on your sheet, as little +/- chips */
+const DELTA_STATS = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]];
 function statDelta(r){
-  G.relics.push(r.id); G.tiers.push(1); // as if you held it: a copy of something you already hold stacks
-  const a = G.stats, b = computeStats(G.relics);
-  G.relics.pop(); G.tiers.pop();
-  return [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]].map(([k,label])=>{
-    const d = Math.round(b[k]-a[k]);
-    return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
+  const a = G.stats, signed = n => (n>0?"+":n<0?"−":"")+Math.abs(n), unit = label => label[0]==="%" ? label : " "+label;
+  if(G.relics.length < G.maxSlots){
+    G.relics.push(r.id); G.tiers.push(1); // as if you held it: a copy of something you already hold stacks
+    let b; try{ b = computeStats(G.relics); } finally { G.relics.pop(); G.tiers.pop(); }
+    return DELTA_STATS.map(([k,label])=>{
+      const d = Math.round(b[k]-a[k]);
+      return d ? "<i class='"+(d>0?"up":"down")+"'>"+signed(d)+unit(label)+"</i>" : "";
+    }).join("");
+  }
+  /* Slots full: taking it means dropping something, so a free-slot number would be wrong (anything that counts your
+     relics, like Drip Score or Swag Score, would count one too many). Show what it does across every swap on offer:
+     one number when they all agree, the range when it depends on what goes. */
+  const lo = {}, hi = {};
+  for(let j=0; j<G.relics.length; j++){
+    const id = G.relics[j], t = G.tiers[j];
+    G.relics[j] = r.id; G.tiers[j] = 1;
+    let b; try{ b = computeStats(G.relics); } finally { G.relics[j] = id; G.tiers[j] = t; }
+    for(const [k] of DELTA_STATS){ const d = Math.round(b[k]-a[k]); lo[k] = k in lo ? Math.min(lo[k], d) : d; hi[k] = k in hi ? Math.max(hi[k], d) : d; }
+  }
+  const chips = DELTA_STATS.map(([k,label])=>{
+    if(!(k in lo) || (!lo[k] && !hi[k])) return "";
+    const cls = lo[k]>=0 ? "up" : hi[k]<=0 ? "down" : "";
+    return "<i class='"+cls+"' title='depends on which relic you drop for it'>"+(lo[k]===hi[k] ? signed(lo[k]) : signed(lo[k])+"…"+signed(hi[k]))+unit(label)+"</i>";
   }).join("");
+  return chips ? "<i title='your slots are full: these are the changes across every swap you could make'>swap</i>"+chips : "";
 }
 function relicPool(){
   return RELICS.filter(r => {
@@ -1027,10 +1046,11 @@ function rollRelics(n, luck){
   return out;
 }
 function recalcStats(){
-  const s = computeStats(G.relics);
-  const ratio = G.stats ? G.stats.hp / G.stats.maxhp : 1;
+  const s = computeStats(G.relics), was = G.stats;
   G.stats = s;
-  G.stats.hp = clamp(Math.round(ratio * s.maxhp), 1, s.maxhp);
+  // max HP that comes or goes moves your health by the same amount: "+30 max HP" at 26/46 is 56/76, as the card
+  // says, not the same fraction of a bigger bar. Taking it off again takes the same 30 back, so a swap heals nothing
+  G.stats.hp = was ? clamp(Math.round(was.hp + (s.maxhp - was.maxhp)), 1, s.maxhp) : s.maxhp;
   G.tiers = G.relics.map((_,i)=>tierAt(i)); // keep one tier per slot
   if((G.worn||"") !== G.relics.join()){ G.worn = G.relics.join(); refreshAvatar(); }
   if(setRows(G.relics).some(r=>!r.next)) achieve("synergy");
@@ -1650,19 +1670,7 @@ function renderMap(){
       $("tile-info").innerHTML = info + (!TOUCH && canPin(x,y) && !(x===G.px && y===G.py) ? " <small class='dim'>· right-click or P to "+((G.pins||{})[key] ? "unpin" : "pin")+"</small>" : "");
       hoverTile = [x,y];
     };
-    d.oncontextmenu = ev=>{ ev.preventDefault(); togglePin(x,y); };
-    d.onpointerdown = ev=>{ if(ev.pointerType!=="mouse"){ clearTimeout(pinHold); pinHold = setTimeout(()=>{ pinHeld = true; togglePin(x,y); }, 550); } };
-    d.onpointerup = d.onpointerleave = d.onpointercancel = ()=>clearTimeout(pinHold);
-    d.onclick = ()=>{
-      if(pinHeld){ pinHeld = false; return; } // that press was a pin, not a move
-      // no hover on touch screens: the first tap on a foe shows its odds, the second commits
-      if(TOUCH && (t===T.MON || t===T.ELITE) && G.sel!==key && d.classList.contains("moveable")){
-        G.sel = key; renderMap(); $("tile-info").innerHTML = tileInfo(x,y)+" <b>— tap again to fight</b>"; return;
-      }
-      stopTravel();
-      if(Math.abs(x-G.px)+Math.abs(y-G.py)===1) tryMove(x,y); else travelTo(x,y);
-    };
-    m.appendChild(d);
+    m.appendChild(d); // clicks, presses and pins are handled on #map itself (initMapInput): the tiles are rebuilt too often to hold them
   }
   m.onmouseleave = ()=>{ clearPath(); hoverTile = null; $("tile-info").innerHTML = tileInfo(G.px,G.py); };
   $("tile-info").innerHTML = tileInfo(G.px,G.py);
@@ -1836,16 +1844,23 @@ function pinName(x,y){
 /* Places you have seen and not used up, by kind, with the walk to the nearest. Click one to go there. */
 const PLACE_KINDS = [T.RIFT, T.SHOP, T.FIRE, T.FORGE, T.ONNO, T.FANG, T.SCEARPO, T.RIVERGOD, T.ETHCHAN, T.TENX, T.DRBABY, T.FOUNTAIN, T.SHRINE, T.ALTAR, T.VAULT, T.KEY];
 function placesHTML(){
-  // the same walk a click would take: through explored, empty floor only, so the number shown is the real number of steps
-  const dist = {[G.px+","+G.py]:0}, q = [[G.px,G.py]], found = {};
-  for(let i=0;i<q.length;i++){ const [x,y] = q[i], d = dist[x+","+y];
-    if((x!==G.px || y!==G.py) && (G.map[y][x]!==T.EMPTY || G.hunters.some(h=>h.x===x&&h.y===y))) continue;
-    for(const [dx,dy] of DIRS4){ const nx = x+dx, ny = y+dy, k = nx+","+ny; if(isFloor(nx,ny) && !G.fog[ny][nx] && dist[k]==null){ dist[k] = d+1; q.push([nx,ny]); } } }
+  // the walk a click would take (pathTo): through anything in the way when going round is too far, so nothing drops off
+  // the list because a foe or a Schizoposter is standing in a corridor. One search from you prices every tile the way
+  // pathTo does (a thing or a Schizoposter costs extra to walk through, never to arrive at); the nearest of each kind
+  // is then walked out with pathTo itself, so the number shown is the number of steps the click will take
+  const cost = {[G.px+","+G.py]:0}, buckets = [[[G.px,G.py]]], found = {};
+  for(let c=0; c<buckets.length; c++) for(const [x,y] of buckets[c]||[]){
+    if(cost[x+","+y]!==c) continue;
+    const here = x===G.px && y===G.py, pass = here ? 0 : (G.map[y][x]!==T.EMPTY ? PATH_COST.thing : 0) + (G.hunters.some(h=>h.x===x&&h.y===y) ? PATH_COST.hunter : 0);
+    for(const [dx,dy] of DIRS4){ const nx = x+dx, ny = y+dy, k = nx+","+ny, nc = c+1+pass;
+      if(!isFloor(nx,ny) || G.fog[ny][nx] || (cost[k]!=null && cost[k]<=nc)) continue;
+      cost[k] = nc; (buckets[nc] = buckets[nc]||[]).push([nx,ny]); } }
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     const t = G.map[y][x]; if(G.fog[y][x] || !PLACE_KINDS.includes(t) || (x===G.px && y===G.py)) continue;
-    const d = dist[x+","+y]; if(d==null) continue;
-    const f = found[t] = found[t] || {n:0, d:1e9, k:""}; f.n++; if(d<f.d){ f.d = d; f.k = x+","+y; }
+    const c = cost[x+","+y]; if(c==null) continue;
+    const f = found[t] = found[t] || {n:0, c:1e9, k:""}; f.n++; if(c<f.c){ f.c = c; f.k = x+","+y; }
   }
+  for(const t in found){ const [x,y] = found[t].k.split(",").map(Number), path = pathTo(x,y); found[t].d = path ? path.length : found[t].c; }
   const rows = PLACE_KINDS.filter(t=>found[t]).sort((a,b)=>found[a].d-found[b].d);
   if(!rows.length) return "";
   return "<div class='box-h' style='margin-top:10px'>PLACES YOU KNOW</div><div class='places'>"+rows.map(t=>{ const f = found[t];
@@ -1854,8 +1869,7 @@ function placesHTML(){
 }
 function pinsHTML(){
   const pins = Object.keys(G.pins||{}); if(!pins.length) return "";
-  const dist = walkDist(G.px, G.py);
-  return "<div class='box-h' style='margin-top:10px'>PINS</div>"+pins.map(k=>{ const [x,y] = k.split(",").map(Number), d = dist[k];
+  return "<div class='box-h' style='margin-top:10px'>PINS</div>"+pins.map(k=>{ const [x,y] = k.split(",").map(Number), path = x===G.px && y===G.py ? [] : pathTo(x,y), d = path ? path.length : null; // the steps the walk there will take
     return "<div class='obj pin' data-pin='"+k+"' title='walk there'><i>"+PIN_SVG+"</i><span>"+pinName(x,y)+"</span><em>"+(d==null ? "?" : d+" steps")+"</em></div>"; }).join("");
 }
 function tileInfo(x,y){
@@ -1938,8 +1952,8 @@ function tryMove(x,y){
   updateFog();
   // hunter collision
   const h = G.hunters.findIndex(h=>h.x===x&&h.y===y);
-  if(h>=0){ G.hunters.splice(h,1); G.queue.push(()=>ambush("You walk straight into a Schizoposter!")); }
-  G.queue.push(()=>enterTile(G.map[y][x]));
+  if(h>=0){ G.hunters.splice(h,1); G.queue.push(fightJob(()=>ambush("You walk straight into a Schizoposter!"))); }
+  { const t = G.map[y][x], job = ()=>enterTile(t); G.queue.push(t===T.MON || t===T.ELITE ? fightJob(job) : job); }
   advanceTime();
   renderMap();
   pump();
@@ -1975,7 +1989,8 @@ function pathTo(tx, ty){
 function travelTo(tx, ty){
   if(!G || G.over || busy() || G.queue.length) return;
   const path = pathTo(tx,ty);
-  if(!path || !path.length) return;
+  if(!path){ $("tile-info").innerHTML = "<span class='bad'>No way there through what you've explored.</span>"; sfx("bad"); return; } // say so, rather than nothing happening
+  if(!path.length) return;
   travelGoal = { x:tx, y:ty, when:G.day+G.phase };
   walkOn();
 }
@@ -2005,12 +2020,16 @@ function advanceTime(){
       if(step){ h.x=step[0]; h.y=step[1]; }
       if(h.x===G.px && h.y===G.py){
         G.hunters = G.hunters.filter(k=>k!==h);
-        G.queue.push(()=>ambush("A Schizoposter runs you down!"));
+        G.queue.push(fightJob(()=>ambush("A Schizoposter runs you down!")));
       }
     }
   }
   if(G.movesLeft<=0) G.queue.push(endPhase);
 }
+/* A queued job that is a fight. One step can set off more than one (two Schizoposters closing in at once, or one
+   standing on a foe's tile): a won fight doesn't move on by itself while another is waiting, so they aren't seen as one. */
+const fightJob = fn => (fn.fight = true, fn);
+const fightQueued = () => !!(G && G.queue.some(f=>f.fight));
 function ambush(msg){
   mlog(msg, "bad");
   startCombat(foeInstance(ENEMIES.find(e=>e.tier==="hunter")), {label:"AMBUSH"});
@@ -2183,11 +2202,11 @@ function adaptLevel(def){
   const boss = BOSSES.find(b=>b.id===def.id) || null, s = G.stats;
   if(!boss && def.tier!=="elite" && def.tier!=="hunter") return 0;
   if(!G.bossesBeaten && !(G.endless && G.day>BOSS_DAYS[2])) return 0; // not until the first boss is down: the opening days are for finding your feet. In endless, once the tributes are paid
-  const key = [def.id, G.day, G.phase, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40))].join("|");
+  const key = [def.id, G.day, G.phase, G.heat, G.relics.join(), (G.tiers||[]).join(), s.maxhp, s.atk, s.arm, s.spd, Math.round(s.crit), Math.round(s.dodge), Math.min(10,G.kills), G.bossesBeaten, Math.min(8,Math.floor(G.cult/40)), G.calling||0, G.calls||0].join("|");
   if(key in adaptCache) return adaptCache[key];
   const keepSeed = SEED, hp = s.hp, base = foeBase(def), cap = boss ? ADAPT.boss : ADAPT.foe;
   let need = 0;
-  SEED = null; s.hp = s.maxhp; // judged on the build at full health, not on how hurt you are right now
+  SEED = seedFrom("adapt|"+key); s.hp = s.maxhp; // judged on the build at full health, not on how hurt you are right now. Its own dice, seeded by the state it judges: the same build asks the same question and gets the same answer, so a boss can't change between its dialog and its fight
   try{
     for(; need < cap-1e-9; need = Math.round((need+ADAPT.step)*100)/100){ // how much tougher before the fight is in doubt
       const foe = raised(base, need); let wins = 0, left = 0;
@@ -2369,6 +2388,10 @@ function openDraft(flavor, pool, luck, gen, banishing){
     + "<button class='btn small danger' id='draft-banish'"+(left>0 && pool.some(canBanish) ? "" : " disabled")+" title='throw one of these out of the run for good, instead of taking one'>🚫 banish <small>"+left+"</small></button>"
     + "<button class='btn small price' id='draft-reroll'"+(G.cult<cost || tribeIs("collector")?" disabled":"")+" title='"+(tribeIs("collector") ? "a Collector takes what is offered: no rerolls" : "a new set of relics. the price doubles each time")+"'>🎲 reroll <img class='cult-coin' src='"+coinSrc()+"' alt='$CULT'>"+cost+"</button></div>"
     + "<div class='note reroll-note'>you hold "+G.cult+" $CULT"+(G.rerolls ? " · the reroll after this one will cost "+cost*2 : " · each reroll doubles the price of the next")+(TOUCH ? "<br>press and hold a relic to see its gold and diamond versions" : "")+"</div>";
+  // every mint is titled the same, so the highlight would come back wherever it was left in the last one (often on
+  // reroll). A new mint starts on its first card; only a reroll of this one keeps its place
+  if(!openDraft.keep) navAt = { scope:"", index:-1 };
+  openDraft.keep = false;
   openModal(html);
   // A mint often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
   // land on a card that has only just appeared: cards take a beat before they can be picked.
@@ -2383,13 +2406,14 @@ function openDraft(flavor, pool, luck, gen, banishing){
       }, ()=>openDraft(flavor, pool, luck, gen));
     };
   });
-  $("draft-skip").onclick=()=>{ closeModal(); renderMap(); };
-  $("draft-banish").onclick=()=>{ if(!(G.banishes>0)) return; sfx("click"); openDraft(flavor, pool, luck, gen, true); };
+  // the buttons wait the same beat as the cards: an Enter meant for the fight's button must not reroll or leave the mint
+  $("draft-skip").onclick=()=>{ if(performance.now() < armed) return; closeModal(); renderMap(); };
+  $("draft-banish").onclick=()=>{ if(performance.now() < armed || !(G.banishes>0)) return; sfx("click"); openDraft(flavor, pool, luck, gen, true); };
   $("draft-reroll").onclick=()=>{
-    if(G.cult<cost || tribeIs("collector")) return;
+    if(performance.now() < armed || G.cult<cost || tribeIs("collector")) return;
     G.cult -= cost; G.rerolls = (G.rerolls||0)+1; sfx("coin"); renderHUD();
     mlog("🎲 Rerolled the mint for "+cost+" $CULT.", "");
-    openDraft(flavor, gen, luck);
+    openDraft.keep = true; openDraft(flavor, gen, luck);
   };
   return true;
 }
@@ -2589,7 +2613,7 @@ function applyFx(list){
       }
       case "reveal": for(const row of G.fog) row.fill(false); out.push("the whole map is revealed"); break;
       case "fight": { let def = ENEMIES.find(e=>e.id===v);
-        if(G.endless){ G.queue.unshift(()=>ambush("A Schizoposter was waiting for you.")); out.push("a Schizoposter attacks"); break; } // nothing else lives down here
+        if(G.endless){ G.queue.unshift(fightJob(()=>ambush("A Schizoposter was waiting for you."))); out.push("a Schizoposter attacks"); break; } // nothing else lives down here
         if(clashes(def)) def = choice(foePool("elite", 3));
         G.queue.unshift(()=>startCombat(foeInstance(def), {elite:true})); out.push(def.name+" attacks"); break; }
     }
@@ -2659,34 +2683,31 @@ function descend(){
 }
 
 /* ---------- boss gate ---------- */
-function bossModal(b, title, fightLabel, canWait){
+function bossModal(b, title, fightLabel, canWait, foe){
+  foe = foe || foeInstance(b); // the very numbers it will fight with
   const face = G.bossLook[G.bossIds.indexOf(b.id)].face;
   openModal("<h2>"+title+"</h2>"+(face?"<img class='boss-face' src='"+face+"' alt=''>":"")+"<div class='note'><i>"+b.intro+"</i></div><div class='stat-line'><span>mechanic</span><b>"+b.mechanic+"</b></div>"
-    + "<div class='stat-line'><span>"+b.name+"</span><b>"+si("❤️ "+foeInstance(b).hp+" · ⚔️ "+foeInstance(b).atk+" · 🛡️ "+b.arm+" · 💨 "+b.spd)+"</b></div>"
+    + "<div class='stat-line'><span>"+b.name+"</span><b>"+si("❤️ "+foe.hp+" · ⚔️ "+foe.atk+" · 🛡️ "+foe.arm+" · 💨 "+foe.spd)+"</b></div>"
     + (hasRelic("modelo") ? "<div class='note good'>🍺 your <b>Modelo</b> gets drunk in this fight: +"+Math.round(60*tm("modelo"))+"% ATK, and then it's gone</div>" : "")
-    + (foeInstance(b).adapt ? "<div class='note adapt'>📈 the timeline is pushing back: it is "+Math.round(foeInstance(b).adapt*100)+"% stronger against a build like yours</div>" : "")
+    + (foe.adapt ? "<div class='note adapt'>📈 the timeline is pushing back: it is "+Math.round(foe.adapt*100)+"% stronger against a build like yours</div>" : "")
     + "<div class='stat-line'><span>your odds right now</span><b>"+oddsText(fightOdds(b, {boss:b}))+"</b></div>"
     + "<div class='row'><button class='btn big' id='boss-fight'>"+fightLabel+"</button>"+(canWait?"<button class='btn small' id='boss-wait'>not yet</button>":"")+"</div>");
 }
 function openBossGate(){
-  const b = runBoss(G.bossUnlocked);
-  bossModal(b, "⛩️ "+b.name, "FIGHT", true);
-  $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, portrait:G.bossLook[G.bossUnlocked].portrait}); };
+  const b = runBoss(G.bossUnlocked), foe = foeInstance(b);
+  bossModal(b, "⛩️ "+b.name, "FIGHT", true, foe);
+  $("boss-fight").onclick=()=>{ closeModal(); startCombat(foe, {boss:b, portrait:G.bossLook[G.bossUnlocked].portrait}); };
   $("boss-wait").onclick=()=>closeModal();
 }
 /* Don't want to wait for it? Clicking the next boss on the timeline starts the fight now. It fights at the strength
    it would have on the day it was due. Beat it and it simply never comes: the days until then are still yours. */
-function bossAtArrival(bi){
-  const was = G.day, early = Math.max(0, BOSS_DAYS[bi]-G.day);
-  G.day = Math.max(G.day, BOSS_DAYS[bi]); G.calling = early; oddsCache = {}; adaptCache = {};
-  try{ return foeInstance(runBoss(bi)); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
-}
 function skipToBoss(){
   if(!G || G.over || G.endless || busy() || !$("screen-map").classList.contains("active")) return;
   const bi = G.bossesBeaten, b = runBoss(bi); if(!b) return;
   const to = BOSS_DAYS[bi], early = to>G.day, was = G.day;
   G.day = Math.max(G.day, to); G.calling = to-was > 0 ? to-was : 0; oddsCache = {}; adaptCache = {}; // show its numbers, and your odds, as they will be in the fight
-  try{ bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
+  let foe;
+  try{ foe = foeInstance(b); bossModal(b, "CALL OUT<br>"+b.name+"?", "FACE IT NOW", true, foe); } finally { G.day = was; G.calling = 0; oddsCache = {}; adaptCache = {}; }
   const ck = tribeIs("harajuku") ? 0.5 : 1, up = Math.round(100*ck*(CALL.boss*((G.calls||0)+1) + CALL.day*(to-was)));
   $("modal-panel").querySelector(".note").insertAdjacentHTML("afterend", "<div class='note'>"
     + (early ? "it fights at its day-"+to+" strength, and <b class='bad'>+"+up+"% stronger</b> for being called out "+(to-was)+" day"+(to-was>1?"s":"")+" early"+(G.calls ? " (your "+["second","third"][G.calls-1]+" call-out)" : "")
@@ -2696,7 +2717,6 @@ function skipToBoss(){
   $("boss-fight").onclick=()=>{
     closeModal();
     mlog("📣 You call out <b>"+b.name+"</b>"+(early ? " "+(to-G.day)+" day"+(to-G.day>1?"s":"")+" early." : "."), "bad");
-    const foe = bossAtArrival(bi);
     if(early){ G.calls = (G.calls||0)+1; oddsCache = {}; adaptCache = {}; } // from here on the timeline remembers
     startCombat(foe, {boss:b, called:true, portrait:G.bossLook[bi].portrait});
   };
@@ -2705,8 +2725,9 @@ function bossArrives(){
   const b = runBoss(G.bossUnlocked);
   mlog("⛩️ <b>"+b.name+" HAS ARRIVED.</b> There is nowhere left to post.", "bad");
   quake();
-  bossModal(b, b.name+"<br>HAS ARRIVED", "FACE IT", false);
-  $("boss-fight").onclick=()=>{ closeModal(); startCombat(foeInstance(b), {boss:b, forced:true, portrait:G.bossLook[G.bossUnlocked].portrait}); };
+  const foe = foeInstance(b);
+  bossModal(b, b.name+"<br>HAS ARRIVED", "FACE IT", false, foe);
+  $("boss-fight").onclick=()=>{ closeModal(); startCombat(foe, {boss:b, forced:true, portrait:G.bossLook[G.bossUnlocked].portrait}); };
 }
 
 /* ---------- build inspector ---------- */
@@ -3337,6 +3358,9 @@ function openModal(html){
   $("modal").classList.remove("hidden");
   placeModal();
   navRefresh();
+  // the map doesn't redraw while a dialog is up, so the header would still show the numbers from before it (a fight
+  // just won, a relic just taken): bring it up to date now, since it is what the choice in this dialog is made by
+  if(G && !G.over && G.stats && !setupStep && $("screen-map").classList.contains("active")) renderHUD();
 }
 function runStrip(){
   const s = G.stats;
@@ -3792,6 +3816,11 @@ function fightEngine(foeDef, opts, io){
   }
   function lethalCheck(){
     if(you.hp>0) return false;
+    if(act("burger_earring")){ // falling below 30% includes falling all the way: a blow that would kill you is when it gets eaten
+      you.hp = 0; const got = heal(tv("burger_earring",40));
+      io.log("🍔 <b>Burger Earring.</b> Eaten as you go down"+(got ? ": "+got : "."), "good"); eat("burger_earring");
+      if(you.hp>0) return false;
+    }
     if(you.bail && st.cult>=150){ // DEGEN TRADER: everything has a price
       you.bail = false; st.cult -= 150; you.hp = 1;
       io.log("📈 <b>Bought the dip.</b> 150 $CULT, and you're still here.", "good"); io.float("you","−150 $CULT","heal");
@@ -3974,11 +4003,11 @@ const counterDmg = (you, foe) => Math.max(1, Math.round(you.atk/2) - (foe.arm||0
 let oddsCache = {};
 function fightOdds(def, opts={}){
   const s = G.stats;
-  const key = [def.id, G.day, G.relics.join(), s.hp, s.maxhp, s.atk, s.arm, s.spd, Math.round(s.dodge), Math.round(s.crit), G.kills, G.cult>0].join("|");
+  const key = [def.id, G.day, G.phase, G.relics.join(), (G.tiers||[]).join(), s.hp, s.maxhp, s.atk, s.arm, s.spd, Math.round(s.dodge), Math.round(s.crit), G.kills, G.cult>0, G.calling||0, G.calls||0, opts.elite?1:0].join("|");
   if(oddsCache[key]) return oddsCache[key];
   const foe = foeInstance(def), N = 40;
   let wins=0, hp=0;
-  const keep = SEED; SEED = null; // trial fights must not use up the run's own luck
+  const keep = SEED; SEED = seedFrom("odds|"+key); // trial fights must not use up the run's own luck; seeded by what they judge, so opening the same dialog twice says the same thing
   for(let i=0;i<N;i++){
     const F = trialFight(foe, opts);
     if(F.win){ wins++; hp+=Math.max(1,F.you.hp); }
@@ -3989,7 +4018,7 @@ function fightOdds(def, opts={}){
 }
 function oddsText(o){
   if(Math.round(o.p*100)<=0) return "<span class='odds doom'>OBLITERATION IMMINENT</span>"; // not one trial fight was won: no number needed
-  return "<span class='odds "+o.tag+"'>"+o.tag+" · win "+Math.round(o.p*100)+"%"+(o.p?" · ~"+o.hp+" HP left":"")+"</span>";
+  return "<span class='odds "+o.tag+"'>"+o.tag+" · win "+Math.round(o.p*100)+"%"+(o.p?" · ~"+o.hp+" HP left if you win":"")+"</span>";
 }
 
 /* everything a won fight changes: loot, post-fight heals, achievements. log(msg, cls) receives the lines. */
@@ -4268,13 +4297,16 @@ function startCombat(foeDef, opts={}){
 
   let quiet=false, timer=null, F=null, stall=0; // stall: extra time before the next round, bought by a crit's hit-stop
   STAGE.reset(G.tribe);
+  STAGE.led = true; // who strikes first is said by the fight itself, when it decides (io.log below), not guessed from SPD
   const fx = fn => {
     if(quiet) return;
     const run = ()=>{ if(tok===combatTok) fn(); }, d = F ? F.fxDelay/META.speed : 0;
     d ? setTimeout(run, d) : run();
   };
   const io = {
-    log: (m,c,s)=>{ clog(m,c,s); if(c==="rnd" || c==="dbg") return; m = m.replace(/ <span class='dbg'>.*?<\/span>/g, ""); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); fx(()=>STAGE.cue(m)); },
+    log: (m,c,s)=>{ clog(m,c,s); if(c==="rnd" || c==="dbg") return;
+      if(/^⏩ /.test(m)) fx(()=>ptag(/^⏩ You /.test(m) ? "you" : "foe", "strikes first", "first", 2200)); /* the same call the turn order makes: ACCELERATIONIST, We Don't Dial 911, chill and all */
+      m = m.replace(/ <span class='dbg'>.*?<\/span>/g, ""); const e = logFx(m); if(e) fx(()=>hitFx(e[0], e[1])); if(F) fx(()=>STAGE.proc(m, F.st.relics)); fx(()=>STAGE.cue(m)); },
     hit: (side,dmg,crit)=>fx(()=>{ STAGE.hit(side, crit); if(crit) stall += 110; clash(side, crit); floatText(side, "-"+dmg, crit?"crit":"dmg"); lunge(side==="you"?"foe":"you"); shake(side); sfx(crit?"crit":side==="you"?"hurt":"hit");
       hitFx(side, crit ? "crit" : "slash"); if(crit){ quake(); critFlash(); } }),
     float: (side,text,cls)=>fx(()=>{ floatText(side,text,cls); if(side==="you" && cls==="heal" && /^\+\d/.test(text)) STAGE.healed(); }),
@@ -4310,6 +4342,7 @@ function startCombat(foeDef, opts={}){
     navSet(btn);
     if(win){
       const c = settleWin(F, opts, clog);
+      mlog("🏆 Beat <b>"+foe.name+"</b>. <b>+"+c+" $CULT</b>"+(foe.stolen ? ", and "+foe.stolen+" stolen back" : "")+".", "good"); // the payout belongs in the feed, not only in the fight log
       const sum = fightSummary(F);
       if(sum){ clog("📊 "+sum, "sum"); mlog("📊 <i>vs "+foe.name+":</i> "+sum, "sum"); }
       floatText("foe", "+"+c+" $CULT", "loot");
@@ -4318,7 +4351,9 @@ function startCombat(foeDef, opts={}){
       sfx("win"); if(boss) burst("👑✨🌸💖");
       btn.textContent="CONTINUE →";
       let auto = null;
-      if(!boss && META.auto!==false){ // ordinary wins move on by themselves; a click or Enter is just faster
+      const next = !boss && fightQueued();
+      if(next){ clog("⚠️ <b>It isn't over.</b> Another one is right behind it.", "bad"); btn.textContent = "NEXT FIGHT →"; }
+      if(!boss && !next && META.auto!==false){ // ordinary wins move on by themselves; a click or Enter is just faster
         btn.classList.add("auto");
         auto = setTimeout(()=>{ if(tok===combatTok && $("screen-combat").classList.contains("active")) btn.click(); }, 1700);
       }
@@ -6316,6 +6351,47 @@ function openTutorial(full){
   $("tut-ok").onclick=()=>{ sfx("click"); closeModal(); };
 }
 
+/* ---------- the map's clicks ----------
+   The tiles are thrown away and drawn again on every render, and a render can land between a press and its release
+   (a portrait finishing, a step of a walk): a click held by a tile was then lost. #map itself stays, so it takes the
+   press and the release and works out the tile from where the pointer is. */
+function tileAt(ev){
+  const r = $("map").getBoundingClientRect();
+  if(!r.width || !r.height) return null;
+  const x = Math.floor((ev.clientX-r.left)/r.width*W), y = Math.floor((ev.clientY-r.top)/r.height*H);
+  return x>=0 && y>=0 && x<W && y<H ? [x,y] : null;
+}
+function tileClick(x, y){
+  if(!G || G.over || G.fog[y][x] || !isFloor(x,y)) return;
+  const key = x+","+y, t = G.map[y][x], adj = Math.abs(x-G.px)+Math.abs(y-G.py)===1;
+  // no hover on touch screens: the first tap on a foe shows its odds, the second commits
+  if(TOUCH && (t===T.MON || t===T.ELITE) && G.sel!==key && adj){
+    G.sel = key; renderMap(); $("tile-info").innerHTML = tileInfo(x,y)+" <b>— tap again to fight</b>"; return;
+  }
+  stopTravel();
+  if(adj) tryMove(x,y); else travelTo(x,y);
+}
+function initMapInput(){
+  const m = $("map"); let press = null;
+  m.addEventListener("pointerdown", ev=>{
+    if(ev.pointerType==="mouse" && ev.button!==0) return;
+    const at = tileAt(ev); if(!at) return;
+    press = { id:ev.pointerId, cx:ev.clientX, cy:ev.clientY };
+    clearTimeout(pinHold); pinHeld = false;
+    if(ev.pointerType!=="mouse") pinHold = setTimeout(()=>{ pinHeld = true; togglePin(at[0], at[1]); }, 550);
+  });
+  m.addEventListener("pointerup", ev=>{
+    clearTimeout(pinHold);
+    const p = press; press = null;
+    if(!p || p.id!==ev.pointerId) return;
+    if(pinHeld){ pinHeld = false; return; } // that press was a pin, not a move
+    if(Math.hypot(ev.clientX-p.cx, ev.clientY-p.cy) > 10) return; // a drag or a swipe, not a click
+    const at = tileAt(ev); if(at) tileClick(at[0], at[1]);
+  });
+  m.addEventListener("pointercancel", ()=>{ clearTimeout(pinHold); press = null; }); // the browser took it for a scroll
+  m.addEventListener("contextmenu", ev=>{ const at = tileAt(ev); if(!at || !G || G.fog[at[1]][at[0]] || !isFloor(at[0], at[1])) return; ev.preventDefault(); togglePin(at[0], at[1]); });
+}
+
 /* ---------- touch: swipe on the map to step that way ---------- */
 function initSwipe(){
   const w = $("map-wrap"); let sx=0, sy=0, st=0;
@@ -6606,7 +6682,7 @@ async function init(){
     if(el && scope.contains(el) && !el.disabled && el!==navSel){ if(navSel) navSel.classList.remove("ksel"); navSel = el; el.classList.add("ksel"); navAt = { scope:navKey(scope), index:navItems(scope).indexOf(el) }; }
   });
   navRefresh();
-  initSwipe();
+  initSwipe(); initMapInput();
   if(TOUCH) document.querySelector("#screen-map .hint").textContent = "swipe or tap a neighboring tile to move · tap any explored tile to walk there · tap a foe once to scout it · tap the minimap to enlarge";
   window.addEventListener("resize", ()=>{ if(G && !G.over && $("screen-map").classList.contains("active")){ camSnap = true; renderMap(); } });
 }
