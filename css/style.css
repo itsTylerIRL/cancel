@@ -2266,3 +2266,16 @@ body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{ani
 .st-scope button{background:none;border:0;border-radius:999px;color:var(--dim);font:inherit;font-size:11px;padding:3px 12px;cursor:pointer;transition:background .15s,color .15s;}
 .st-scope button.on{background:rgba(139,233,253,.16);color:var(--neon);}
 .st-scope button:not(.on):hover{color:var(--txt);}
+
+/* ---------- polish: picking a mint card, a set switching on, the score tally, hunters at dawn ---------- */
+.draft-cards.chosen{pointer-events:none;}
+.draft-cards.chosen .card{transition:transform .2s ease-out,opacity .22s ease-out,filter .22s ease-out,box-shadow .2s;}
+.draft-cards.chosen .card:not(.picked){opacity:.22;transform:translateY(12px) scale(.93);filter:grayscale(.8);}
+.draft-cards.chosen .card.picked{transform:translateY(-10px) scale(1.07);border-color:var(--pink);box-shadow:3px 3px 0 rgba(0,0,0,.6),0 0 28px rgba(255,121,198,.75);z-index:2;}
+.splash.synergy{top:22%;}
+.end-part{animation:endpart .34s cubic-bezier(.3,1.5,.5,1) backwards;}
+@keyframes endpart{from{opacity:0;transform:translateX(-14px);}to{opacity:1;transform:none;}}
+.hunter-tok.flee,.hunter-eyes.flee{animation:hflee 1s ease-in forwards;transition:none;}
+.hunter-tok.flee img{animation:none;}
+@keyframes hflee{0%{opacity:1;filter:none;}20%{opacity:1;filter:brightness(2.2) saturate(0);transform:scale(1.08);}100%{opacity:0;filter:brightness(2) saturate(0) blur(3px);transform:scale(.4) translateY(-60%);}}
+body.calm .end-part,body.calm .hunter-tok.flee,body.calm .hunter-eyes.flee{animation:none;}

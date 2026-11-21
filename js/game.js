@@ -46,6 +46,7 @@ const SFX = { beat:["sine",[58,46],0.09,0.16], // [wave, notes (Hz), seconds per
   bad:["sawtooth",[200,150,110],0.09,0.05], fight:["square",[220,330],0.07,0.04], night:["sine",[330,262,196],0.16,0.06],
   boss:["sawtooth",[110,104,110,98],0.16,0.08], win:["triangle",[523,659,784],0.09,0.06],
   fanfare:["triangle",[523,659,784,1047,1319,1568],0.11,0.07], lose:["sawtooth",[330,262,196,131],0.18,0.07],
+  drop:["triangle",[392,262,175],0.07,0.05], tick:["triangle",[1319],0.025,0.03], synergy:["triangle",[784,1047,1568],0.07,0.06],
 };
 let AC = null;
 function sfx(name){
@@ -872,31 +873,16 @@ function achieve(id){
 /* what equipping r would do to the numbers on your sheet, as little +/- chips */
 const DELTA_STATS = [["maxhp","HP"],["atk","ATK"],["arm","ARM"],["spd","SPD"],["crit","% crit"],["dodge","% dodge"]];
 function statDelta(r){
-  const a = G.stats, signed = n => (n>0?"+":n<0?"−":"")+Math.abs(n), unit = label => label[0]==="%" ? label : " "+label;
-  if(G.relics.length < G.maxSlots){
-    G.relics.push(r.id); G.tiers.push(1); // as if you held it: a copy of something you already hold stacks
-    let b; try{ b = computeStats(G.relics); } finally { G.relics.pop(); G.tiers.pop(); }
-    return DELTA_STATS.map(([k,label])=>{
-      const d = Math.round(b[k]-a[k]);
-      return d ? "<i class='"+(d>0?"up":"down")+"'>"+signed(d)+unit(label)+"</i>" : "";
-    }).join("");
-  }
-  /* Slots full: taking it means dropping something, so a free-slot number would be wrong (anything that counts your
-     relics, like Drip Score or Swag Score, would count one too many). Show what it does across every swap on offer:
-     one number when they all agree, the range when it depends on what goes. */
-  const lo = {}, hi = {};
-  for(let j=0; j<G.relics.length; j++){
-    const id = G.relics[j], t = G.tiers[j];
-    G.relics[j] = r.id; G.tiers[j] = 1;
-    let b; try{ b = computeStats(G.relics); } finally { G.relics[j] = id; G.tiers[j] = t; }
-    for(const [k] of DELTA_STATS){ const d = Math.round(b[k]-a[k]); lo[k] = k in lo ? Math.min(lo[k], d) : d; hi[k] = k in hi ? Math.max(hi[k], d) : d; }
-  }
+  /* What the relic itself brings, as if added to what you hold. With full slots taking it means dropping one, but
+     which one isn't chosen yet: the drop screen after this shows each swap's real numbers, so the card doesn't guess */
+  const a = G.stats, full = G.relics.length >= G.maxSlots;
+  G.relics.push(r.id); G.tiers.push(1); // as if you held it: a copy of something you already hold stacks
+  let b; try{ b = computeStats(G.relics); } finally { G.relics.pop(); G.tiers.pop(); }
   const chips = DELTA_STATS.map(([k,label])=>{
-    if(!(k in lo) || (!lo[k] && !hi[k])) return "";
-    const cls = lo[k]>=0 ? "up" : hi[k]<=0 ? "down" : "";
-    return "<i class='"+cls+"' title='depends on which relic you drop for it'>"+(lo[k]===hi[k] ? signed(lo[k]) : signed(lo[k])+"…"+signed(hi[k]))+unit(label)+"</i>";
+    const d = Math.round(b[k]-a[k]);
+    return d ? "<i class='"+(d>0?"up":"down")+"'>"+(d>0?"+":"−")+Math.abs(d)+(label[0]==="%"?label:" "+label)+"</i>" : "";
   }).join("");
-  return chips ? "<i title='your slots are full: these are the changes across every swap you could make'>swap</i>"+chips : "";
+  return chips && full ? chips+"<i title='your slots are full: you pick which relic it replaces next, and see what each swap costs'>replaces one</i>" : chips;
 }
 function relicPool(){
   return RELICS.filter(r => {
@@ -1045,6 +1031,20 @@ function rollRelics(n, luck){
   }
   return out;
 }
+/* A synergy switching on (or reaching its next tier) outside a fight: its name across the screen as the relic lands.
+   Judged against the last build seen in this same run, so loading a save or starting a run shows nothing */
+let setsSeen = null;
+function announceSets(){
+  const rows = setRows(G.relics), lv = {};
+  for(const r of rows) lv[r.t.id] = r.on.length;
+  const live = !G.over && !G.setup && G.fog && G.fog.length;
+  const up = live && setsSeen && setsSeen.run===G ? rows.find(r=>r.on.length > (setsSeen.lv[r.t.id]||0)) : null;
+  setsSeen = { run:G, lv };
+  if(!up) return;
+  const [k, desc] = up.on[up.on.length-1];
+  mlog(setIco(up.t)+" <b>"+up.t.name+"</b> switches on ("+k+"): "+desc, "gold");
+  setTimeout(()=>{ sfx("synergy"); splash("<span style='color:"+up.t.color+"'>"+setIco(up.t)+" "+up.t.name+"</span><small>"+k+" set · "+desc+"</small>", "district synergy"); }, 650);
+}
 function recalcStats(){
   const s = computeStats(G.relics), was = G.stats;
   G.stats = s;
@@ -1054,6 +1054,7 @@ function recalcStats(){
   G.tiers = G.relics.map((_,i)=>tierAt(i)); // keep one tier per slot
   if((G.worn||"") !== G.relics.join()){ G.worn = G.relics.join(); refreshAvatar(); }
   if(setRows(G.relics).some(r=>!r.next)) achieve("synergy");
+  announceSets();
   if(!G.over && G.fog && G.fog.length && !G.setup){ // the build itself earns things (only a real run in progress: not a preview, not a king's build)
     if(s.arm>=20) achieve("wall"); if(s.atk>=40) achieve("cannon"); if(s.dodge>=50) achieve("ghost"); if(s.maxhp>=200) achieve("thicc");
     if(setRows(G.relics).filter(r=>r.on.length).length>=3) achieve("trio");
@@ -1326,7 +1327,7 @@ function renderHUD(){
   } else if(!$("hud-cult")._counting) $("hud-cult").textContent = G.cult;
   document.body.classList.toggle("danger", !G.over && s.hp <= s.maxhp*0.3);
   if(G.cult>=800) achieve("rich");
-  const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" "+v+"</span>";
+  const chip = (ico,label,v) => "<span class='chip' title='"+label+"'>"+ico+" <span class='cv'>"+v+"</span></span>";
   const now = {ATK:s.atk, ARM:s.arm, SPD:s.spd, crit:Math.round(s.crit||0), dodge:s.dodge, HP:s.maxhp};
   $("hud-chips").innerHTML = si(chip("⚔️","ATK",s.atk)+chip("🛡️","ARM",s.arm)+chip("💨","SPD",s.spd)+chip("✨","crit",Math.round(s.crit||0)+"%")+(s.dodge?chip("🍃","dodge",s.dodge+"%"):""))
     + "<span class='hud-res'>"+tribeBadge(G.tribe)
@@ -1339,7 +1340,9 @@ function renderHUD(){
       + (G.curses.shunned?"<span class='chip curse' title='cursed: no shop will serve you'>🚫 shunned</span>":"")
       + (G.curses.sealed?"<span class='chip curse' title='cursed: relic slots sealed'>🔒 −"+G.curses.sealed+" slot</span>":"")
       + (G.curses.frail?"<span class='chip curse' title='cursed: max HP taken'>💔 −"+G.curses.frail+"</span>":"") : "");
-  if(shownStats) for(const el of $("hud-chips").children){ const k = el.title, d = now[k]-shownStats[k]; if(d) el.classList.add(d>0?"bump-up":"bump-down"); }
+  if(shownStats) for(const el of $("hud-chips").children){ const k = el.title, d = now[k]-shownStats[k]; if(!d) continue;
+    el.classList.add(d>0?"bump-up":"bump-down");
+    const v = el.querySelector(".cv"); if(v && !META.calm) countUp(v, shownStats[k], now[k], 500, k==="crit" || k==="dodge" ? "%" : ""); } // the number climbs to its new value
   if(shownStats && now.HP!==shownStats.HP) { const hb = $("hp-fill").parentNode; hb.classList.remove("bump"); void hb.offsetWidth; hb.classList.add("bump"); }
   shownStats = now;
   const dist = DISTRICTS[districtAt(G.px,G.py)];
@@ -1708,9 +1711,9 @@ function placeHunters(){ // one sliding token per demon you can see
     el.style.width = "calc((100% - "+(W-1)*GAP+"px) / "+W+")";
     el.style.left = "calc("+h.x+" * "+cell+")"; el.style.top = "calc("+h.y+" * "+cell+")";
   }
-  inner.querySelectorAll(".hunter-tok").forEach(el=>{ if(!live[el.dataset.id]) el.remove(); });
+  inner.querySelectorAll(".hunter-tok:not(.flee)").forEach(el=>{ if(!live[el.dataset.id]) el.remove(); });
   // the ones you can't see yet: if they are close, their eyes show in the dark
-  inner.querySelectorAll(".hunter-eyes").forEach(el=>el.remove());
+  inner.querySelectorAll(".hunter-eyes:not(.flee)").forEach(el=>el.remove());
   for(const h of G.hunters){
     if(!G.fog[h.y][h.x] || (G.stats.sets.agency||0)>=2 || Math.abs(h.x-G.px)+Math.abs(h.y-G.py) > 8) continue;
     const el = document.createElement("div"); el.className = "hunter-eyes nt"+nightTier(); el.innerHTML = "<i></i><i></i>";
@@ -2073,6 +2076,8 @@ function endlessTribute(){
   G.queue.unshift(()=>openDraft("The night yields tribute.", richRoll));
 }
 function startDay(){
+  if(G.hunters.length && !META.calm && !matchMedia("(prefers-reduced-motion:reduce)").matches) $("map-inner").querySelectorAll(".hunter-tok,.hunter-eyes").forEach(el=>{ // the light finds them and they go
+    el.classList.add("flee"); el.style.animationDelay = Math.round(Math.random()*240)+"ms"; setTimeout(()=>el.remove(), 1300); });
   G.phase="day"; G.movesLeft=dayMoves(); G.hunters=[];
   mlog("☀️ <b>DAY "+G.day+"</b> dawns over the timeline.", "gold");
   dawnDue();
@@ -2291,6 +2296,22 @@ function flyRelic(id){ // the relic leaps from the middle of the screen onto you
   ], { duration:900, easing:"cubic-bezier(.5,0,.3,1)" });
   a.onfinish = ()=>{ im.remove(); const h = $("hud-avatar"); h.classList.remove("equip"); void h.offsetWidth; h.classList.add("equip"); };
 }
+function dropRelic(id){ // the relic you let go of slips off your Milady, greys out and falls away, as the new one flies in
+  sfx("drop");
+  if(META.calm) return;
+  const at = $("hud-avatar").getBoundingClientRect();
+  if(!at.width) return;
+  const im = document.createElement("img"); im.className = "fly-relic drop-relic"; im.src = ICONS[id]; im.alt = "";
+  document.body.appendChild(im);
+  const x = at.left+at.width/2-48, y = at.top+at.height/2-48;
+  const a = im.animate([
+    { transform:"translate("+x+"px,"+y+"px) scale(.5)", opacity:1, filter:"none" },
+    { transform:"translate("+(x+6)+"px,"+(y-10)+"px) scale(.8) rotate(-8deg)", opacity:1, filter:"none", offset:0.18 },
+    { transform:"translate("+(x-4)+"px,"+(y-6)+"px) scale(.8) rotate(6deg)", opacity:1, filter:"grayscale(1) brightness(.8)", offset:0.32 },
+    { transform:"translate("+(x+28)+"px,"+(y+150)+"px) scale(.55) rotate(70deg)", opacity:0, filter:"grayscale(1) brightness(.4) blur(1px)" },
+  ], { duration:800, easing:"cubic-bezier(.5,0,.8,.4)" });
+  a.onfinish = ()=>im.remove();
+}
 /* Equip r, asking which relic to drop when slots are full. onDone(dropped) / onBack(). */
 /* What swapping the relic in slot j for r would do: the change to each stat, and any synergies it switches off or on. */
 function swapEffect(r, j){
@@ -2344,7 +2365,7 @@ function confirmSwap(r, j, onDone, onBack){
     + warn
     + "<div class='row'><button class='btn small' id='swap-no'>← pick another</button><button class='btn danger' id='swap-yes'>drop "+old.name+"</button></div>");
   $("swap-no").onclick = ()=>{ sfx("click"); onBack(); };
-  $("swap-yes").onclick = ()=>{ G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
+  $("swap-yes").onclick = ()=>{ dropRelic(G.relics[j]); G.relics[j] = r.id; G.tiers[j] = 1; recalcStats(); gotRelic(r); onDone(old); };
 }
 /* pool: the relics on offer, or a function that rolls them (so a reroll offers the same kind of mint again).
    A reroll costs $CULT and the price doubles every time you use one in a run. */
@@ -2396,14 +2417,17 @@ function openDraft(flavor, pool, luck, gen, banishing){
   // A mint often opens straight after a fight ends on its own. The click or Enter aimed at the fight's button must not
   // land on a card that has only just appeared: cards take a beat before they can be picked.
   const armed = performance.now() + 450;
+  let picked = false;
   document.querySelectorAll("#modal-panel .card").forEach(c=>{
     c.onclick = ()=>{
-      if(performance.now() < armed) return;
+      if(performance.now() < armed || picked) return;
+      picked = true; // one pick: a second click during the beat below doesn't take two
       const r = pool[+c.dataset.i];
-      acquireRelic(r, old=>{
+      c.classList.add("picked"); c.parentNode.classList.add("chosen"); sfx("click");
+      setTimeout(()=>acquireRelic(r, old=>{
         closeModal();
         mlog("Took <b>"+r.name+"</b> — "+r.desc+(old?" <i>(dropped "+old.name+")</i>":""), "good"); renderMap();
-      }, ()=>openDraft(flavor, pool, luck, gen));
+      }, ()=>openDraft(flavor, pool, luck, gen)), META.calm ? 0 : 280);
     };
   });
   // the buttons wait the same beat as the cards: an Enter meant for the fight's button must not reroll or leave the mint
@@ -4449,12 +4473,12 @@ function onBossDown(boss, forced, called){
 function buildRow(){
   return G.relics.length ? "<div class='build-row'>"+G.relics.map((id,i)=>"<img class='relic-ico "+tierCls(tierAt(i))+"' src='"+ICONS[id]+"' alt='' data-rid='"+id+"' data-tier='"+tierAt(i)+"'>").join("")+"</div>" : "";
 }
-function countUp(el, from, to, ms){
-  const t0 = performance.now(), tok = el._count = (el._count||0)+1; // a newer count on the same element takes over
-  const f = now => { if(el._count!==tok) return; const k = Math.min(1,(now-t0)/ms); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(f); };
+function countUp(el, from, to, ms, unit){ // unit: what follows the number, like "%"
+  const t0 = performance.now(), tok = el._count = (el._count||0)+1, u = unit||""; // a newer count on the same element takes over
+  const f = now => { if(el._count!==tok) return; const k = Math.min(1,(now-t0)/ms); el.textContent = Math.round(from+(to-from)*(1-Math.pow(1-k,3)))+u; if(k<1) requestAnimationFrame(f); };
   requestAnimationFrame(f);
   el._counting = true;
-  setTimeout(()=>{ if(el._count===tok){ el.textContent = to; el._counting = false; } }, ms+60); // lands on the real number even if the tab was in the background
+  setTimeout(()=>{ if(el._count===tok){ el.textContent = to+u; el._counting = false; } }, ms+60); // lands on the real number even if the tab was in the background
 }
 /* the end-of-run screen: what the run was worth, and how close the next unlock is */
 function winSequence(then){ // THE CANCEL is down: a few seconds that belong to the player, before the stats
@@ -4538,7 +4562,7 @@ function endRun(win){
     + (G.newSeen ? "<div class='note good'>📖 "+G.newSeen+" new relic"+(G.newSeen>1?"s":"")+" discovered</div>" : "")
     + runStripHTML(G, win)
     + (chartCandles(G).length ? "<canvas id='end-chart' class='end-chart' width='1040' height='300'></canvas>" : "")
-    + parts.map(p=>"<div class='stat-line'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
+    + parts.map((p,i)=>"<div class='stat-line end-part' style='animation-delay:"+(META.calm ? 0 : 300+i*160)+"ms'><span>"+p[0]+"</span><b>+"+p[1]+"</b></div>").join("")
     + "<div class='drip-total'>DRIP EARNED <b id='end-drip'>0</b></div>";
   const signed = !!rnUser();
   if(next && !signed) html += "<div class='next-unlock note'>🔒 you have <b>"+META.drip+" DRIP</b>. sign in on the title screen (Remilia SSO or Urbit ID) to spend it on unlocks</div>";
@@ -4553,7 +4577,9 @@ function endRun(win){
     + "<div class='share'><pre id='end-text'></pre><div class='row'><button class='btn small' id='end-copy'>copy result 📋</button><button class='btn small' id='end-x'>share to 𝕏</button><button class='btn small' id='end-card'>save card 📸</button><button class='btn small' id='end-meme'>make a meme 🧀</button><button class='btn small' id='end-board'>leaderboard 🏆</button></div></div></div></div>";
   openModal(html);
   const run = G; let txt = resultText(run, win, d);
-  countUp($("end-drip"), 0, d, 900);
+  { const step = META.calm ? 0 : 160, at = META.calm ? 0 : 300; // each line ticks in, then the total climbs
+    if(step) parts.forEach((_,i)=>setTimeout(()=>sfx("tick"), at+i*step));
+    const total = $("end-drip"); setTimeout(()=>{ if(total.isConnected) countUp(total, 0, d, 900); }, at+parts.length*step); } // not if you've moved on: coming back shows the total
   if(win){ sfx("fanfare"); burst("🌸✨💖🎀👑"); }
   const wireEnd = first => { // also called when coming back from the meme maker
     paint($("end-avatar"), win ? run.avatar : (run.lossLook = run.lossLook || cancelledPortrait(run)));
