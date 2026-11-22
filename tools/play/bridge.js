@@ -37,7 +37,7 @@
   const modalOpen = () => !$("modal").classList.contains("hidden");
 
   // the game's chrome that is never a decision: sound, fullscreen, settings, fight speed, the fight log's own buttons
-  const CHROME = ".mute, .fs, .gear, #btn-speed, .log-bar button, a, #menu-help";
+  const CHROME = ".mute, .fs, .gear, #btn-speed, .log-bar button, a, #menu-help, #rn-in, #ur-in"; // and signing in, which leaves the game
   function choices() {
     if (document.getElementById("win-seq")) return [document.getElementById("win-seq")];
     const scope = navScope();

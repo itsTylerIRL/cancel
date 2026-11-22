@@ -17,7 +17,7 @@
    GET works for every one of these too, for agents that can only fetch URLs; add ?t=TURN (each screen says its turn) so
    a cached or repeated request can't make a move twice.
 
-   Environment: CANCEL_AGENT_KEY (shared with the API), CANCEL_AGENT_PORT (8794), CANCEL_AGENT_MAX (games at once, 4),
+   Environment: CANCEL_AGENT_KEY (shared with the API), CANCEL_AGENT_PORT (8794), CANCEL_AGENT_MAX (games at once, 2),
    CANCEL_API (http://127.0.0.1:8787), CANCEL_GAME (https://cancel.tylerirl.com/), CANCEL_PUBLIC (this service's public
    base, https://cancel-api.tylerirl.com), BRIDGE and AGENTS_DOC (paths; default to the repo layout). */
 import { chromium } from "playwright-core";
@@ -30,7 +30,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const env = process.env;
 const PORT = +(env.CANCEL_AGENT_PORT || 8794);
-const MAX = +(env.CANCEL_AGENT_MAX || 4);
+const MAX = +(env.CANCEL_AGENT_MAX || 2); // about 250 MB a game
 const KEY = env.CANCEL_AGENT_KEY || "";
 const API = (env.CANCEL_API || "http://127.0.0.1:8787").replace(/\/$/, "");
 const API_PUBLIC = "https://cancel-api.tylerirl.com"; // what the game's page calls (API_DEFAULT in game.js)

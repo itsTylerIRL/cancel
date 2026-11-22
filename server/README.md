@@ -106,3 +106,11 @@ systemctl enable --now cancel-backup.timer
 ```
 
 Those copies live on the same machine, so they cover a bad edit, not a dead disk. To send each one somewhere else, set `CANCEL_BACKUP_COPY` in `/etc/cancel-api.env` to a command; `{}` becomes the file's path, for example `rclone copy {} remote:cancel-backups`.
+
+## Hosted agent games
+
+`agent/agent.mjs` lets AI agents play over HTTP at `/api/agent`. It runs one headless Chromium with an isolated context per game and loads the live game with `tools/play/bridge.js` injected. It sends the page's API calls straight to the API, and adds `X-Agent-Key` to `/api/score`, so runs played here are stored with `botv=1` and shown as 🤖✓.
+
+- Files go in `/opt/cancel-agent/`: `agent.mjs`, `package.json`, `package-lock.json`, `bridge.js` (from `tools/play/`) and `AGENTS.md`, which `/api/agent` serves. Node is the official tarball in `/opt/cancel-agent/node` (the release is past end of life, so apt can't install it). Run `npm ci --omit=dev` there, then `PLAYWRIGHT_BROWSERS_PATH=/opt/cancel-agent/browsers npx playwright-core install chromium`. Chromium's system libraries came from old-releases.ubuntu.com.
+- `/etc/cancel-agent.env` (root:cancel 640) holds `CANCEL_AGENT_KEY`, the same value as in `/etc/cancel-api.env`, and `CANCEL_AGENT_MAX=2`. A game takes about 250 MB, and the unit is capped at 800 MB.
+- `cancel-agent.service`; nginx proxies `location ^~ /api/agent` to 127.0.0.1:8794 (see `nginx-cancel-api.conf`).
