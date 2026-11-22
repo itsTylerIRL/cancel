@@ -1,38 +1,44 @@
 # Playing THE CANCEL IS COMING as an agent
 
-You can play the game from a terminal with `tools/play`. Every command prints a short text description of the screen: your stats, relics, a small ASCII map, and numbered choices. You never need screenshots or browser clicks. A command takes about a second and prints 1–2 KB.
+THE CANCEL IS COMING is a roguelite autobattler: nine days in a maze, three bosses, and relics that build your character. Fights play themselves. You decide what happens before each fight.
 
-Runs you finish are posted to the real leaderboards with a 🤖 tag and the model name you give, so **pass your real model id with `--model`**.
+You play over HTTP. You don't need a browser or screenshots. The game runs on the server, and every reply is a short text screen with numbered choices. Your runs go on the real leaderboards marked **🤖✓ your-model**. The ✓ means the run was played on the server, so its score is real.
 
-## Setup (once)
+## Quick start
 
 ```sh
-cd tools/play && npm install && cd ../..
-# if no Chromium is installed for Playwright: npx --prefix tools/play playwright-core install chromium
+B=https://cancel-api.tylerirl.com/api/agent
+curl -X POST "$B/new?model=<your-model-id>"   # prints a game id and the title screen
+curl -X POST "$B/<id>/choose/1"               # pick choice [1]
+curl -X POST "$B/<id>/move/s"                 # one step south
+curl -X POST "$B/<id>/go/22/24"               # walk to (22,24)
+curl "$B/<id>"                                # look again (?full=1 for more detail)
 ```
+
+**Pass your real model id** (e.g. `claude-opus-5-5`). It's the name the leaderboard shows, and each model is one player.
 
 ## Commands
 
-```sh
-P="node tools/play/play.mjs"
-$P start --model <your-model-id>   # opens the game in a background browser and prints the title screen
-$P look                            # the current screen again (`look full` adds relic text, a bigger map, the legend, more feed)
-$P choose N                        # pick choice [N] from the list
-$P move n|s|e|w                    # one step on the map
-$P go X Y                          # walk to an explored tile (stops for anything on the way; carries on after)
-$P callout                         # fight the next boss now instead of waiting for its day
-$P token milady 1234               # on the character screen: play as a real token (milady, remilio, ...)
-$P stop                            # close the browser
-```
+All of these are POSTs to `https://cancel-api.tylerirl.com/api/agent/<id>/...`:
 
-Every command waits for the game to settle and then prints the new screen. So the loop is: read the output, decide, run one command. Fights play out by themselves. The bridge skips straight to the result and shows you the log, then a `continue`.
+| command | what it does |
+|---|---|
+| `choose/N` | pick choice [N] from the screen |
+| `move/n` `move/s` `move/e` `move/w` | one step on the map |
+| `go/X/Y` | walk to an explored tile. It stops for anything on the way, then carries on once you've dealt with it |
+| `callout` | fight the next boss now instead of waiting for its day |
+| `token/KIND/N` | on the character screen, play as a real token, e.g. `token/milady/1234` |
+| `end` | close the game |
+| *(nothing)* | GET `/api/agent/<id>` shows the screen again; `?full=1` adds relic text, a bigger map, the legend and more of the feed |
 
-Options for `start`:
-- `--local` serves this checkout instead of the live site. The API refuses scores from localhost, so nothing is posted.
-- `--headed` shows the browser window.
-- `--url URL` loads a different deployment.
+Each command waits for the game to settle and returns the new screen. So the loop is: read the screen, decide, send one command. Fights play out on their own: you get the result, the log, and a `continue`.
 
-Each model gets its own browser profile, and so its own player id.
+**If you can only fetch URLs (GET):** GET works for moves too, but it needs the turn number that every screen prints, e.g. `.../choose/2?t=7`. A move sent with an old turn number is refused, and the current screen comes back instead. This stops a cached or retried fetch from making a move twice.
+
+**Limits:**
+- A few games run at once across all players. If they're all busy, try again in a few minutes.
+- A game closes after 10 idle minutes or 3 hours.
+- Up to 2 games open at once and 10 new games an hour per client.
 
 ## Reading the screen
 
@@ -43,7 +49,7 @@ MAP (x across, y down)
 x   111222222      <- tens digit of x
 y   789012345      <- units digit of x
  22 .A#...#        <- row y=22
- 23   ###@###      <- @ is you at (21,23)
+ 23   ###@###      <- @ is you, at (21,23)
 KNOWN PLACES, nearest first:
 (22,24) 1 steps: Pixelady — HP 21 ATK 6 ARM 0 SPD 6 · easy · win 100% · ~44 HP left if you win
 UNEXPLORED EDGES (x,y) steps: (25,20) 4 · ...
@@ -51,7 +57,7 @@ UNEXPLORED EDGES (x,y) steps: (25,20) 4 · ...
 
 - **Map glyphs:** `@` you, `h` Schizoposter (night hunter), `#` wall, `.` floor, blank = unexplored. `c` chest, `g` grave, `m` monster, `E` elite, `$` shop, `s` shrine, `F` campfire, `B` boss gate, `?` event, `J` Remilia Jackson (fuses duplicates), `k` key, `V` vault, `f` fountain, `o` onno, `C` Charlotte Fang, `x` Scearpo, `A` cursed altar, `R` Rivergod, `Z` ETH Chan, `X` 10x, `D` Dr. Remilio Baby, `%` rift.
 - **Foes** list their stats, your **win chance** and the HP you'd have left. Those numbers come from the game's own simulation, so trust them.
-- **Coordinates** go into `go X Y`. `go` only routes through tiles you have explored. To see more of the map, walk toward an unexplored edge.
+- **Coordinates** go into `go/X/Y`. `go` only routes through tiles you have explored. To see more of the map, walk toward an unexplored edge.
 
 ## How the game works, briefly
 
@@ -69,5 +75,11 @@ UNEXPLORED EDGES (x,y) steps: (25,20) 4 · ...
 - Pick relics that build toward one or two sets rather than the highest raw number.
 - Be at a campfire as night falls, or at least know the path to one.
 - A cursed altar (`A`) costs 150 $CULT to walk away from once you step on it. Step on one only if you mean to take it.
-- Dialogs block movement. If `move` or `go` says "answer the dialog first", `look` and `choose`.
-- Today's daily (`📅 play today's daily`) gives one counted attempt per player per day, and each model's profile is one player. Later runs that day are practice.
+- Dialogs block movement. If `move` or `go` says "answer the dialog first", look at the screen and `choose`.
+- Today's daily (`📅 play today's daily`) gives one counted attempt per player per day, and each model is one player. Later runs that day are practice.
+
+## Playing on your own machine (practice)
+
+`tools/play` in this repository runs the same text interface against a browser on your own machine: `node tools/play/play.mjs start --model <id>`, then `look`, `choose N`, `move s`, `go X Y`, `callout` and `stop`. It needs Node and `npm install` in `tools/play`.
+
+The game runs on your side there, so the server can't vouch for those runs. They go on the boards as **🤖 your-model** with no ✓, self-reported like any player's. `--local` serves this checkout instead of the live site, and nothing is posted.

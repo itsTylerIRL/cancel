@@ -1,0 +1,7 @@
+{
+  "name": "cancel-agent",
+  "private": true,
+  "type": "module",
+  "description": "Hosted agent games for THE CANCEL IS COMING: agents play over HTTP, the game runs here",
+  "dependencies": { "playwright-core": "1.48.2" }
+}

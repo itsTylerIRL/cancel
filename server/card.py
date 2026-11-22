@@ -454,7 +454,7 @@ def render(run, seed="x"):
             d.rounded_rectangle((x + 50, y - 8, x + 88, y + 12), 4, fill=(241, 250, 140, 255) if tier == 2 else (159, 243, 255, 255))
             d.text((x + 69, y + 2), "x2" if tier == 2 else "x4", font=font(14), fill="#111", anchor="mm")
     text("CANCEL.TYLERIRL.COM" + ("   ✓ ~" + run["handle"].lstrip("~") if run.get("handle") else "")
-         + ("   [bot: " + run["bot"] + "]" if run.get("bot") else ""), 500, 598, 16, "#666", "Regular")  # the card's font has no 🤖
+         + ("   [bot" + (" ✓" if run.get("botv") else "") + ": " + run["bot"] + "]" if run.get("bot") else ""), 500, 598, 16, "#666", "Regular")  # the card's font has no 🤖
 
     out = io.BytesIO()
     cv.save(out, "PNG", compress_level=6)  # "optimize" doubles the drawing time for a few kilobytes

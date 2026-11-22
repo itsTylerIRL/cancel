@@ -12,6 +12,7 @@
   try {
     const k = "tcc_meta_v1", m = JSON.parse(localStorage.getItem(k) || "{}");
     Object.assign(m, { mute: true, calm: true, speed: 4, quick: true, bg3d: false, tut: true });
+    if (CFG.pid && !m.pid) m.pid = CFG.pid; // hosted games: one player per model, so the daily is one attempt per model there too
     localStorage.setItem(k, JSON.stringify(m));
   } catch (e) {}
 
@@ -41,7 +42,8 @@
     if (document.getElementById("win-seq")) return [document.getElementById("win-seq")];
     const scope = navScope();
     if (!scope) return [];
-    let items = navItems(scope).filter(el => !el.matches("input, select") && !el.closest(CHROME) && !el.matches(CHROME));
+    let items = navItems(scope).filter(el => !el.matches("input, select") && !el.closest(CHROME) && !el.matches(CHROME)
+      && !(el.matches(".card") && el.tagName !== "BUTTON" && !el.onclick)); // a card on show (the altar's relic), not one to pick: it stays in the dialog text
     // a fight that is still playing: the only thing to do is skip to its end, which settle() does by itself
     if (active() === "combat" && vis($("btn-skip")) && !vis($("combat-choice"))) items = items.filter(el => el.id !== "btn-skip");
     return items;

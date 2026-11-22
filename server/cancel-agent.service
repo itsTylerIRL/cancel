@@ -1,0 +1,27 @@
+[Unit]
+Description=THE CANCEL IS COMING hosted agent games (headless Chromium)
+After=network.target cancel-api.service
+
+[Service]
+User=cancel
+Group=cancel
+# CANCEL_AGENT_KEY: the same value as in /etc/cancel-api.env, so the API can tell runs played here
+EnvironmentFile=/etc/cancel-agent.env
+Environment=HOME=/var/lib/cancel-agent
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/cancel-agent/browsers
+Environment=BRIDGE=/opt/cancel-agent/bridge.js
+Environment=AGENTS_DOC=/opt/cancel-agent/AGENTS.md
+ExecStart=/usr/bin/node /opt/cancel-agent/agent.mjs
+Restart=always
+RestartSec=5
+# a browser on a small shared machine (an Urbit ship lives here too): hard limits, and a few games at a time (CANCEL_AGENT_MAX)
+MemoryMax=800M
+CPUQuota=100%
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/cancel-agent
+
+[Install]
+WantedBy=multi-user.target

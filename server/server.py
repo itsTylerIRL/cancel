@@ -45,6 +45,9 @@ PORT = int(os.environ.get("CANCEL_PORT", "8787"))
 SALT = os.environ.get("CANCEL_SALT", "dev-salt")
 ORIGINS = {o.strip() for o in os.environ.get("CANCEL_ORIGINS", "https://cancel.tylerirl.com,https://tylerirl.com").split(",") if o.strip()}
 DEV = os.environ.get("CANCEL_DEV") == "1"  # also accept any localhost origin
+# shared with the hosted agent games (server/agent): a run it posts with this key was played in its own browser, move by
+# move, so the board can mark it verified. Empty: no run is ever verified
+AGENT_KEY = os.environ.get("CANCEL_AGENT_KEY", "")
 # Sign in with RemiliaNET (docs.remilia.net). The redirect address must be registered for the client, verbatim.
 RN_ISSUER = os.environ.get("CANCEL_RN_ISSUER", "https://www.remilia.net/oidc/realms/remilia")
 RN_API = os.environ.get("CANCEL_RN_API", "https://www.remilia.net/api/v1")
@@ -262,6 +265,8 @@ def init_db():
         for t in ("scores", "runs"):
             if "bot" not in [r[1] for r in con.execute("PRAGMA table_info(%s)" % t)]:
                 con.execute("ALTER TABLE %s ADD COLUMN bot TEXT" % t)  # an AI agent played it: the model it said it was (empty for people)
+            if "botv" not in [r[1] for r in con.execute("PRAGMA table_info(%s)" % t)]:
+                con.execute("ALTER TABLE %s ADD COLUMN botv INTEGER NOT NULL DEFAULT 0" % t)  # and it was played on the hosted agent server
 
 
 RE_BOT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/ -]{0,39}$")
@@ -604,7 +609,7 @@ def public(row, rank):
             "bosses": row["bosses"], "kills": row["kills"], "heat": row["heat"], "tribe": row["tribe"],
             "collection": row["collection"], "token": row["token"], "relics": json.loads(row["relics"]),
             "killedBy": row["killed_by"], "look": json.loads(row["look"]) if row["look"] else None, "handle": row["handle"],
-            "depth": row["depth"], "endless": row["depth"] is not None, "cheese": row["cheese"] or 0, "bot": row["bot"],
+            "depth": row["depth"], "endless": row["depth"] is not None, "cheese": row["cheese"] or 0, "bot": row["bot"], "botVerified": bool(row["botv"]),
             # the run's id: its share link is /r/ID and its card image /api/card/ID.png
             "id": row["card"], "share": PUBLIC + "/r/" + row["card"] if row["card"] else None,
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"]) if row["card"] else None}
@@ -760,7 +765,7 @@ def recent(limit):
                         "win": bool(d.get("win")), "bosses": d.get("bosses"), "kills": d.get("kills", 0), "heat": d.get("heat", 0),
                         "tribe": d.get("tribe"), "cult": d.get("cult"), "killedBy": d.get("killedBy") or "",
                         "collection": d.get("collection"), "token": d.get("token"), "relics": d.get("relics") or [], "look": d.get("look"),
-                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created, "endless": bool(d.get("endless")), "depth": d.get("depth"), "cheese": d.get("cheese") or 0, "bot": d.get("bot"),
+                        "daily": d.get("daily"), "seed": d.get("seed"), "at": created, "endless": bool(d.get("endless")), "depth": d.get("depth"), "cheese": d.get("cheese") or 0, "bot": d.get("bot"), "botVerified": bool(d.get("botv")),
                         "share": "%s/r/%s" % (PUBLIC, cid), "image": "%s/api/card/%s.png" % (PUBLIC, cid)})
     return out
 
@@ -776,7 +781,7 @@ def hall(limit):
         for k in con.execute("""SELECT h.date, h.defences, c.data FROM hill h JOIN cards c ON c.id=h.card
                                 WHERE h.date<? ORDER BY h.date DESC LIMIT 52""", (hill_week(),)):
             d = named(json.loads(k["data"]))
-            kings.append({"week": k["date"], "name": d["name"], "handle": d.get("handle"), "bot": d.get("bot"), "look": d.get("look"), "relics": d["relics"],
+            kings.append({"week": k["date"], "name": d["name"], "handle": d.get("handle"), "bot": d.get("bot"), "botVerified": bool(d.get("botv")), "look": d.get("look"), "relics": d["relics"],
                           "score": d["score"], "tribe": d["tribe"], "defences": k["defences"]})
     return {"today": utc_today().isoformat(), "days": [dict(public(r, 1), date=r["board"][6:], players=r["players"]) for r in rows],
             "kings": kings}
@@ -817,7 +822,7 @@ def king_public(con):
     d = named(json.loads(c[0]))
     st = d.get("stats") or {}
     stats = {k: max(lo, min(hi, int(st.get(k, lo)))) for k, (lo, hi) in KING_LIMITS.items()}
-    return {"name": d["name"], "handle": d.get("handle"), "bot": d.get("bot"), "look": d.get("look"), "relics": d["relics"], "tribe": d["tribe"],
+    return {"name": d["name"], "handle": d.get("handle"), "bot": d.get("bot"), "botVerified": bool(d.get("botv")), "look": d.get("look"), "relics": d["relics"], "tribe": d["tribe"],
             "score": d["score"], "kills": d.get("kills", 0), "cult": d.get("cult") or 0, "stats": stats, "since": row["since"], "defences": row["defences"], "id": row["card"],
             "image": "%s/api/card/%s.png" % (PUBLIC, row["card"])}, row["player"]
 
@@ -1421,6 +1426,8 @@ class Handler(BaseHTTPRequestHandler):
         ranks = {}
         share = "".join(secrets.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(8))  # this run's id
         row["card"] = share
+        # verified only when the hosted agent server posted it (it alone knows the key) and the run says which model played
+        row["botv"] = int(bool(AGENT_KEY and row["bot"] and hmac.compare_digest(self.headers.get("X-Agent-Key", ""), AGENT_KEY)))
         with db() as con:
             for board in boards:
                 if board.startswith("daily:") and not daily_attempt(con, board[6:], row["player"], row["run"] or share, now):
@@ -1431,13 +1438,13 @@ class Handler(BaseHTTPRequestHandler):
                 # one row per player per board: a new run replaces it only if it ranks higher (a win beats any loss)
                 con.execute(
                     """INSERT INTO scores (board, player, name, score, day, win, bosses, kills, heat, tribe, collection, token,
-                                           relics, killed_by, ip_hash, created, look, handle, card, depth, cheese, bot)
+                                           relics, killed_by, ip_hash, created, look, handle, card, depth, cheese, bot, botv)
                        VALUES (:board, :player, :name, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :token,
-                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card, :depth, :cheese, :bot)
+                               :relics, :killed_by, :ip_hash, :created, :look, :handle, :card, :depth, :cheese, :bot, :botv)
                        ON CONFLICT(board, player) DO UPDATE SET
                          name=excluded.name, score=excluded.score, day=excluded.day, win=excluded.win, bosses=excluded.bosses, depth=excluded.depth,
                          kills=excluded.kills, heat=excluded.heat, tribe=excluded.tribe, collection=excluded.collection,
-                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card, cheese=excluded.cheese, bot=excluded.bot,
+                         token=excluded.token, relics=excluded.relics, killed_by=excluded.killed_by, look=excluded.look, handle=excluded.handle, card=excluded.card, cheese=excluded.cheese, bot=excluded.bot, botv=excluded.botv,
                          ip_hash=excluded.ip_hash, created=excluded.created
                        WHERE excluded.win > scores.win OR (excluded.win = scores.win AND excluded.score > scores.score)""",
                     dict(row, board=board, ip_hash=key, created=now))
@@ -1445,15 +1452,15 @@ class Handler(BaseHTTPRequestHandler):
                 ranks[board] = dict(rank_of(con, board, row["player"]), total=total)
             # every finished run is also kept, so the game can be balanced on how runs really end; the player is kept
             # only so the stats window can show someone their own runs
-            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats, endless, depth, player, bot)
-                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats, :endless, :depth, :player, :bot)""",
+            con.execute("""INSERT INTO runs (created, score, day, win, bosses, kills, heat, tribe, collection, relics, killed_by, daily, stats, endless, depth, player, bot, botv)
+                           VALUES (:created, :score, :day, :win, :bosses, :kills, :heat, :tribe, :collection, :relics, :killed_by, :daily, :stats, :endless, :depth, :player, :bot, :botv)""",
                         dict(row, created=now, daily=int(any(b.startswith("daily:") for b in boards))))
             # and as a card: what the share link's preview is drawn from
             con.execute("INSERT INTO cards (id, created, data) VALUES (?,?,?)", (share, now, json.dumps({
                 "name": row["name"], "score": row["score"], "day": row["day"], "win": bool(row["win"]), "bosses": row["bosses"],
                 "kills": row["kills"], "cult": row["cult"], "heat": row["heat"], "tribe": row["tribe"],
                 "relics": json.loads(row["relics"]), "look": json.loads(row["look"]) if row["look"] else None,
-                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"], "endless": bool(row["endless"]), "depth": row["depth"], "cheese": row["cheese"], "bot": row["bot"],
+                "daily": row["card_daily"], "seed": row["card_seed"], "handle": row["handle"], "endless": bool(row["endless"]), "depth": row["depth"], "cheese": row["cheese"], "bot": row["bot"], "botv": row["botv"],
                 "collection": row["collection"], "token": row["token"],
                 "killedBy": row["killed_by"], "candles": row["candles"],
                 "player": row["player"], "stats": json.loads(row["stats"]) if row["stats"] else None},  # for king of the hill; never sent out

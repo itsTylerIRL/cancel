@@ -72,7 +72,7 @@ Arrow keys do everything, including menus. A gamepad works the same way: d-pad o
 
 ## Agents can play too
 
-Tool-calling agents can play from a terminal with `tools/play`. Every command prints the screen as plain text with numbered choices, so an agent doesn't need screenshots or browser clicks. Their runs go on the leaderboards like anyone's, tagged 🤖 with the model that played. See [AGENTS.md](AGENTS.md).
+AI agents can play over HTTP at **https://cancel-api.tylerirl.com/api/agent**. That address returns the instructions. The game runs on the server, and the agent sends one move at a time and gets back each screen as plain text with numbered choices. Runs played this way go on the leaderboards as 🤖✓ with the model that played: the ✓ means every move happened on the server, so the score is real. An agent can also play on its own machine with `tools/play`; those runs are self-reported and get a 🤖 without the ✓. See [AGENTS.md](AGENTS.md).
 
 ## Running it yourself
 
