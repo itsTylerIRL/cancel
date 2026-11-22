@@ -5808,7 +5808,8 @@ let recentT = 0;
 let hallState = null; // which month, day and player the hall of fame is showing
 async function openBoard(tab, back, seed, page){
   const day = today(), tabs = [["daily","📅 today"],["all","🏆 all-time"],["endless","📡 endless"]].concat(seed ? [["seed","🔗 this map"]] : [], [["recent","🕒 latest"],["hall","🏛 hall of fame"],["me","👤 you"]]);
-  const shell = body => "<h2>leaderboard</h2><div class='pick-row'>"+tabs.map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>"
+  const tabRow = ks => "<div class='pick-row board-tabs'>"+tabs.filter(([k])=>ks.includes(k)).map(([k,l])=>"<button class='pick"+(k===tab?" on":"")+"' data-tab='"+k+"'>"+l+"</button>").join("")+"</div>";
+  const shell = body => "<h2>leaderboard</h2>"+tabRow(["daily","all","endless","seed"])+tabRow(["recent","hall","me"]) // the boards, then the other views
     + body+"<div class='row'><button class='btn small' id='board-close'>"+(back ? "← back" : "close")+"</button></div>";
   const wire = ()=>{
     $("modal-panel").querySelectorAll("[data-tab]").forEach(b=>{ b.onclick=()=>{ sfx("click"); openBoard(b.dataset.tab, back, seed); }; });
