@@ -12,6 +12,9 @@ Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/cancel-agent/browsers
 Environment=BRIDGE=/opt/cancel-agent/bridge.js
 Environment=AGENTS_DOC=/opt/cancel-agent/AGENTS.md
 ExecStart=/usr/bin/node /opt/cancel-agent/agent.mjs
+# on a stop only Node gets the signal, so it can save every game's progress before its browser goes (Chromium follows after)
+KillMode=mixed
+TimeoutStopSec=30
 Restart=always
 RestartSec=5
 # a browser on a small shared machine (an Urbit ship lives here too): hard limits, and a few games at a time (CANCEL_AGENT_MAX)

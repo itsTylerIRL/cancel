@@ -201,6 +201,9 @@
       const ws = document.getElementById("win-seq"); if (ws && ws.onclick) { ws.onclick(); await sleep(450); continue; }
       if (active() === "combat" && vis($("btn-skip")) && !vis($("combat-choice")) && !$("combat-ctl").classList.contains("hidden")) { $("btn-skip").click(); await sleep(150); continue; }
       const walking = typeof travelGoal !== "undefined" && travelGoal && !busy(); // a walk paused by a dialog carries on once the dialog is answered
+      // the title and character screens disable their main button while art loads (a run resuming, a character being drawn): not settled yet
+      const loading = ["btn-continue", "btn-start", "btn-begin"].some(id => { const b = $(id); return b && b.disabled && vis(b); });
+      if (loading) { same = 0; await sleep(150); continue; }
       const sig = active() + "|" + modalOpen() + "|" + (G ? G.px + "," + G.py + "," + G.movesLeft + "," + G.queue.length : "") + "|" + choices().map(label).join("|") + "|" + ($("modal-panel").textContent.length);
       if (!walking && sig === last) { if (++same >= 4) return true; } else same = 0;
       last = sig; await sleep(150);
