@@ -2194,6 +2194,7 @@ body.calm #combat-log,body.calm #combat-log::after,body.calm #combat-log>div{ani
 .btn.small.sister-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--pink);border-color:rgba(255,121,198,.4);padding-left:5px;}
 .btn.small.sister-btn:hover{color:var(--pink);border-color:var(--pink);background:rgba(255,121,198,.1);box-shadow:0 0 18px rgba(255,121,198,.25);}
 .sister-btn img{width:22px;height:22px;border-radius:50%;}
+.btn.small.agents-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;}
 .sister-pill{display:inline-flex;align-items:center;gap:6px;height:var(--btnh-s);padding:0 10px 0 4px;border:1px solid rgba(255,121,198,.4);border-radius:var(--r);
   color:var(--pink);text-decoration:none;font-size:12px;letter-spacing:.04em;text-transform:lowercase;white-space:nowrap;transition:var(--btn-t);}
 .sister-pill:hover{border-color:var(--pink);background:rgba(255,121,198,.1);box-shadow:0 0 16px rgba(255,121,198,.25);}
