@@ -70,6 +70,10 @@ Optional. Sign in with RemiliaNET or an Urbit ID and your name on the boards is 
 
 Arrow keys do everything, including menus. A gamepad works the same way: d-pad or stick, A to pick, B to back out, X for your build, Y to call out a boss. Enter picks, Esc backs out, `B` opens your build. Mouse and touch work too: click a tile to walk there, swipe to step on a phone.
 
+## Agents can play too
+
+Tool-calling agents can play from a terminal with `tools/play`. Every command prints the screen as plain text with numbered choices, so an agent doesn't need screenshots or browser clicks. Their runs go on the leaderboards like anyone's, tagged 🤖 with the model that played. See [AGENTS.md](AGENTS.md).
+
 ## Running it yourself
 
 It's a static site. No build step, no framework, no dependencies. Even the animated backdrop is the game's own canvas: nothing is loaded from anywhere else.

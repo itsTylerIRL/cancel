@@ -5370,6 +5370,7 @@ function rnUser(){ return META.rn && META.rn.exp*1000 > Date.now() ? META.rn : n
 /* A verified name is a RemiliaNET handle (shown green) or an Urbit ship (shown blue; its handle is stored with its ~).
    A player is one or the other: signing in with either replaces the session. */
 const isShip = h => typeof h==="string" && h[0]==="~";
+const botTag = b => b ? " <span class='bot-tag' title='played by an AI agent"+(b!=="bot" ? ": "+esc(b) : "")+"'>🤖"+(b!=="bot" ? " "+esc(b) : "")+"</span>" : ""; // a run an agent played (tools/play), and the model it named
 const whoTag = h => isShip(h) ? "<span class='rn-tag ur' title='verified Urbit ship'>✓ "+esc(h)+"</span>"
   : "<a class='rn-tag' href='https://remilia.net/~"+encodeURIComponent(h)+"' target='_blank' rel='noopener' title='verified RemiliaNET account'>✓ ~"+esc(h)+"</a>";
 /* The same verified name, as it sits under a portrait on a card: the mark of whichever sign-in it is (Remilia's in gold,
@@ -5578,6 +5579,7 @@ async function submitRun(run, win, drip){
       batk:run.bonus.atk, bhp:run.bonus.maxhp, bspd:run.bonus.spd } : undefined, // how strong the build really was, for balancing
     cheese: run.cheese||0, // the level it started with; the service holds it to what the account really has
     session: rnUser() ? rnUser().token : undefined,
+    bot: window.CANCEL_BOT || undefined, // an agent is playing (tools/play sets it): the boards tag the run 🤖 and the model it named
   };
   if(run.endless && !(await apiHas("endless"))){ META.pending = body; saveMeta(); return null; } // sent once the service can take it
   return postScore(body);
@@ -5601,7 +5603,7 @@ function pulseTicker(jump, isNew){ // the latest runs, one at a time
   const r = PULSE.runs[PULSE.show % PULSE.runs.length], fresh = !!isNew && r.id===PULSE.newest; // "new" only for a run that arrived while you were looking
   const who = r.handle ? (isShip(r.handle) ? r.handle : "~"+r.handle) : r.name;
   const row = document.createElement("div"); row.className = "pfeed-row"+(r.win ? " won" : " fell")+(fresh ? " fresh" : "");
-  row.innerHTML = "<canvas class='bpfp' width='4' height='4'></canvas><span class='pf-who'>"+(r.handle ? "<i>✓</i> " : "")+esc(who||"anon")+"</span>"
+  row.innerHTML = "<canvas class='bpfp' width='4' height='4'></canvas><span class='pf-who'>"+(r.bot ? "🤖 " : "")+(r.handle ? "<i>✓</i> " : "")+esc(who||"anon")+"</span>"
     + "<span class='pf-what'>"+(r.endless ? "📡 "+endlessEnd(r) : r.win ? "saved the timeline on day "+r.day : (r.killedBy==="giving up" ? "gave up" : r.killedBy ? "&gt;"+esc(r.killedBy) : "cancelled")+" on day "+r.day)+"</span>"
     + "<b>"+(r.score||0).toLocaleString("en-US")+"</b><em>"+agoText(r.at*1000)+"</em>";
   for(const old of [...box.querySelectorAll(".pfeed-row")]){ // every row already there leaves: two changes close together used to strand one underneath
@@ -5837,8 +5839,8 @@ async function openBoard(tab, back, seed, page){
     const days = {}, kings = {}; for(const e of h.days) days[e.date] = e; for(const k of (h.kings||[])) kings[k.week] = k;
     if(kg && kg.king) kings[mondayOf(h.today)] = {...kg.king, week:mondayOf(h.today), live:true}; // this week's king is still on the hill
     const key = e => e.handle ? "h:"+e.handle : "n:"+String(e.name||"").toLowerCase(); // a verified account, or else the name they played under
-    const who = e => !e.handle ? "<b>"+esc(e.name)+"</b>"
-      : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+"</b>";
+    const who = e => !e.handle ? "<b>"+esc(e.name)+botTag(e.bot)+"</b>"
+      : "<b class='hwho"+(isShip(e.handle) ? " ur" : "")+"' title='"+esc(e.name)+" · verified "+(isShip(e.handle) ? "Urbit ship" : "RemiliaNET account")+"'>✓ "+esc(isShip(e.handle) ? e.handle : "~"+e.handle)+botTag(e.bot)+"</b>";
     const short = e => e.handle ? (isShip(e.handle) ? e.handle : "~"+e.handle) : e.name;
     // everyone on the calendar, most days first
     const tally = {}; for(const e of h.days){ const t = tally[key(e)] = tally[key(e)] || { e, days:0, crowns:0 }; t.days++; }
@@ -5901,7 +5903,7 @@ async function openBoard(tab, back, seed, page){
     openModal(shell(!got ? "<div class='note bad'>the feed can't be reached right now</div>" : !all.length ? "<div class='note'>nobody has finished a run yet.</div>"
       : "<div class='board recent'>"+rows.map((e,i)=>{
           const relics = (e.relics||[]).filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
-          return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+          return "<div class='brow'><i class='ago' title='"+esc(new Date(e.at*1000).toLocaleString())+"'>"+ago(e.at)+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+i+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name||"anon")+(e.handle ? " "+whoTag(e.handle) : "")+botTag(e.bot)+"</b>"
             + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.cheese)+(e.endless ? " <u class='bdaily bendless' title='terminally online'>📡 endless</u>" : e.daily ? " <u class='bdaily' title='the daily map for "+esc(e.daily)+"'>📅 daily</u>" : "")+"</span>"
             + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(e.endless ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"
             + "<div class='brel'>"+relics+"</div><div class='bscore'><em"+(e.win ? " class='won'" : "")+">"+(e.score||0)+(e.win ? " <i>👑</i>" : "")+"</em>"
@@ -5928,7 +5930,7 @@ async function openBoard(tab, back, seed, page){
   else body = "<div class='board'>"+rows.map(e=>{
       const me = res.you && res.you.rank===e.rank, tr = TRIBES.find(t=>t.id===e.tribe);
       const relics = e.relics.filter(r=>ICONS[r[0]]).map(r=>"<img class='relic-ico "+["","","gold","diamond"][r[1]]+"' src='"+ICONS[r[0]]+"' alt='' data-rid='"+r[0]+"' data-tier='"+(r[1]||1)+"'>").join("");
-      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+"</b>"
+      return "<div class='brow"+(me?" me":"")+(e.rank<=3?" top":"")+"'><i>"+e.rank+"</i><span class='bface"+faceEnd(e)+"'><canvas class='bpfp' data-n='"+(e.rank-1)+"' width='4' height='4'></canvas>"+faceStamp(e)+"</span><div class='bname'><b>"+esc(e.name)+(e.handle ? " "+whoTag(e.handle) : "")+botTag(e.bot)+"</b>"
         + "<span class='btribe'>"+tribeBadge(e.tribe)+cheeseTag(e.cheese)+"</span>"
         + "<span class='bend "+(e.win ? "good" : "bad")+"'>"+(tab==="endless" ? endlessEnd(e) : e.win ? "timeline saved on day "+e.day+(e.day<9 && !e.heat ? " <b class='early' title='beat THE CANCEL "+(9-e.day)+" day"+(9-e.day>1?"s":"")+" early'>(+"+(9-e.day)*EARLY_WIN+")</b>" : e.day<9 ? " <b class='early'>early</b>" : "")
             : (e.killedBy==="giving up" ? "gave up" : e.killedBy ? "&gt;"+esc(e.killedBy) : "cancelled")+" on day "+e.day)+"</span></div>"

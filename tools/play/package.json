@@ -1,0 +1,8 @@
+{
+  "name": "cancel-play",
+  "private": true,
+  "type": "module",
+  "description": "Play THE CANCEL IS COMING from a terminal: text in, text out, for tool-calling agents",
+  "bin": { "cancel-play": "play.mjs" },
+  "dependencies": { "playwright-core": "1.48.2" }
+}
